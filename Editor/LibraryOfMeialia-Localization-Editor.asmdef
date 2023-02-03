@@ -1,0 +1,20 @@
+{
+    "name": "Library-of-Meialia-Localization-Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:c2de5b9fcdf9f934784c509d6fe63fd5",
+        "GUID:c705793dc967c014991b8edebb6e106e",
+        "GUID:e9427e9b25f72474d98cc5ec968af03b"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
