@@ -13,7 +13,7 @@ namespace Amlos.Localizations
     /// <summary>
     /// Data manage class of localization system
     /// </summary>
-    [CreateAssetMenu(fileName = "Lang File Manager", menuName = "Localization/Text File Manager")]
+    [CreateAssetMenu(fileName = "Localization Manager", menuName = "Localization/Localization Manager")]
     public class LocalizationDataManager : ScriptableObject
     {
         public string topLevelDomain;

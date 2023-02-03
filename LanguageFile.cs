@@ -109,11 +109,28 @@ namespace Amlos.Localizations
 
 
 
+        /// <summary>
+        /// Get value from the localization file
+        /// <para>
+        /// if localiztion file is a master file and key is not present in the file, it will search from the child files
+        /// </para>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
         public string Get(string key)
         {
             return TryGet(key, out var value) ? value : string.Empty;
         }
 
+        /// <summary>
+        /// Try get the value from localization file
+        /// <para>
+        /// if localiztion file is a master file and key is not present in the file, it will search from the child files
+        /// </para> 
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns>Whether file contains the key/value</returns>
         public bool TryGet(string key, out string value)
         {
             value = entries.Find(e => e.Key == key)?.Value;
@@ -289,6 +306,12 @@ namespace Amlos.Localizations
 
 
 
+        /// <summary>
+        /// Find the matched keys from the file
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="searchInChild">Whether search child file</param>
+        /// <returns></returns>
         public List<string> FindMatchedKeys(string partialKey, bool searchInChild = false)
         {
             List<string> result = new();
@@ -305,7 +328,7 @@ namespace Amlos.Localizations
         }
 
         /// <summary>
-        /// internal method to get matched kys
+        /// internal method to get matched keys
         /// </summary>
         /// <param name="partialKey"></param>
         /// <param name="result"></param>
@@ -325,8 +348,10 @@ namespace Amlos.Localizations
 
 
 
-
-        public void UpdateFileState()
+        /// <summary>
+        /// Update localiztion file state
+        /// </summary>
+        internal void UpdateFileState()
         {
             if (isMasterFile)
             {
@@ -341,6 +366,10 @@ namespace Amlos.Localizations
             }
         }
 
+        /// <summary>
+        /// set the master file of this language file
+        /// </summary>
+        /// <param name="languageFile"></param>
         public void SetMasterFile(LanguageFile languageFile)
         {
             isMasterFile = false;
@@ -370,18 +399,18 @@ namespace Amlos.Localizations
         {
             string fileName = masterFile ? $"{name}-{region}" : region;
             string path = EditorUtility.SaveFilePanel("Save yaml file", AssetDatabase.GetAssetPath(this), fileName, "yml");
+
             //Debug.Log(p);
-            if (string.IsNullOrEmpty(path))
-            {
-                return;
-            }
+            if (string.IsNullOrEmpty(path)) return;
             if (File.Exists(path + "_old")) File.Copy(path, path + "_old", true);
+
             File.WriteAllText(path, string.Empty);
             File.AppendAllText(path, $"{region}:\n");
             var lines = entries
                 .Where(e => !string.IsNullOrEmpty(e.Key) && !string.IsNullOrWhiteSpace(e.Key))
                 .Select(e => $" {e.Key}: \"{ToProperString(e.Value)}\"");
             File.AppendAllLines(path, lines);
+
             AssetDatabase.Refresh();
 
             static string ToProperString(string str)
@@ -394,10 +423,8 @@ namespace Amlos.Localizations
         public void ImportFromYaml()
         {
             var path = EditorUtility.OpenFilePanel("Select yml file", AssetDatabase.GetAssetPath(this), "yml");
-            if (string.IsNullOrEmpty(path))
-            {
-                return;
-            }
+            if (string.IsNullOrEmpty(path)) return;
+
             entries.Clear();
             var lines = File.ReadAllLines(path);
             for (int i = 0; i < lines.Length; i++)
@@ -410,8 +437,7 @@ namespace Amlos.Localizations
                 //Debug.Log(lines[i]);
                 if (string.IsNullOrWhiteSpace(lines[i])) continue;
                 string item = lines[i].Trim();
-                if (string.IsNullOrEmpty(item)) continue;
-                if (item.StartsWith('#')) continue;
+                if (string.IsNullOrEmpty(item) || item.StartsWith('#')) continue;
 
                 int spliter = item.IndexOf(':');
                 string key = item[..spliter].Trim();

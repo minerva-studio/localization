@@ -3,7 +3,7 @@ using TMPro;
 using UnityEditor;
 using UnityEngine;
 
-namespace Amlos.Localizations
+namespace Amlos.Localizations.Components
 {
     public class TextLocalizer : TextLocalizerBase
     {

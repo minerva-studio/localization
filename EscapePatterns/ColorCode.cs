@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Amlos.Localizations
+namespace Amlos.Localizations.EscapePatterns
 {
     /// <summary>
     /// Color code used in localization

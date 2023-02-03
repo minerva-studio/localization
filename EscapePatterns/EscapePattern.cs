@@ -1,14 +1,13 @@
 ﻿using Minerva.Module;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using UnityEngine;
 
-namespace Amlos.Localizations
+namespace Amlos.Localizations.EscapePatterns
 {
     /// <summary>
     /// Handlers for escape patterns in localization
     /// </summary>
-    public static class EscapePatterns
+    public static class EscapePattern
     {
         public const string DYNAMIC_VALUE_PATTERN = @"(\[.*?\])+";
         public const string CONTENT_REFERENCE_PATTERN = @"(\$(.*?)\$)+";

@@ -2,7 +2,7 @@
 using TMPro;
 using UnityEngine;
 
-namespace Amlos.Localizations
+namespace Amlos.Localizations.Components
 {
     /// <summary>
     /// Base class for custom text localizer, default implementation see <see cref="TextLocalizer"/>

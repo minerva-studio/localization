@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿using Amlos.Localizations.Components;
+using UnityEditor;
 using UnityEngine;
 
 namespace Amlos.Localizations.Editor

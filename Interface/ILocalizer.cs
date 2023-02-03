@@ -1,7 +1,4 @@
-﻿using Minerva.Module;
-using System.Text.RegularExpressions;
-
-namespace Amlos.Localizations
+﻿namespace Amlos.Localizations
 {
     /// <summary>
     /// A localizer

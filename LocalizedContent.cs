@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Amlos.Localizations.EscapePatterns;
+using System;
 
 namespace Amlos.Localizations
 {
@@ -132,9 +133,9 @@ namespace Amlos.Localizations
             public override string Localize(params string[] param)
             {
                 var rawString = obj.GetRawContent(param);
-                rawString = EscapePatterns.ReplaceKeyEscape(rawString);
-                rawString = EscapePatterns.ReplaceColorEscape(rawString);
-                rawString = EscapePatterns.ReplaceDynamicValueEscape(rawString, obj, param);
+                rawString = EscapePattern.ReplaceKeyEscape(rawString);
+                rawString = EscapePattern.ReplaceColorEscape(rawString);
+                rawString = EscapePattern.ReplaceDynamicValueEscape(rawString, obj, param);
                 return rawString;
             }
 

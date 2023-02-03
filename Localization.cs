@@ -1,4 +1,6 @@
-﻿using Minerva.Module;
+﻿using Amlos.Localizations.Components;
+using Amlos.Localizations.EscapePatterns;
+using Minerva.Module;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,6 +13,7 @@ namespace Amlos.Localizations
     [Serializable]
     public class Localization
     {
+        public const string DEFAULT_REGION = "EN_US";
         public const char KEY_SEPARATOR = '.';
 
         public bool initialized = false;
@@ -31,7 +34,7 @@ namespace Amlos.Localizations
         /// Construct a localization model
         /// </summary>
         /// <param name="languageType"></param>
-        private Localization(string languageType = LocalizationRegion.DEFAULT)
+        private Localization(string languageType = DEFAULT_REGION)
         {
             region = languageType;
             instance = this;
@@ -40,13 +43,13 @@ namespace Amlos.Localizations
         /// <summary>
         /// Load given type of language
         /// <para>
-        /// If the given language is not found in manager, then <see cref="LocalizationRegion.DEFAULT"/> would be used
+        /// If the given language is not found in manager, then <see cref="DEFAULT_REGION"/> would be used
         /// </para>
         /// </summary>
         /// <param name="manager">The localization Data Manager</param>
-        /// <param name="region">Default <see cref="LocalizationRegion.DEFAULT"/></param>
+        /// <param name="region">Region to set</param>
         /// <exception cref="NullReferenceException"></exception>
-        public void Load(LocalizationDataManager manager, string region = LocalizationRegion.DEFAULT)
+        public void Load(LocalizationDataManager manager, string region = DEFAULT_REGION)
         {
             this.manager = manager;
             keyMissingSolution = manager.missingKeySolution;
@@ -56,7 +59,7 @@ namespace Amlos.Localizations
         /// <summary>
         /// Load given type of language
         /// <para>
-        /// If the given language is not found in manager, then <see cref="LocalizationRegion.DEFAULT"/> would be used
+        /// If the given language is not found in manager, then <see cref="DEFAULT_REGION"/> would be used
         /// </para>
         /// </summary>
         /// <param name="region"></param>
@@ -67,13 +70,13 @@ namespace Amlos.Localizations
             if (!manager) throw new NullReferenceException("The localization manager has not yet initialized");
 
             LanguageFile languageFile = manager.GetLanguageFile(this.region);
-            if (!languageFile) languageFile = manager.GetLanguageFile(LocalizationRegion.DEFAULT);
+            if (!languageFile) languageFile = manager.GetLanguageFile(DEFAULT_REGION);
             if (!languageFile) throw new NullReferenceException("The localization manager has initialized, but given language type could not be found and default region is not available");
             dictionary = languageFile.GetDictionary();
             initialized = true;
 
-            foreach (var item in dictionary.Keys.ShallowClone()) dictionary[item] = EscapePatterns.ReplaceColorEscape(dictionary[item]);
-            foreach (var item in dictionary.Keys.ShallowClone()) dictionary[item] = EscapePatterns.ReplaceKeyEscape(dictionary[item]);
+            foreach (var item in dictionary.Keys.ShallowClone()) dictionary[item] = EscapePattern.ReplaceColorEscape(dictionary[item]);
+            foreach (var item in dictionary.Keys.ShallowClone()) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item]);
 
             TextLocalizerBase.ReloadAll();
         }
@@ -140,7 +143,7 @@ namespace Amlos.Localizations
 
             string content;
             content = instance.GetContent(key);
-            content = EscapePatterns.ReplaceDynamicValueEscape(content, param);
+            content = EscapePattern.ReplaceDynamicValueEscape(content, param);
             return content;
         }
     }
