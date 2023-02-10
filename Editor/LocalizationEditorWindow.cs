@@ -25,10 +25,10 @@ namespace Amlos.Localizations.Editor
 
         Vector2 tableScrollView;
         Vector2 scrollPos;
-        LocalizationDataManager fileManager;
-        LocalizationEditorSetting setting;
+        public LocalizationDataManager fileManager;
+        public LocalizationEditorSetting setting;
 
-        string key;
+        public string key;
         private string referenceCountry;
         private string country;
 

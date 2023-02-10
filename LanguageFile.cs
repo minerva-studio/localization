@@ -32,7 +32,6 @@ namespace Amlos.Localizations
         public LanguageFile MasterFile { get => masterFile; set => masterFile = value; }
         public List<LanguageFile> ChildFiles { get => childFiles; set => childFiles = value; }
         public bool IsMasterFile => isMasterFile;
-        public IEnumerable<string> Keys => GetKeys();
 
         /// <summary>
         /// Get a trie of the language file
@@ -88,6 +87,7 @@ namespace Amlos.Localizations
 
 
 
+        public IEnumerable<string> Keys => GetKeys();
         private IEnumerable<string> GetKeys()
         {
             foreach (var item in entries)
@@ -397,7 +397,8 @@ namespace Amlos.Localizations
         [ContextMenu("Export to Yaml")]
         public void ExportToYaml()
         {
-            string fileName = masterFile ? $"{name}-{region}" : region;
+            string fileName = name;
+            //string fileName = masterFile ? region : $"{name}-{region}";
             string path = EditorUtility.SaveFilePanel("Save yaml file", AssetDatabase.GetAssetPath(this), fileName, "yml");
 
             //Debug.Log(p);
