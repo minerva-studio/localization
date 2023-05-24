@@ -30,6 +30,10 @@ namespace Amlos.Localizations.Components
             {
                 Key = Key.Remove(Key.Length - 1);
             }
+            if (Key.StartsWith("."))
+            {
+                Key = Key[1..];
+            }
             var list = Key.Split('.').ToList();
             list.RemoveAt(list.Count - 1);
             Key = string.Join('.', list);

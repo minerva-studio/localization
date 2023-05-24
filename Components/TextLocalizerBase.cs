@@ -17,9 +17,10 @@ namespace Amlos.Localizations.Components
         [SerializeField] private string key;
         private LocalizedContent localizedContent;
 
+
         public string Key { get => key; set { key = value; LocalizedContent = LocalizedContent.Create(value); } }
         private LocalizedContent LocalizedContent { get => localizedContent ??= LocalizedContent.Create(key); set => localizedContent = value; }
-
+        private bool IsEmpty => string.IsNullOrEmpty(key);
 
 
 
@@ -48,6 +49,8 @@ namespace Amlos.Localizations.Components
 
         public void Load()
         {
+            if (IsEmpty) return;
+
             if (textField)
             {
                 textField.text = LocalizedContent.Localize();
