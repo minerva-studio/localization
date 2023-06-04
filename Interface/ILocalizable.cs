@@ -1,6 +1,4 @@
-﻿using Minerva.Module;
-
-namespace Amlos.Localizations
+﻿namespace Amlos.Localizations
 {
     /// <summary>
     /// Common interface use to get the localization information from an object
@@ -39,7 +37,7 @@ namespace Amlos.Localizations
         /// <returns></returns>
         string GetEscapeValue(string escapeKey, params string[] param)
         {
-            var value = Reflection.GetLastObject(this, escapeKey);
+            var value = Reflection.GetObjectNullPropagation(this, escapeKey);
             if (value == null) return escapeKey;
             return value.ToString();
         }
