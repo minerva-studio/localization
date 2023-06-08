@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace Amlos.Localizations.EscapePatterns
+namespace Minerva.Localizations.EscapePatterns
 {
     /// <summary>
     /// Handlers for escape patterns in localization

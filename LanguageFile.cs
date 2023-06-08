@@ -5,7 +5,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Amlos.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// The language file

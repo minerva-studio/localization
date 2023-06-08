@@ -1,8 +1,8 @@
-﻿using Amlos.Localizations.Components;
+﻿using Minerva.Localizations.Components;
 using UnityEditor;
 using UnityEngine;
 
-namespace Amlos.Localizations.Editor
+namespace Minerva.Localizations.Editor
 {
     [CustomEditor(typeof(TextLocalizer))]
     public class TextLocalizerEditor : UnityEditor.Editor

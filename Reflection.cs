@@ -5,7 +5,7 @@ using System.Reflection;
 using UnityEngine;
 using static UnityEditor.Progress;
 
-namespace Amlos.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// Simple reflection system used in localization system

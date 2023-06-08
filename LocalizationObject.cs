@@ -1,4 +1,4 @@
-﻿namespace Amlos.Localizations
+﻿namespace Minerva.Localizations
 {
     /// <summary>
     /// Common localization object base class

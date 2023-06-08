@@ -1,4 +1,4 @@
-﻿namespace Amlos.Localizations
+﻿namespace Minerva.Localizations
 {
     /// <summary>
     /// Common interface use to get the localization information from an object

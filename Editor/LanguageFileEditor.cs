@@ -2,7 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Amlos.Localizations.Editor
+namespace Minerva.Localizations.Editor
 {
     [CustomEditor(typeof(LanguageFile))]
     public class LanguageFileEditor : UnityEditor.Editor

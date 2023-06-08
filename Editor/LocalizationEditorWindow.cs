@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Amlos.Localizations.Editor
+namespace Minerva.Localizations.Editor
 {
 
     public class LocalizationEditorWindow : EditorWindow

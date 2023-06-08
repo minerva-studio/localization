@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-namespace Amlos.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// A entry in localization system

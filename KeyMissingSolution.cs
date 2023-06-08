@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Amlos.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// Solution to key not found when trying to read a localization dictionary

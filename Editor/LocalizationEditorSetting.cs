@@ -1,7 +1,7 @@
 ﻿using UnityEditor;
 using UnityEngine;
 
-namespace Amlos.Localizations.Editor
+namespace Minerva.Localizations.Editor
 {
     public class LocalizationEditorSetting : ScriptableObject
     {
