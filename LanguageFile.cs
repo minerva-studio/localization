@@ -159,21 +159,29 @@ namespace Amlos.Localizations
         /// <returns> string of the old entry, null if it is a new entry </returns>
         public string Write(string key, string value = "", bool updateAssets = false)
         {
-            EditorUtility.SetDirty(this);
+            if (updateAssets) { EditorUtility.SetDirty(this); }
             //Debug.Log($"Write Entry " + key + " with value " + value);
             var entry = GetEntry(key);
             var oldVal = entry?.Value;
             if (entry != null)
             {
                 entry.Value = value;
-                if (updateAssets) AssetDatabase.SaveAssets();
+                if (updateAssets)
+                {
+                    AssetDatabase.SaveAssets();
+                    EditorUtility.ClearDirty(this);
+                }
                 return oldVal;
             }
             else
             {
                 entries.Add(new Entry(key, value));
             }
-            if (updateAssets) AssetDatabase.SaveAssets();
+            if (updateAssets)
+            {
+                AssetDatabase.SaveAssets();
+                EditorUtility.ClearDirty(this);
+            }
             return oldVal;
         }
 

@@ -2,7 +2,8 @@
 
 namespace Amlos.Localizations
 {
-    internal class KeyNameAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, Inherited = true, AllowMultiple = false)]
+    public class KeyNameAttribute : Attribute
     {
         private readonly string key;
 
