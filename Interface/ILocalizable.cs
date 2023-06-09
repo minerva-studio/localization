@@ -8,7 +8,7 @@
         /// <summary>
         /// Get the base localization key of the object
         /// </summary>
-        virtual string LocalizationBaseKey => GetType().FullName;
+        virtual string BaseKey => GetType().FullName;
 
         /// <summary>
         /// Get the key represent for this localizable object
@@ -19,7 +19,7 @@
         /// <returns></returns>
         virtual string GetLocalizationKey(params string[] param)
         {
-            string key = LocalizationBaseKey;
+            string key = BaseKey;
             return Localizable.AppendKey(key, param);
         }
 

@@ -5,10 +5,20 @@
     /// </summary>
     public abstract class LocalizationObject : ILocalizable
     {
+        protected string baseKey;
+
         /// <summary>
         /// Get the base localization key of the object
         /// </summary>
-        public virtual string LocalizationBaseKey => GetType().FullName;
+        public virtual string BaseKey => baseKey;
+
+
+
+        protected LocalizationObject(string baseKey)
+        {
+            this.baseKey = baseKey;
+        }
+
 
         /// <summary>
         /// Get the key represent for this localizable object
@@ -19,7 +29,7 @@
         /// <returns></returns>
         public virtual string GetLocalizationKey(params string[] param)
         {
-            string key = LocalizationBaseKey;
+            string key = BaseKey;
             return Localizable.AppendKey(key, param);
         }
 
@@ -45,6 +55,12 @@
             var value = Reflection.GetObjectNullPropagation(this, escapeKey);
             if (value == null) return escapeKey;
             return value.ToString();
+        }
+
+
+        protected void SetBaseKey(string key)
+        {
+            baseKey = key;
         }
     }
 }

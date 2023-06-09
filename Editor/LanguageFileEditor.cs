@@ -8,7 +8,7 @@ namespace Minerva.Localizations.Editor
     public class LanguageFileEditor : UnityEditor.Editor
     {
         bool debugFold;
-        EditorFieldDrawers.PageList pageList;
+        EditorFieldDrawers.SerializedPropertyPageList pageList;
 
 
         public override void OnInspectorGUI()

@@ -172,7 +172,6 @@ namespace Minerva.Localizations
             //remove key from all file
             foreach (var file in files)
             {
-                EditorUtility.SetDirty(file);
                 file.RemoveKey(key);
             }
             //remove key from localization table
@@ -222,7 +221,18 @@ namespace Minerva.Localizations
             keyList = keys.ToList();
         }
 
-
+        [ContextMenu("Sync key list")]
+        public void SyncKeys()
+        {
+            UpdateKeyList();
+            foreach (var file in files)
+            {
+                foreach (var keys in keyList)
+                {
+                    file.Add(keys);
+                }
+            }
+        }
 
 
 

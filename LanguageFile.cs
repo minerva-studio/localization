@@ -274,6 +274,7 @@ namespace Minerva.Localizations
         /// <param name="searchInChild"></param>
         public void RemoveKey(string key, bool searchInChild = false, bool updateAssets = false)
         {
+            EditorUtility.SetDirty(this);
             entries.RemoveAll(p => p.Key == key);
             if (searchInChild) childFiles.ForEach(f => f.RemoveKey(key, false));
             if (updateAssets) AssetDatabase.SaveAssets();

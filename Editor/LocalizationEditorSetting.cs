@@ -15,6 +15,7 @@ namespace Minerva.Localizations.Editor
         public float tableEntryWidth = 200;
         public float tableEntryHeight = 20;
         public bool tableUseArea;
+        public bool sudo;
 
         internal static SerializedObject GetSerializedSettings()
         {

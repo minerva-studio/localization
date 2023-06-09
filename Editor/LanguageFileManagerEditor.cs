@@ -7,8 +7,8 @@ namespace Minerva.Localizations.Editor
     [CustomEditor(typeof(LocalizationDataManager))]
     public class LocalizationManagerEditor : UnityEditor.Editor
     {
-        EditorFieldDrawers.PageList pageList;
-        EditorFieldDrawers.PageList missingPageList;
+        EditorFieldDrawers.SerializedPropertyPageList pageList;
+        EditorFieldDrawers.SerializedPropertyPageList missingPageList;
 
         public override void OnInspectorGUI()
         {
@@ -23,10 +23,10 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.missingKeySolution)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.files)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.regions)));
-            pageList ??= new EditorFieldDrawers.PageList(serializedObject.FindProperty(nameof(file.keyList)));
+            pageList ??= new EditorFieldDrawers.SerializedPropertyPageList(serializedObject.FindProperty(nameof(file.keyList)));
             pageList.Draw("Keys");
 
-            missingPageList ??= new EditorFieldDrawers.PageList(serializedObject.FindProperty(nameof(file.missingKeys)));
+            missingPageList ??= new EditorFieldDrawers.SerializedPropertyPageList(serializedObject.FindProperty(nameof(file.missingKeys)));
             missingPageList.Draw("Missing Keys");
 
             GUILayout.Space(10);
