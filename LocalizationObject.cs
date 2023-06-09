@@ -1,14 +1,24 @@
 ﻿namespace Minerva.Localizations
 {
     /// <summary>
-    /// Common interface use to get the localization information from an object
+    /// Common localization object base class
     /// </summary>
-    public interface ILocalizable
+    public abstract class LocalizationObject : ILocalizable
     {
+        protected string baseKey;
+
         /// <summary>
         /// Get the base localization key of the object
         /// </summary>
-        virtual string BaseKey => GetType().FullName;
+        public virtual string BaseKey => baseKey;
+
+
+
+        protected LocalizationObject(string baseKey)
+        {
+            this.baseKey = baseKey;
+        }
+
 
         /// <summary>
         /// Get the key represent for this localizable object
@@ -17,7 +27,7 @@
         /// </summary>
         /// <param name="param"></param>
         /// <returns></returns>
-        virtual string GetLocalizationKey(params string[] param)
+        public virtual string GetLocalizationKey(params string[] param)
         {
             string key = BaseKey;
             return Localizable.AppendKey(key, param);
@@ -28,7 +38,7 @@
         /// </summary>
         /// <param name="param"></param>
         /// <returns></returns>
-        virtual string GetRawContent(params string[] param)
+        public virtual string GetRawContent(params string[] param)
         {
             var key = GetLocalizationKey(param);
             var rawString = Localization.GetContent(key, param);
@@ -40,11 +50,17 @@
         /// </summary>
         /// <param name="escapeKey"></param>
         /// <returns></returns>
-        virtual string GetEscapeValue(string escapeKey, params string[] param)
+        public virtual string GetEscapeValue(string escapeKey, params string[] param)
         {
             var value = Reflection.GetObjectNullPropagation(this, escapeKey);
             if (value == null) return escapeKey;
             return value.ToString();
+        }
+
+
+        protected void SetBaseKey(string key)
+        {
+            baseKey = key;
         }
     }
 }

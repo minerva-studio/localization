@@ -1,4 +1,4 @@
-﻿namespace Amlos.Localizations
+﻿namespace Minerva.Localizations
 {
     /// <summary>
     /// special suffix for some of the localization key

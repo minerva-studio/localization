@@ -1,7 +1,7 @@
-﻿using Amlos.Localizations.EscapePatterns;
+﻿using Minerva.Localizations.EscapePatterns;
 using System;
 
-namespace Amlos.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// A packed localized content

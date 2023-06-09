@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Amlos.Localizations.Editor
+namespace Minerva.Localizations.Editor
 {
 
     public class LocalizationEditorWindow : EditorWindow
@@ -20,6 +20,7 @@ namespace Amlos.Localizations.Editor
             Classic,
             Table,
             MissingEntries,
+            Options,
             Setting,
         }
 
@@ -67,7 +68,7 @@ namespace Amlos.Localizations.Editor
             key = EditorGUILayout.TextField("Class Path", key);
             if (GUILayout.Button("Return")) ReturnClass();
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
-            window = (Window)GUILayout.Toolbar((int)window, new string[] { "Reference Sheet", "Table", "Missing Entries", "Settings" }, GUILayout.Height(30));
+            window = (Window)GUILayout.Toolbar((int)window, new string[] { "Reference Sheet", "Table", "Missing Entries", "Options", "Settings" }, GUILayout.Height(30));
             if (window == Window.Classic) selectClass = (EntryDrawMode)GUILayout.Toolbar((int)selectClass, new string[] { "Entry", "Class" }, GUILayout.Height(25));
             switch (window)
             {
@@ -79,6 +80,9 @@ namespace Amlos.Localizations.Editor
                     break;
                 case Window.MissingEntries:
                     DrawMissingPage();
+                    break;
+                case Window.Options:
+                    DrawOptions();
                     break;
                 case Window.Setting:
                     DrawSettings();
@@ -96,6 +100,35 @@ namespace Amlos.Localizations.Editor
 
 
             EndWindow();
+        }
+
+        private void DrawOptions()
+        {
+            GUILayout.BeginVertical();
+            GUILayout.Space(EditorGUIUtility.singleLineHeight);
+            if (GUILayout.Button("Sync keys", GUILayout.Width(240), GUILayout.Height(30)))
+            {
+                fileManager.SyncKeys();
+            }
+
+            if (GUILayout.Button("Refresh Localization Table", GUILayout.Width(240), GUILayout.Height(30)))
+            {
+                fileManager.RefreshTable();
+            }
+            GUILayout.Space(EditorGUIUtility.singleLineHeight);
+            GUILayout.Label("Data", EditorStyles.boldLabel);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Export .csv", GUILayout.Width(120), GUILayout.Height(30)))
+            {
+                fileManager.Export();
+            }
+            if (GUILayout.Button("Import .csv", GUILayout.Width(120), GUILayout.Height(30)))
+            {
+                fileManager.Import();
+            }
+
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
         }
 
         private void DrawMissingPage()
@@ -191,6 +224,7 @@ namespace Amlos.Localizations.Editor
             var keyEntryHeight = GUILayout.MaxHeight(setting.tableEntryHeight);
             GUILayout.Space(20);
             GUILayout.BeginHorizontal();
+            GUILayout.Button("...", GUILayout.Width(EditorGUIUtility.singleLineHeight));
             GUILayout.Label("Files", keyEntrykeyWidth);
             foreach (var file in fileManager.files)
             {
@@ -201,10 +235,16 @@ namespace Amlos.Localizations.Editor
 
             var changedVal = string.Empty;
             var changedRegion = string.Empty;
+            var deleteKey = string.Empty;
             tableScrollView = GUILayout.BeginScrollView(tableScrollView);
             foreach (var keyValPair in table)
             {
                 GUILayout.BeginHorizontal();
+                if (GUILayout.Button("x", GUILayout.Width(EditorGUIUtility.singleLineHeight)))
+                {
+                    deleteKey = keyValPair.Key;
+                }
+
                 GUILayout.Label(keyValPair.Key, keyEntrykeyWidth);
                 foreach (var region in keyValPair.Value.Keys)
                 {
@@ -228,6 +268,15 @@ namespace Amlos.Localizations.Editor
                 }
                 GUILayout.EndHorizontal();
             }
+
+            if (deleteKey.Length != 0)
+            {
+                if (setting.sudo || EditorUtility.DisplayDialog("Delete key " + deleteKey, $"Delete key {deleteKey} from all files?", "OK", "Cancel"))
+                {
+                    fileManager.RemoveKey(deleteKey);
+                }
+            }
+
             GUILayout.EndScrollView();
         }
 
@@ -239,22 +288,8 @@ namespace Amlos.Localizations.Editor
             setting.displayCount = EditorGUILayout.IntField("Display Count", setting.displayCount);
             setting.textEditorHeight = EditorGUILayout.IntField("Text Field Height", setting.textEditorHeight);
             setting.showSecondaryCountry = EditorGUILayout.Toggle("Show Secondary Country", setting.showSecondaryCountry);
+            setting.sudo = EditorGUILayout.Toggle("No dialogue", setting.sudo);
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
-            if (GUILayout.Button("Refresh", GUILayout.Width(120), GUILayout.Height(30)))
-            {
-                fileManager.RefreshTable();
-            }
-            GUILayout.Space(EditorGUIUtility.singleLineHeight);
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Export", GUILayout.Width(120), GUILayout.Height(30)))
-            {
-                fileManager.Export();
-            }
-            if (GUILayout.Button("Import", GUILayout.Width(120), GUILayout.Height(30)))
-            {
-                fileManager.Import();
-            }
-            GUILayout.EndHorizontal();
         }
 
         private void Initialize()
@@ -324,6 +359,14 @@ namespace Amlos.Localizations.Editor
             if (selectClass == EntryDrawMode.entry || index == -1)
             {
                 GUILayout.Label(file.Region.ToString(), EditorStyles.boldLabel);
+                //var pageList = Module.Editor.EditorFieldDrawers.DrawListPage(
+                //    possibleKeys,
+                //    (possibleKey) => {
+                //        drawEntry.Initialize(setting, key, fileManager);
+                //        drawEntry.File = file;
+                //        drawEntry.Draw(possibleKey);
+                //    }
+                //);
                 foreach (var possibleKey in possibleKeys)
                 {
                     drawEntry.Initialize(setting, key, fileManager);

@@ -1,11 +1,11 @@
-﻿using Amlos.Localizations.Components;
-using Amlos.Localizations.EscapePatterns;
+﻿using Minerva.Localizations.Components;
+using Minerva.Localizations.EscapePatterns;
 using Minerva.Module;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Amlos.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// The Localization main class

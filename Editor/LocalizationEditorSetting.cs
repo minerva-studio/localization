@@ -1,7 +1,7 @@
 ﻿using UnityEditor;
 using UnityEngine;
 
-namespace Amlos.Localizations.Editor
+namespace Minerva.Localizations.Editor
 {
     public class LocalizationEditorSetting : ScriptableObject
     {
@@ -15,6 +15,7 @@ namespace Amlos.Localizations.Editor
         public float tableEntryWidth = 200;
         public float tableEntryHeight = 20;
         public bool tableUseArea;
+        public bool sudo;
 
         internal static SerializedObject GetSerializedSettings()
         {

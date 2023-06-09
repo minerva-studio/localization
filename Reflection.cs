@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using static UnityEditor.Progress;
 
-namespace Amlos.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// Simple reflection system used in localization system
@@ -127,8 +128,43 @@ namespace Amlos.Localizations
                 throw new ArgumentNullException(nameof(obj));
             }
 
-            List<MemberInfo> members = GetMembers(obj, name);
-            foreach (var item in members)
+            //List<MemberInfo> members = GetMembers(obj, name);
+            //foreach (var item in members)
+            //{
+            //    if (item is FieldInfo field)
+            //    {
+            //        return field.GetValue(obj);
+            //    }
+            //    else if (item is PropertyInfo property)
+            //    {
+            //        return property.GetValue(obj);
+            //    }
+            //}
+            return GetValue(obj, name);
+        }
+
+        private static List<MemberInfo> GetMembers(object obj, string name)
+        {
+            var list = new List<MemberInfo>();
+            var type = obj.GetType();
+            IEnumerable<MemberInfo> collection = type.GetMembers().Where(predicate);
+            list.AddRange(collection);
+            list.AddRange(type.GetMember(name));
+
+            return list;
+
+            bool predicate(MemberInfo t)
+            {
+                if (t == null) return false;
+                if (Attribute.IsDefined(t, typeof(KeyNameAttribute))) return false;
+                return ((KeyNameAttribute)Attribute.GetCustomAttribute(t, typeof(KeyNameAttribute))).Key == name;
+            }
+        }
+
+        private static object GetValue(object obj, string name)
+        {
+            var type = obj.GetType();
+            foreach (var item in type.GetMembers().Where(predicate))
             {
                 if (item is FieldInfo field)
                 {
@@ -139,18 +175,26 @@ namespace Amlos.Localizations
                     return property.GetValue(obj);
                 }
             }
+            foreach (var item in type.GetMember(name))
+            {
+                if (item is FieldInfo field)
+                {
+                    return field.GetValue(obj);
+                }
+                else if (item is PropertyInfo property)
+                {
+                    return property.GetValue(obj);
+                }
+            }
+
             return null;
-        }
 
-        private static List<MemberInfo> GetMembers(object obj, string name)
-        {
-            var list = new List<MemberInfo>();
-            var type = obj.GetType();
-            var members = type.GetMember(name);
-            list.AddRange(members);
-            list.AddRange(type.GetMembers().Where(t => Attribute.IsDefined(t, typeof(KeyNameAttribute))));
-
-            return list;
+            bool predicate(MemberInfo t)
+            {
+                if (t == null) return false;
+                KeyNameAttribute attr = (KeyNameAttribute)Attribute.GetCustomAttribute(t, typeof(KeyNameAttribute));
+                return attr?.Key == name == true;
+            }
         }
     }
 }
