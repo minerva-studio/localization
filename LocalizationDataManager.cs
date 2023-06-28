@@ -133,7 +133,11 @@ namespace Minerva.Localizations
         /// <param name="defaultValue"></param>
         private void AddKey_Internal(string key, string defaultValue)
         {
-            if (!HasKey(key)) keyList.Add(key);
+            if (!HasKey(key))
+            {
+                EditorUtility.SetDirty(this);
+                keyList.Add(key);
+            }
 
             foreach (var file in files)
             {
@@ -174,9 +178,11 @@ namespace Minerva.Localizations
             {
                 file.RemoveKey(key);
             }
+
             //remove key from localization table
             LocalizationTable.Remove(key);
             keyList.Remove(key);
+            EditorUtility.SetDirty(this);
             return true;
         }
 
@@ -198,12 +204,14 @@ namespace Minerva.Localizations
             //keylist move
             keyList.Remove(oldKey);
             keyList.Add(newKey);
+            EditorUtility.SetDirty(this);
 
             //table move key
             var singleWordPair = LocalizationTable[oldKey];
             if (singleWordPair == null) throw new KeyNotFoundException();
             LocalizationTable.Remove(oldKey);
             LocalizationTable.Add(newKey, singleWordPair);
+
         }
 
 

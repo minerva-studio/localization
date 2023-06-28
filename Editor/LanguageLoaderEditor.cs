@@ -10,7 +10,6 @@ namespace Minerva.Localizations.Editor
         public override void OnInspectorGUI()
         {
             base.OnInspectorGUI();
-            EditorUtility.SetDirty(this);
             GUILayoutOption height = GUILayout.Height(36);
 
             GUILayout.Space(10);
@@ -18,6 +17,8 @@ namespace Minerva.Localizations.Editor
             LocalizationDataManager languageFileManager = languageLoader.languageFileManager;
             string key = languageLoader.Key;
             Color currentContentColor = GUI.contentColor;
+            SerializedObject obj = new SerializedObject(languageLoader);
+            var property = obj.FindProperty("key");
 
             if (languageFileManager == null)
             {
@@ -50,11 +51,10 @@ namespace Minerva.Localizations.Editor
                 foreach (var item in possibleNextClass)
                 {
                     if (string.IsNullOrEmpty(item)) continue;
-                    if (GUILayout.Button(item))
-                    {
-                        languageLoader.Key = key + "." + item;
-                    }
+                    if (!GUILayout.Button(item)) continue;
 
+                    if (string.IsNullOrWhiteSpace(key)) property.stringValue = item;
+                    else property.stringValue = key + "." + item;
                 }
                 GUILayout.Space(10);
                 if (GUILayout.Button("Back"))
@@ -68,7 +68,7 @@ namespace Minerva.Localizations.Editor
                 {
                     if (GUILayout.Button("Add New Key", height))
                     {
-                        languageLoader.AddKeyToLanguageFiles();
+                        languageFileManager.AddKeyToFiles(property.stringValue); 
                     }
                 }
                 if (GUILayout.Button("Clear", height))
@@ -77,9 +77,13 @@ namespace Minerva.Localizations.Editor
                 }
                 GUILayout.EndHorizontal();
             }
+            if (obj.hasModifiedProperties)
+            {
+                EditorUtility.SetDirty(this);
+                obj.ApplyModifiedProperties();
+            }
             ////GUILayout.Box("sele");
             ////GUILayout.Box("");
-            EditorUtility.ClearDirty(this);
         }
 
         private static void ClearKey(params TextLocalizer[] languageLoaders)

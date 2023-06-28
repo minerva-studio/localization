@@ -64,8 +64,12 @@ namespace Minerva.Localizations.Editor
                 file.Export();
             }
 
-            serializedObject.Update();
-            serializedObject.ApplyModifiedProperties();
+            if (serializedObject.hasModifiedProperties)
+            {
+                EditorUtility.SetDirty(this);
+                serializedObject.ApplyModifiedProperties();
+                serializedObject.Update();
+            }
             //GUILayout.BeginHorizontal(height);
             //if (GUILayout.Button("Sort missing keys", height))
             //{

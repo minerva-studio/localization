@@ -6,16 +6,22 @@ namespace Minerva.Localizations.Editor
     public class LocalizationEditorSetting : ScriptableObject
     {
         public const string SETTING_PATH = "Assets/Editor/User/Localization.asset";
+        public const int TEXT_EDITOR_DEFAULT_HEIGHT = 20;
+        public const int TEXT_EDITOR_DEFAULT_LINE_PER_PAGE = 15;
 
         public bool autoSwitchMode;
         public int displayCount = 10;
-        public int textEditorHeight = 20;
+        public int textEditorHeight = TEXT_EDITOR_DEFAULT_HEIGHT;
+        public int linePerPage = TEXT_EDITOR_DEFAULT_LINE_PER_PAGE;
         public bool showSecondaryCountry = true;
 
         public float tableEntryWidth = 200;
         public float tableEntryHeight = 20;
         public bool tableUseArea;
         public bool sudo;
+
+        public int TextEditorHeight => textEditorHeight = Mathf.Max(TEXT_EDITOR_DEFAULT_HEIGHT, textEditorHeight);
+        public int LinePerPage => linePerPage = Mathf.Max(TEXT_EDITOR_DEFAULT_LINE_PER_PAGE, linePerPage);
 
         internal static SerializedObject GetSerializedSettings()
         {

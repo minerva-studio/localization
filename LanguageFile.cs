@@ -157,27 +157,21 @@ namespace Minerva.Localizations
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <returns> string of the old entry, null if it is a new entry </returns>
-        public string Write(string key, string value = "", bool updateAssets = false)
+        public string Write(string key, string value = "", bool immediateSave = false)
         {
-            if (updateAssets) { EditorUtility.SetDirty(this); }
+            EditorUtility.SetDirty(this);
             //Debug.Log($"Write Entry " + key + " with value " + value);
             var entry = GetEntry(key);
             var oldVal = entry?.Value;
             if (entry != null)
             {
                 entry.Value = value;
-                if (updateAssets)
-                {
-                    AssetDatabase.SaveAssets();
-                    EditorUtility.ClearDirty(this);
-                }
-                return oldVal;
             }
             else
             {
                 entries.Add(new Entry(key, value));
             }
-            if (updateAssets)
+            if (immediateSave)
             {
                 AssetDatabase.SaveAssets();
                 EditorUtility.ClearDirty(this);
@@ -276,6 +270,7 @@ namespace Minerva.Localizations
         {
             EditorUtility.SetDirty(this);
             entries.RemoveAll(p => p.Key == key);
+
             if (searchInChild) childFiles.ForEach(f => f.RemoveKey(key, false));
             if (updateAssets) AssetDatabase.SaveAssets();
         }
@@ -334,6 +329,25 @@ namespace Minerva.Localizations
                 child.FindMatchedKeys_Internal(partialKey, result);
             }
             return result;
+        }
+
+        /// <summary>
+        /// Find the matched keys from the file
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="searchInChild">Whether search child file</param>
+        /// <returns></returns>
+        public void FindMatchedKeys(List<string> result, string partialKey, bool searchInChild = false)
+        {
+            FindMatchedKeys_Internal(partialKey, result);
+            if (!searchInChild)
+            {
+                return;
+            }
+            foreach (var child in childFiles)
+            {
+                child.FindMatchedKeys_Internal(partialKey, result);
+            }
         }
 
         /// <summary>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using static Minerva.Module.Editor.EditorFieldDrawers;
 
 namespace Minerva.Localizations.Editor
 {
@@ -40,6 +41,9 @@ namespace Minerva.Localizations.Editor
         CreateNewEntryModule newEntry;
 
         Vector2 missingEntryView;
+        private Vector2 classicView;
+        private PageList primaryPageList;
+        private PageList pageList;
 
 
 
@@ -200,11 +204,12 @@ namespace Minerva.Localizations.Editor
         private void DrawClassic()
         {
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
+            classicView = EditorGUILayout.BeginScrollView(classicView);
             EditorGUILayout.BeginHorizontal();
-
             DrawPrimaryLanguage();
             if (selectClass == EntryDrawMode.entry && setting.showSecondaryCountry) DrawSecondaryLanguage();
             EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndScrollView();
         }
 
         private void DrawTable()
@@ -287,9 +292,12 @@ namespace Minerva.Localizations.Editor
             setting.autoSwitchMode = EditorGUILayout.Toggle("Auto Switch Mode", setting.autoSwitchMode);
             setting.displayCount = EditorGUILayout.IntField("Display Count", setting.displayCount);
             setting.textEditorHeight = EditorGUILayout.IntField("Text Field Height", setting.textEditorHeight);
+            setting.linePerPage = EditorGUILayout.IntField("Text Field Line Count", setting.linePerPage);
             setting.showSecondaryCountry = EditorGUILayout.Toggle("Show Secondary Country", setting.showSecondaryCountry);
             setting.sudo = EditorGUILayout.Toggle("No dialogue", setting.sudo);
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
+
+            setting.textEditorHeight = Mathf.Max(setting.textEditorHeight, LocalizationEditorSetting.TEXT_EDITOR_DEFAULT_HEIGHT);
         }
 
         private void Initialize()
@@ -303,19 +311,19 @@ namespace Minerva.Localizations.Editor
             newEntry.FileManager = fileManager;
         }
 
-        private void DrawSecondaryLanguage()
-        {
-            EditorGUILayout.BeginVertical();
-            country = GetCountry("Country/Region", country);
-            DrawCountry(country);
-            EditorGUILayout.EndVertical();
-        }
-
         private void DrawPrimaryLanguage()
         {
             EditorGUILayout.BeginVertical();
             referenceCountry = GetCountry("Reference Country/Region", referenceCountry);
-            DrawCountry(referenceCountry);
+            primaryPageList = DrawCountry(referenceCountry, primaryPageList);
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawSecondaryLanguage()
+        {
+            EditorGUILayout.BeginVertical();
+            country = GetCountry("Country/Region", country);
+            pageList = DrawCountry(country, pageList);
             EditorGUILayout.EndVertical();
         }
 
@@ -334,17 +342,18 @@ namespace Minerva.Localizations.Editor
             GUILayout.EndScrollView();
         }
 
-        public void DrawCountry(string country)
+        public PageList DrawCountry(string country, PageList pageList)
         {
             var file = fileManager.GetLanguageFile(country);
             if (file == null)
             {
                 GUILayout.Label(country + " is not added to the File Manager");
-                return;
+                return pageList;
             }
+
             var possibleKeys = file.FindMatchedKeys(key, true);
             var first = possibleKeys.FirstOrDefault();
-            if (string.IsNullOrEmpty(first)) return;
+            if (string.IsNullOrEmpty(first)) return pageList;
 
 
             GUILayout.BeginVertical();
@@ -359,20 +368,24 @@ namespace Minerva.Localizations.Editor
             if (selectClass == EntryDrawMode.entry || index == -1)
             {
                 GUILayout.Label(file.Region.ToString(), EditorStyles.boldLabel);
-                //var pageList = Module.Editor.EditorFieldDrawers.DrawListPage(
-                //    possibleKeys,
-                //    (possibleKey) => {
-                //        drawEntry.Initialize(setting, key, fileManager);
-                //        drawEntry.File = file;
-                //        drawEntry.Draw(possibleKey);
-                //    }
-                //);
-                foreach (var possibleKey in possibleKeys)
-                {
-                    drawEntry.Initialize(setting, key, fileManager);
-                    drawEntry.File = file;
-                    drawEntry.Draw(possibleKey);
-                }
+                pageList ??= DrawListPage(
+                    possibleKeys,
+                    (possibleKey) =>
+                    {
+                        drawEntry.Initialize(setting, key, fileManager);
+                        drawEntry.File = file;
+                        drawEntry.Draw(possibleKey);
+                    }
+                );
+                ((GenericListPageList<string>)pageList).entryList = possibleKeys;
+                pageList.LinesPerPage = setting.LinePerPage;
+                pageList.Draw();
+                //foreach (var possibleKey in possibleKeys)
+                //{
+                //    drawEntry.Initialize(setting, key, fileManager);
+                //    drawEntry.File = file;
+                //    drawEntry.Draw(possibleKey);
+                //}
             }
             else
             {
@@ -380,6 +393,7 @@ namespace Minerva.Localizations.Editor
                 ClassSelection();
             }
             GUILayout.EndVertical();
+            return pageList;
         }
 
         void ClassSelection()
@@ -457,7 +471,7 @@ namespace Minerva.Localizations.Editor
             private string changingKey;
             private string changeToKey;
 
-            private int TextEditorHeight => setting.textEditorHeight;
+            private int TextEditorHeight => setting.TextEditorHeight;
             public LanguageFile File { get => file; set => file = value; }
 
             public void Draw(string key)
