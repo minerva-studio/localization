@@ -26,9 +26,6 @@ namespace Minerva.Localizations
 
         /// <summary> Region of the file represent </summary>
         public string Region { get => region; set => region = value; }
-        /// <summary> All entries in the file </summary>
-        public List<Entry> Entries => entries;
-
         public LanguageFile MasterFile { get => masterFile; set => masterFile = value; }
         public List<LanguageFile> ChildFiles { get => childFiles; set => childFiles = value; }
         public bool IsMasterFile => isMasterFile;
@@ -37,9 +34,9 @@ namespace Minerva.Localizations
         /// Get a trie of the language file
         /// </summary>
         /// <returns></returns>
-        public Trie<string> GetTrie()
+        public Tries<string> GetTrie()
         {
-            var dictionary = new Trie<string>();
+            var dictionary = new Tries<string>();
             foreach (var entry in entries)
             {
                 dictionary[entry.Key] = entry.Value;
@@ -75,18 +72,10 @@ namespace Minerva.Localizations
             return dictionary;
         }
 
-#if  UNITY_EDITOR
+#if UNITY_EDITOR
 
-        //public void OnValidate()
-        //{
-        //    UpdateFileState();
-        //    EditorUtility.SetDirty(this);
-        //}
-
-
-
-
-
+        private SerializedObject sobj;
+        public SerializedObject serializedObject { get => sobj ??= new(this); }
         public IEnumerable<string> Keys => GetKeys();
         private IEnumerable<string> GetKeys()
         {
@@ -169,13 +158,21 @@ namespace Minerva.Localizations
             }
             else
             {
-                entries.Add(new Entry(key, value));
+                entry = new Entry(key, value);
+                entries.Add(entry);
             }
+            // L10n is loading current region
+            if (L10n.Region == region)
+            {
+                L10n.Override(key, value);
+            }
+
             if (immediateSave)
             {
                 AssetDatabase.SaveAssets();
                 EditorUtility.ClearDirty(this);
             }
+
             return oldVal;
         }
 
@@ -194,10 +191,10 @@ namespace Minerva.Localizations
         public bool Add(string key, string value = "", bool updateAssets = false)
         {
             EditorUtility.SetDirty(this);
-            Debug.Log($"Write Entry " + key + " with value " + value);
             var entry = GetEntry(key);
             if (entry != null) return false;
             else entries.Add(new Entry(key, value));
+            Debug.Log($"Write Entry " + key + " with value " + value);
             if (updateAssets) AssetDatabase.SaveAssets();
             return true;
         }
@@ -227,7 +224,7 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public Entry GetEntry(string key)
+        internal Entry GetEntry(string key)
         {
             return GetEntryOnSelf(key) ?? GetEntryFromChild(key);
         }
@@ -245,6 +242,41 @@ namespace Minerva.Localizations
         private Entry GetEntryOnSelf(string key)
         {
             return entries.FirstOrDefault(p => p.Key == key);
+        }
+
+
+
+
+        public SerializedProperty GetProperty(string key)
+        {
+            return TryGetProperty(key, out var value) ? value : null;
+        }
+
+        /// <summary>
+        /// Try get the value from localization file
+        /// <para>
+        /// if localiztion file is a master file and key is not present in the file, it will search from the child files
+        /// </para> 
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns>Whether file contains the key/value</returns>
+        public bool TryGetProperty(string key, out SerializedProperty value)
+        {
+            value = null;
+            var index = entries.FindIndex(e => e.Key == key);
+            if (index != -1)
+            {
+                value = serializedObject.FindProperty(nameof(entries)).GetArrayElementAtIndex(index).FindPropertyRelative("value");
+                return true;
+            }
+            if (!isMasterFile) return false;
+
+            foreach (var item in childFiles)
+            {
+                if (item.TryGetProperty(key, out value)) return true;
+            }
+            return false;
         }
 
 
@@ -315,7 +347,7 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="partialKey"></param>
         /// <param name="searchInChild">Whether search child file</param>
-        /// <returns></returns>
+        /// <returns>all full keys that matches given partial key</returns>
         public List<string> FindMatchedKeys(string partialKey, bool searchInChild = false)
         {
             List<string> result = new();

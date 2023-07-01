@@ -5,9 +5,9 @@ namespace Minerva.Localizations
     /// <summary>
     /// Solution to key not found when trying to read a localization dictionary
     /// </summary>
-    public enum KeyMissingSolution
+    public enum MissingKeySolution
     {
-        [Tooltip("Display the raw key, ie \"Amlos.Lozalization.LocalizationFile.name\"")]
+        [Tooltip("Display the raw key, ie \"Lozalization.LocalizationFile.name\"")]
         RawDisplay,
         [Tooltip("Display an empty string")]
         Empty,

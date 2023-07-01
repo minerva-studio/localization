@@ -9,15 +9,15 @@ using Table = System.Collections.Generic.Dictionary<string, System.Collections.G
 
 namespace Minerva.Localizations
 {
-
     /// <summary>
     /// Data manage class of localization system
     /// </summary>
     [CreateAssetMenu(fileName = "Localization Manager", menuName = "Localization/Localization Manager")]
-    public class LocalizationDataManager : ScriptableObject
+    public class L10nDataManager : ScriptableObject
     {
         public string topLevelDomain;
-        public KeyMissingSolution missingKeySolution;
+        public bool disableEmptyEntry;
+        public MissingKeySolution missingKeySolution;
         [Header("Data")]
         public List<LanguageFile> files;
         public List<string> regions;
@@ -50,26 +50,34 @@ namespace Minerva.Localizations
 
 
 
-#if UNITY_EDITOR
-        //public const string LOCALIZATION_TABLE_NAME = nameof(localizationTable);
-        //public const string KEY_LIST_NAME = nameof(keyList);
-        //public const string MISSING_KEYS_NAME = nameof(missingKeys);
+#if UNITY_EDITOR   
 
-
-        private Table localizationTable;
         [ContextMenuItem("Sort", nameof(SortKeyList))]
         public List<string> keyList;
         [ContextMenuItem("Sort", nameof(SortMissing))]
         [ContextMenuItem("Clear Obsolete Missing Keys", nameof(ClearObsoleteMissingKeys))]
         public List<string> missingKeys;
 
-        public Table LocalizationTable { get => localizationTable ??= GenerateTabel(); set => localizationTable = value; }
+        private Table localizationTable;
+        private Dictionary<string, Dictionary<string, SerializedProperty>> propertyTable;
+        private Trie trie;
+        private SerializedObject sobj;
+        
+        public SerializedObject serializedObject { get => sobj ??= new(this); }
+        public Table LocalizationTable { get => localizationTable ??= GenerateTable(); set => localizationTable = value; }
+        public Dictionary<string, Dictionary<string, SerializedProperty>> PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
 
 
+        public void RefreshTable()
+        {
+            serializedObject.Update();
+            localizationTable = GenerateTable();
+            propertyTable = GeneratePropertyTable();
+            trie = new Trie(keyList);
+            L10n.ReloadIfInitialized();
+        }
 
-        public void RefreshTable() => localizationTable = GenerateTabel();
-
-        private Table GenerateTabel()
+        private Table GenerateTable()
         {
             var localizationTable = new Table();
             UpdateKeyList();
@@ -80,6 +88,22 @@ namespace Minerva.Localizations
                 foreach (var file in files)
                 {
                     table.Add(file.Region, file.Get(key));
+                }
+            }
+            return localizationTable;
+        }
+
+        private Dictionary<string, Dictionary<string, SerializedProperty>> GeneratePropertyTable()
+        {
+            var localizationTable = new Dictionary<string, Dictionary<string, SerializedProperty>>();
+            SyncKeys();
+            foreach (var key in keyList)
+            {
+                Dictionary<string, SerializedProperty> table = new();
+                localizationTable.Add(key, table);
+                foreach (var file in files)
+                {
+                    table.Add(file.Region, file.GetProperty(key));
                 }
             }
             return localizationTable;
@@ -111,19 +135,21 @@ namespace Minerva.Localizations
         public KeyData AddKey(string key, string defaultValue = "")
         {
             AddKey_Internal(key, defaultValue);
-            return AddKeyToTable(key, defaultValue);
+            var result = AddKeyToTable(key, defaultValue);
+            L10n.ReloadIfInitialized();
+            return result;
         }
 
         /// <summary>
         /// Add key to all files
         /// </summary>
-        /// <remarks>This will refresh the localization table</remarks>
+        /// <remarks>This will refresh the localization table on the localization manager</remarks>
         /// <param name="key"></param>
         /// <param name="defaultValue"></param>
         public void AddKeyToFiles(string key, string defaultValue = "")
         {
             AddKey_Internal(key, defaultValue);
-            GenerateTabel();
+            RefreshTable();
         }
 
         /// <summary>
@@ -137,6 +163,7 @@ namespace Minerva.Localizations
             {
                 EditorUtility.SetDirty(this);
                 keyList.Add(key);
+                trie.Add(key);
             }
 
             foreach (var file in files)
@@ -181,8 +208,12 @@ namespace Minerva.Localizations
 
             //remove key from localization table
             LocalizationTable.Remove(key);
+            PropertyTable.Remove(key);
             keyList.Remove(key);
+            trie.Remove(key);
             EditorUtility.SetDirty(this);
+
+            L10n.ReloadIfInitialized();
             return true;
         }
 
@@ -204,14 +235,20 @@ namespace Minerva.Localizations
             //keylist move
             keyList.Remove(oldKey);
             keyList.Add(newKey);
+            trie.Remove(oldKey);
+            trie.Add(newKey);
             EditorUtility.SetDirty(this);
 
             //table move key
-            var singleWordPair = LocalizationTable[oldKey];
-            if (singleWordPair == null) throw new KeyNotFoundException();
+            var singleWordPair = LocalizationTable[oldKey] ?? throw new KeyNotFoundException();
             LocalizationTable.Remove(oldKey);
             LocalizationTable.Add(newKey, singleWordPair);
 
+            var property = PropertyTable[oldKey] ?? throw new KeyNotFoundException();
+            PropertyTable.Remove(oldKey);
+            PropertyTable.Add(newKey, property);
+
+            L10n.ReloadIfInitialized();
         }
 
 
@@ -227,6 +264,7 @@ namespace Minerva.Localizations
                 keys.UnionWith(item.Keys);
             }
             keyList = keys.ToList();
+            trie = new Trie(keyList);
         }
 
         [ContextMenu("Sync key list")]
@@ -252,6 +290,17 @@ namespace Minerva.Localizations
         public void SortKeyList()
         {
             keyList.Sort();
+            EditorUtility.SetDirty(this);
+        }
+
+        public void SortEntries()
+        {
+            SortKeyList();
+            foreach (var item in files)
+            {
+                item.Sort(true);
+                EditorUtility.SetDirty(item);
+            }
         }
 
         /// <summary>
@@ -261,12 +310,12 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public List<string> FindPossibleNextClass(string pKey)
         {
-            Trie<string> trie = new Trie<string>(keyList);
+            trie ??= new(keyList);
             if (string.IsNullOrEmpty(pKey))
             {
-                return trie.FirstLevelKeys;
+                return trie.FirstLevelKeys.ToList();
             }
-            bool hasKey = trie.TryGetSubTrie(pKey, out Trie<string> subTrie);
+            bool hasKey = trie.TryGetSubTrie(pKey, out Trie subTrie);
             return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
         }
 
@@ -372,29 +421,30 @@ namespace Minerva.Localizations
             EditorUtility.SetDirty(this);
             foreach (var key in missingKeys)
             {
-                KeyData entries;
-                if (LocalizationTable.ContainsKey(key))
-                {
-                    entries = LocalizationTable[key];
-                }
-                else
-                {
-                    entries = new KeyData();
-                    LocalizationTable.Add(key, entries);
-                }
                 foreach (var file in files)
                 {
                     if (!file.Add(key))
                     {
                         Debug.LogWarning($"Key {key} appears to be missing but is in file {file.name}");
                     }
-                    entries[file.Region] = file.Get(key);
                 }
             }
             missingKeys.Clear();
-
+            RefreshTable();
         }
 
+        public void EditorSaveSelf()
+        {
+            AssetDatabase.SaveAssetIfDirty(this);
+            foreach (var file in files)
+            {
+                AssetDatabase.SaveAssetIfDirty(file);
+                foreach (var child in file.ChildFiles)
+                {
+                    AssetDatabase.SaveAssetIfDirty(child);
+                }
+            }
+        }
 #endif
 
     }

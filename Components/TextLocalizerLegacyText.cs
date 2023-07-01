@@ -1,16 +1,16 @@
-﻿using TMPro;
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.UI;
 
 namespace Minerva.Localizations.Components
 {
-    [RequireComponent(typeof(TMP_Text))]
-    public class TextLocalizer : TextLocalizerBase
+    [RequireComponent(typeof(Text))]
+    public class TextLocalizerLegacyText : TextLocalizerBase
     {
-        public TMP_Text textField;
+        public Text textField;
 
         void OnValidate()
         {
-            textField = GetComponent<TMP_Text>();
+            textField = GetComponent<Text>();
         }
 
         public override void SetDisplayText(string text)

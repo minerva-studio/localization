@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 
 namespace Minerva.Localizations.Components
@@ -10,17 +9,13 @@ namespace Minerva.Localizations.Components
     public abstract class TextLocalizerBase : MonoBehaviour
     {
         public static List<TextLocalizerBase> loaders = new List<TextLocalizerBase>();
-        public LocalizationDataManager languageFileManager;
-        public TMP_Text textField;
+
 
         [Header("Key")]
-        [SerializeField] private string key;
-        private LocalizedContent localizedContent;
+        public string key;
+        public L10nDataManager languageFileManager;
 
-
-        public string Key { get => key; set { key = value; LocalizedContent = LocalizedContent.Create(value); } }
-        private LocalizedContent LocalizedContent { get => localizedContent ??= LocalizedContent.Create(key); set => localizedContent = value; }
-        private bool IsEmpty => string.IsNullOrEmpty(key);
+        public bool HasValidkey => languageFileManager.HasKey(key) && !string.IsNullOrEmpty(key);
 
 
 
@@ -37,28 +32,47 @@ namespace Minerva.Localizations.Components
         private void OnEnable()
         {
             Load();
+#if UNITY_EDITOR
+            if (!HasValidkey) Debug.LogError("The Language Loader does not have a valid key");
+#endif
         }
+
 
         void OnDestroy()
         {
             loaders.Remove(this);
         }
 
-
-
-
+        /// <summary>
+        /// load current key
+        /// </summary>
         public void Load()
         {
-            if (IsEmpty) return;
+            if (string.IsNullOrEmpty(key)) return;
 
-            if (textField)
-            {
-                textField.text = LocalizedContent.Localize();
-            }
+            var text = L10n.Tr(key);
+            SetDisplayText(text);
         }
+
+        /// <summary>
+        /// load with given key
+        /// </summary>
+        /// <param name="newKey"></param>
+        public void Load(string newKey)
+        {
+            this.key = newKey;
+            Load();
+        }
+
+        /// <summary>
+        /// Set give text as displaying text
+        /// </summary>
+        /// <param name="text"></param>
+        public abstract void SetDisplayText(string text);
 
         public static void ReloadAll()
         {
+            loaders.RemoveAll(x => x == null);
             foreach (var item in loaders)
             {
                 if (item) item.Load();

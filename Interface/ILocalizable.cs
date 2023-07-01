@@ -19,8 +19,7 @@
         /// <returns></returns>
         virtual string GetLocalizationKey(params string[] param)
         {
-            string key = BaseKey;
-            return Localizable.AppendKey(key, param);
+            return Localizable.AppendKey(BaseKey, param);
         }
 
         /// <summary>
@@ -31,7 +30,7 @@
         virtual string GetRawContent(params string[] param)
         {
             var key = GetLocalizationKey(param);
-            var rawString = Localization.GetContent(key, param);
+            var rawString = L10n.GetRawContent(key);
             return rawString;
         }
 

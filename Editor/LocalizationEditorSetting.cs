@@ -7,21 +7,34 @@ namespace Minerva.Localizations.Editor
     {
         public const string SETTING_PATH = "Assets/Editor/User/Localization.asset";
         public const int TEXT_EDITOR_DEFAULT_HEIGHT = 20;
-        public const int TEXT_EDITOR_DEFAULT_LINE_PER_PAGE = 15;
+        public const int TEXT_EDITOR_MIN_LINE_PER_PAGE = 1;
+        public const int TEXT_EDITOR_MAX_LINE_PER_PAGE = 40;
 
-        public bool autoSwitchMode;
+        public const int TABLE_ENTRY_MIN_HEIGHT = 20;
+        public const int TABLE_ENTRY_MAX_HEIGHT = 250;
+
+        private SerializedObject obj;
+        public SerializedObject serializedObject => obj ?? new SerializedObject(this);
+
+        [Tooltip("Reference sheet will automatically show entries if there are entries fewer than display count met current partial key")]
+        public bool autoSwitch;
         public int displayCount = 10;
         public int textEditorHeight = TEXT_EDITOR_DEFAULT_HEIGHT;
-        public int linePerPage = TEXT_EDITOR_DEFAULT_LINE_PER_PAGE;
+        [Range(TEXT_EDITOR_MIN_LINE_PER_PAGE, TEXT_EDITOR_MAX_LINE_PER_PAGE)]
+        public int linePerPage = TEXT_EDITOR_MIN_LINE_PER_PAGE;
         public bool showSecondaryCountry = true;
 
+        [Range(200, 1000)]
         public float tableEntryWidth = 200;
+        [Range(TABLE_ENTRY_MIN_HEIGHT, TABLE_ENTRY_MAX_HEIGHT)]
         public float tableEntryHeight = 20;
-        public bool tableUseArea;
+        [Tooltip("Use old table style, which will potentially decrease editor performance")]
+        public bool useOldTableStyle;
+
         public bool sudo;
 
         public int TextEditorHeight => textEditorHeight = Mathf.Max(TEXT_EDITOR_DEFAULT_HEIGHT, textEditorHeight);
-        public int LinePerPage => linePerPage = Mathf.Max(TEXT_EDITOR_DEFAULT_LINE_PER_PAGE, linePerPage);
+        public int LinePerPage => linePerPage = Mathf.Max(TEXT_EDITOR_MIN_LINE_PER_PAGE, linePerPage);
 
         internal static SerializedObject GetSerializedSettings()
         {

@@ -13,7 +13,7 @@ namespace Minerva.Localizations
     /// <author>
     /// Author : Wendi Cai
     /// </author>
-    public static class Reflection
+    internal static class Reflection
     {
         public static object GetObject(object obj, string path)
         {

@@ -1,6 +1,9 @@
 ﻿using Minerva.Localizations.Components;
+using System;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Minerva.Localizations.Editor
 {
@@ -14,8 +17,8 @@ namespace Minerva.Localizations.Editor
 
             GUILayout.Space(10);
             TextLocalizer languageLoader = target as TextLocalizer;
-            LocalizationDataManager languageFileManager = languageLoader.languageFileManager;
-            string key = languageLoader.Key;
+            L10nDataManager languageFileManager = languageLoader.languageFileManager;
+            string key = languageLoader.key;
             Color currentContentColor = GUI.contentColor;
             SerializedObject obj = new SerializedObject(languageLoader);
             var property = obj.FindProperty("key");
@@ -59,7 +62,7 @@ namespace Minerva.Localizations.Editor
                 GUILayout.Space(10);
                 if (GUILayout.Button("Back"))
                 {
-                    languageLoader.KeyReturnClass();
+                    languageLoader.key = KeyReturnClass(languageLoader.key);
                 }
 
                 GUILayout.Label("Tools");
@@ -68,7 +71,7 @@ namespace Minerva.Localizations.Editor
                 {
                     if (GUILayout.Button("Add New Key", height))
                     {
-                        languageFileManager.AddKeyToFiles(property.stringValue); 
+                        languageFileManager.AddKeyToFiles(property.stringValue);
                     }
                 }
                 if (GUILayout.Button("Clear", height))
@@ -82,8 +85,22 @@ namespace Minerva.Localizations.Editor
                 EditorUtility.SetDirty(this);
                 obj.ApplyModifiedProperties();
             }
-            ////GUILayout.Box("sele");
-            ////GUILayout.Box("");
+        }
+
+        private static string KeyReturnClass(string key)
+        {
+            if (key.EndsWith("."))
+            {
+                key = key.Remove(key.Length - 1);
+            }
+            if (key.StartsWith("."))
+            {
+                key = key[1..];
+            }
+            var list = key.Split('.').ToList();
+            list.RemoveAt(list.Count - 1);
+            key = string.Join('.', list);
+            return key;
         }
 
         private static void ClearKey(params TextLocalizer[] languageLoaders)
@@ -91,9 +108,21 @@ namespace Minerva.Localizations.Editor
             foreach (TextLocalizer languageLoader in languageLoaders)
             {
                 EditorUtility.SetDirty(languageLoader);
-                languageLoader.Key = "";
-                languageLoader.OnValidate();
+                languageLoader.key = "";
             }
+        }
+
+        [MenuItem("CONTEXT/TextMeshProUGUI/Add Localization Component")]
+        [MenuItem("CONTEXT/TextMeshPro/Add Localization Component")]
+        [MenuItem("CONTEXT/Text/Add Localization Component")]
+        public static void AddComponent(MenuCommand command)
+        {
+            Component body = (Component)command.context;
+            if (body.GetComponent<Text>())
+            {
+                body.gameObject.AddComponent<TextLocalizerLegacyText>();
+            }
+            else body.gameObject.AddComponent<TextLocalizer>();
         }
     }
 }

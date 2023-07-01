@@ -10,6 +10,6 @@
         /// </summary>
         /// <param name="param">extra parameters</param>
         /// <returns>localized content</returns>
-        string Localize(params string[] param);
+        string Tr(params string[] param);
     }
 }

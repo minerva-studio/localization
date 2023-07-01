@@ -9,7 +9,7 @@ namespace Minerva.Localizations.Editor
     [Obsolete]
     public class LanguageEnumTypeEditor : EditorWindow
     {
-        LocalizationDataManager fileManager;
+        L10nDataManager fileManager;
         string typeName = "Amlos.";
         string assemblyName = "Library-of-Meialia";
         string suffixes = "name";
@@ -36,7 +36,7 @@ namespace Minerva.Localizations.Editor
             GUILayout.BeginVertical();
             GUILayout.Space(10);
             GUILayout.Label("Language Manager", EditorStyles.boldLabel);
-            fileManager = (LocalizationDataManager)EditorGUILayout.ObjectField("Language File Manager", fileManager, typeof(LocalizationDataManager), false);
+            fileManager = (L10nDataManager)EditorGUILayout.ObjectField("Language File Manager", fileManager, typeof(L10nDataManager), false);
             typeName = EditorGUILayout.TextField("Enum Path", typeName);
             assemblyName = EditorGUILayout.TextField("Assembly Name", assemblyName);
             GUILayout.Space(10);
@@ -45,7 +45,7 @@ namespace Minerva.Localizations.Editor
 
             if (!fileManager)
             {
-                fileManager = FindObjectOfType<LocalizationDataManager>();
+                fileManager = FindObjectOfType<L10nDataManager>();
                 EndWindow(); return;
             }
 

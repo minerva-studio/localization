@@ -7,7 +7,7 @@ namespace Minerva.Localizations
     /// A entry in localization system
     /// </summary>
     [Serializable]
-    public class Entry : IEquatable<Entry>, IComparable<Entry>
+    internal class Entry : IEquatable<Entry>, IComparable<Entry>
     {
         [SerializeField] private string key;
         [SerializeField] private string value;

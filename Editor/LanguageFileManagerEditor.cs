@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Minerva.Localizations.Editor
 {
-    [CustomEditor(typeof(LocalizationDataManager))]
+    [CustomEditor(typeof(L10nDataManager))]
     public class LocalizationManagerEditor : UnityEditor.Editor
     {
         EditorFieldDrawers.SerializedPropertyPageList pageList;
@@ -12,23 +12,50 @@ namespace Minerva.Localizations.Editor
 
         public override void OnInspectorGUI()
         {
+            serializedObject.Update();
             var height = GUILayout.Height(27);
-            LocalizationDataManager file = (LocalizationDataManager)target;
+            L10nDataManager file = (L10nDataManager)target;
 
             var state = GUI.enabled; GUI.enabled = false;
             EditorGUILayout.ObjectField("Script", MonoScript.FromScriptableObject(file), typeof(MonoScript), false);
             GUI.enabled = state;
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.topLevelDomain)));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.disableEmptyEntry)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.missingKeySolution)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.files)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.regions)));
-            pageList ??= new EditorFieldDrawers.SerializedPropertyPageList(serializedObject.FindProperty(nameof(file.keyList)));
+
+            SerializedProperty serializedProperty = serializedObject.FindProperty(nameof(file.keyList));
+            pageList ??= EditorFieldDrawers.DrawListPage(serializedProperty);
+            pageList.entryList = serializedProperty;
+            pageList.OnSortList = () =>
+            {
+                file.keyList.Sort();
+                serializedObject.Update();
+                EditorUtility.SetDirty(file);
+            };
             pageList.Draw("Keys");
 
-            missingPageList ??= new EditorFieldDrawers.SerializedPropertyPageList(serializedObject.FindProperty(nameof(file.missingKeys)));
+            SerializedProperty serializedProperty1 = serializedObject.FindProperty(nameof(file.missingKeys));
+            missingPageList ??= EditorFieldDrawers.DrawListPage(serializedProperty1);
+            missingPageList.entryList = serializedProperty1;
             missingPageList.Draw("Missing Keys");
 
+            if (serializedObject.hasModifiedProperties)
+            {
+                EditorUtility.SetDirty(this);
+                serializedObject.ApplyModifiedProperties();
+                serializedObject.Update();
+            }
+
+
+
+            GUILayout.Space(10);
+            if (GUILayout.Button("Sort All", height))
+            {
+                file.SortEntries();
+            }
             GUILayout.Space(10);
             GUILayout.FlexibleSpace();
             GUILayout.BeginHorizontal(height);
@@ -62,13 +89,6 @@ namespace Minerva.Localizations.Editor
             {
                 file.RefreshTable();
                 file.Export();
-            }
-
-            if (serializedObject.hasModifiedProperties)
-            {
-                EditorUtility.SetDirty(this);
-                serializedObject.ApplyModifiedProperties();
-                serializedObject.Update();
             }
             //GUILayout.BeginHorizontal(height);
             //if (GUILayout.Button("Sort missing keys", height))

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PlasticGui.WorkspaceWindow;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -27,12 +28,14 @@ namespace Minerva.Localizations.Editor
 
         Vector2 tableScrollView;
         Vector2 scrollPos;
-        public LocalizationDataManager fileManager;
+        public L10nDataManager fileManager;
         public LocalizationEditorSetting setting;
 
+        private SerializedObject serializedObject;
+
         public string key;
-        private string referenceCountry;
-        private string country;
+        private string referenceRegion;
+        private string region;
 
         Window window;
         EntryDrawMode selectClass;
@@ -44,6 +47,7 @@ namespace Minerva.Localizations.Editor
         private Vector2 classicView;
         private PageList primaryPageList;
         private PageList pageList;
+        private int tableBaseIndex;
 
 
 
@@ -62,18 +66,26 @@ namespace Minerva.Localizations.Editor
 
             scrollPos = GUILayout.BeginScrollView(scrollPos);
             GUILayout.BeginVertical();
+
+
+            GUILayout.BeginVertical();
             //GUILayout.Space(10);
             GUILayout.Toolbar(-1, new string[] { "" });
             //GUILayout.Label("Language Manager", EditorStyles.boldLabel);
-            fileManager = (LocalizationDataManager)EditorGUILayout.ObjectField("Language Manager", fileManager, typeof(LocalizationDataManager), false);
+            fileManager = (L10nDataManager)EditorGUILayout.ObjectField("Language Manager", fileManager, typeof(L10nDataManager), false);
             //if (string.IsNullOrEmpty(key)) key = fileManager.topLevelDomain;
             if (!fileManager) { EndWindow(); return; }
+
+            if (serializedObject == null || serializedObject.targetObject != fileManager) serializedObject = new SerializedObject(fileManager);
 
             key = EditorGUILayout.TextField("Class Path", key);
             if (GUILayout.Button("Return")) ReturnClass();
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
             window = (Window)GUILayout.Toolbar((int)window, new string[] { "Reference Sheet", "Table", "Missing Entries", "Options", "Settings" }, GUILayout.Height(30));
-            if (window == Window.Classic) selectClass = (EntryDrawMode)GUILayout.Toolbar((int)selectClass, new string[] { "Entry", "Class" }, GUILayout.Height(25));
+            if (window == Window.Classic && !setting.autoSwitch) selectClass = (EntryDrawMode)GUILayout.Toolbar((int)selectClass, new string[] { "Entry", "Class" }, GUILayout.Height(25));
+            GUILayout.EndVertical();
+
+
             switch (window)
             {
                 case Window.Classic:
@@ -100,11 +112,31 @@ namespace Minerva.Localizations.Editor
                 DrawCreateNewEntry();
             }
 
-            GUILayout.Space(50);
+            GUILayout.Space(30);
 
 
             EndWindow();
         }
+
+        private void OnLostFocus()
+        {
+            L10n.ReloadIfInitialized();
+            SaveChanges();
+        }
+
+        private void Update()
+        {
+            if (!fileManager) return;
+        }
+
+        public override void SaveChanges()
+        {
+            base.SaveChanges();
+            if (fileManager) fileManager.EditorSaveSelf();
+            fileManager.RefreshTable();
+        }
+
+
 
         private void DrawOptions()
         {
@@ -162,21 +194,36 @@ namespace Minerva.Localizations.Editor
             var maxWidthX = GUILayout.MaxWidth(20);
             var maxWidthNum = GUILayout.MaxWidth(30);
             int val = 0;
-            string remove = string.Empty;
-            string add = string.Empty;
+
+            int index = -1;
+            string remove = null;
+            string add = null;
             GUILayout.Label($"{fileManager.missingKeys.Count} missing entries:");
-            foreach (var item in fileManager.missingKeys)
+
+            var property = serializedObject.FindProperty(nameof(fileManager.missingKeys));
+            for (int i = 0; i < property.arraySize; i++)
             {
+                var elementProperty = property.GetArrayElementAtIndex(i);
+                string item = elementProperty.stringValue;
+
                 GUILayout.BeginHorizontal();
                 GUILayout.Label((++val).ToString(), maxWidthNum);
                 bool enabled = GUI.enabled;
                 bool keyExist = fileManager.HasKey(item);
                 if (keyExist) GUI.enabled = false;
 
-                if (GUILayout.Button("Add", maxWidth)) add = item;
+                if (GUILayout.Button("Add", maxWidth))
+                {
+                    index = i;
+                    add = item;
+                }
 
                 GUI.enabled = true;
-                if (GUILayout.Button("X", maxWidthX)) remove = item;
+                if (GUILayout.Button("X", maxWidthX))
+                {
+                    index = i;
+                    remove = item;
+                }
                 GUI.enabled = !keyExist;
 
                 if (keyExist) GUILayout.Label(item + " \t(Key exist in the files already)");
@@ -184,15 +231,22 @@ namespace Minerva.Localizations.Editor
                 GUI.enabled = enabled;
                 GUILayout.EndHorizontal();
             }
-            if (add != string.Empty)
+            if (add != null)
             {
                 fileManager.AddKey(add);
-                fileManager.missingKeys.Remove(add);
+                property.DeleteArrayElementAtIndex(index);
             }
-            if (remove != string.Empty)
+            if (remove != null)
             {
-                fileManager.missingKeys.Remove(remove);
+                property.DeleteArrayElementAtIndex(index);
             }
+            if (serializedObject.hasModifiedProperties)
+            {
+                serializedObject.ApplyModifiedProperties();
+                serializedObject.Update();
+                EditorUtility.SetDirty(fileManager);
+            }
+
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("Resolve all missing keys"))
             {
@@ -212,18 +266,23 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.EndScrollView();
         }
 
-        private void DrawTable()
+        private void DrawTable_Old()
         {
             var table = fileManager.LocalizationTable;
-            var keyEntrykeyWidth = GUILayout.MaxWidth(200);
+            var keyEntrykeyWidth = GUILayout.Width(300);
 
             GUILayout.BeginHorizontal();
-            setting.tableUseArea = GUILayout.Toggle(setting.tableUseArea, "Use large field", keyEntrykeyWidth);
-            setting.tableEntryWidth = EditorGUILayout.FloatField("W", setting.tableEntryWidth, keyEntrykeyWidth);
-            setting.tableEntryHeight = EditorGUILayout.FloatField("H", setting.tableEntryHeight, keyEntrykeyWidth);
-            setting.tableEntryWidth = Mathf.Max(50, setting.tableEntryWidth);
-            setting.tableEntryHeight = Mathf.Max(20, setting.tableEntryHeight);
+            SerializedObject sobj = setting.serializedObject;
+            EditorGUILayout.PropertyField(sobj.FindProperty(nameof(setting.tableEntryWidth)));
+            EditorGUILayout.PropertyField(sobj.FindProperty(nameof(setting.tableEntryHeight)));
+            if (sobj.hasModifiedProperties)
+            {
+                sobj.ApplyModifiedProperties();
+                sobj.Update();
+                EditorUtility.SetDirty(setting);
+            }
             GUILayout.EndHorizontal();
+
             var keyEntryWidth = GUILayout.MaxWidth(setting.tableEntryWidth);
             //var keyEntryWidthDouble = GUILayout.MaxWidth(setting.tableEntryWidth * 2);
             var keyEntryHeight = GUILayout.MaxHeight(setting.tableEntryHeight);
@@ -250,13 +309,12 @@ namespace Minerva.Localizations.Editor
                     deleteKey = keyValPair.Key;
                 }
 
-                GUILayout.Label(keyValPair.Key, keyEntrykeyWidth);
+                EditorGUILayout.SelectableLabel(keyValPair.Key, keyEntrykeyWidth, keyEntryHeight);
                 foreach (var region in keyValPair.Value.Keys)
                 {
                     string newText;
                     string oldText = keyValPair.Value[region];
-                    if (setting.tableUseArea) newText = GUILayout.TextArea(oldText, keyEntryWidth, keyEntryHeight);
-                    else newText = GUILayout.TextField(oldText, keyEntryWidth, keyEntryHeight);
+                    newText = GUILayout.TextField(oldText, keyEntryWidth, keyEntryHeight);
                     if (newText != oldText)
                     {
                         changedVal = newText;
@@ -285,24 +343,145 @@ namespace Minerva.Localizations.Editor
             GUILayout.EndScrollView();
         }
 
+        private void DrawTable()
+        {
+            const int HEIGHT_OFFSET = 290;
+            if (setting.useOldTableStyle)
+            {
+                DrawTable_Old();
+                return;
+            }
+            if (Event.current.type == EventType.ScrollWheel)
+            {
+                tableBaseIndex += Event.current.delta.y > 0 ? 1 : -1;
+                tableBaseIndex = Mathf.Min(fileManager.PropertyTable.Count, Mathf.Max(0, tableBaseIndex));
+                Repaint();
+            }
+
+            var table = fileManager.PropertyTable;
+
+            GUILayout.BeginVertical();
+            GUILayout.BeginHorizontal();
+            SerializedObject sobj = setting.serializedObject;
+            EditorGUILayout.PropertyField(sobj.FindProperty(nameof(setting.tableEntryWidth)));
+            EditorGUILayout.PropertyField(sobj.FindProperty(nameof(setting.tableEntryHeight)));
+            if (sobj.hasModifiedProperties)
+            {
+                sobj.ApplyModifiedProperties();
+                sobj.Update();
+                EditorUtility.SetDirty(setting);
+            }
+            GUILayout.EndHorizontal();
+
+
+            // shoud display at least 1 element
+            int entryCount = (int)((position.height - HEIGHT_OFFSET) / setting.tableEntryHeight);
+            entryCount = Mathf.Max(1, entryCount);
+            int upperTableIndex = Mathf.Min(table.Count, tableBaseIndex + entryCount);
+            EditorGUILayout.LabelField($"{tableBaseIndex + 1}~{upperTableIndex} of {table.Count}");
+            var keyEntrykeyWidth = GUILayout.Width(300);
+            var keyEntryWidth = GUILayout.Width(setting.tableEntryWidth);
+            var keyEntryHeight = GUILayout.Height(setting.tableEntryHeight);
+            GUILayout.BeginHorizontal();
+            tableScrollView = GUILayout.BeginScrollView(tableScrollView, GUI.skin.horizontalScrollbar, GUIStyle.none, GUILayout.MaxWidth(position.width));
+            {
+                GUILayout.BeginHorizontal(GUILayout.MaxWidth(position.width));
+                GUILayout.Button("...", GUILayout.Width(EditorGUIUtility.singleLineHeight));
+                GUILayout.Label("Files", keyEntrykeyWidth);
+                foreach (var file in fileManager.files)
+                {
+                    GUILayout.Label(file.Region, keyEntryWidth);
+                }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.BeginVertical(GUILayout.Height(position.height - HEIGHT_OFFSET));
+            for (int i = tableBaseIndex; i < upperTableIndex; i++)
+            {
+                string key = fileManager.keyList[i];
+                GUILayout.BeginHorizontal(keyEntryHeight);
+                // try remove
+                if (GUILayout.Button("x", GUILayout.Width(EditorGUIUtility.singleLineHeight)))
+                {
+                    if (setting.sudo || EditorUtility.DisplayDialog("Delete key " + key, $"Delete key {key} from all files?", "OK", "Cancel"))
+                    {
+                        fileManager.RemoveKey(key);
+                        GUILayout.EndHorizontal();
+                        break;
+                    }
+                }
+
+                // draw all entries
+                EditorGUILayout.SelectableLabel(key, keyEntrykeyWidth, keyEntryHeight);
+                var regionsValue = table[key];
+                foreach (var region in fileManager.files)
+                {
+                    var so = regionsValue[region.Region];
+                    DrawTableEntry(GUIContent.none, so, keyEntryWidth, keyEntryHeight);
+                }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.EndVertical();
+            // try remove key
+
+            GUILayout.EndScrollView();
+            tableBaseIndex = (int)GUILayout.VerticalScrollbar(tableBaseIndex, entryCount, 0, table.Count, GUILayout.ExpandHeight(true));
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+        }
+
+        private static void DrawTableEntry(GUIContent label, SerializedProperty so, params GUILayoutOption[] options)
+        {
+            if (so == null)
+            {
+                EditorGUILayout.LabelField("===", options);
+                return;
+            }
+            EditorGUILayout.PropertyField(so, label, options);
+            if (so.serializedObject.hasModifiedProperties)
+            {
+                so.serializedObject.ApplyModifiedProperties();
+                so.serializedObject.Update();
+                EditorUtility.SetDirty(so.serializedObject.targetObject);
+            }
+        }
 
         private void DrawSettings()
         {
-            EditorGUILayout.LabelField("Settings");
-            setting.autoSwitchMode = EditorGUILayout.Toggle("Auto Switch Mode", setting.autoSwitchMode);
-            setting.displayCount = EditorGUILayout.IntField("Display Count", setting.displayCount);
-            setting.textEditorHeight = EditorGUILayout.IntField("Text Field Height", setting.textEditorHeight);
-            setting.linePerPage = EditorGUILayout.IntField("Text Field Line Count", setting.linePerPage);
-            setting.showSecondaryCountry = EditorGUILayout.Toggle("Show Secondary Country", setting.showSecondaryCountry);
-            setting.sudo = EditorGUILayout.Toggle("No dialogue", setting.sudo);
+            EditorGUILayout.LabelField("Settings", EditorStyles.boldLabel);
+            EditorGUILayout.ObjectField("Setting file", setting, typeof(LocalizationEditorSetting), false);
+            SerializedObject obj = setting.serializedObject;
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
+
+            EditorGUILayout.LabelField("Reference Sheet", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.autoSwitch)));
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.displayCount)));
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.textEditorHeight)));
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.linePerPage)));
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.showSecondaryCountry)));
+            GUILayout.Space(EditorGUIUtility.singleLineHeight);
+
+            EditorGUILayout.LabelField("Table", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.tableEntryWidth)));
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.tableEntryHeight)));
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.useOldTableStyle)));
+            GUILayout.Space(EditorGUIUtility.singleLineHeight);
+
+            EditorGUILayout.LabelField("Editor", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.sudo)), new GUIContent("No Dialogue"));
+
+            if (obj.hasModifiedProperties)
+            {
+                obj.ApplyModifiedProperties();
+                obj.Update();
+                EditorUtility.SetDirty(setting);
+            }
 
             setting.textEditorHeight = Mathf.Max(setting.textEditorHeight, LocalizationEditorSetting.TEXT_EDITOR_DEFAULT_HEIGHT);
         }
 
         private void Initialize()
         {
-            setting ??= LocalizationEditorSetting.GetOrCreateSettings();
+            setting = LocalizationEditorSetting.GetOrCreateSettings();
 
             newEntry ??= new CreateNewEntryModule();
             newEntry.FileManager = fileManager;
@@ -314,16 +493,16 @@ namespace Minerva.Localizations.Editor
         private void DrawPrimaryLanguage()
         {
             EditorGUILayout.BeginVertical();
-            referenceCountry = GetCountry("Reference Country/Region", referenceCountry);
-            primaryPageList = DrawCountry(referenceCountry, primaryPageList);
+            referenceRegion = GetCountry("Reference Country/Region", referenceRegion);
+            primaryPageList = DrawCountry(referenceRegion, primaryPageList);
             EditorGUILayout.EndVertical();
         }
 
         private void DrawSecondaryLanguage()
         {
             EditorGUILayout.BeginVertical();
-            country = GetCountry("Country/Region", country);
-            pageList = DrawCountry(country, pageList);
+            region = GetCountry("Country/Region", region);
+            pageList = DrawCountry(region, pageList);
             EditorGUILayout.EndVertical();
         }
 
@@ -342,83 +521,74 @@ namespace Minerva.Localizations.Editor
             GUILayout.EndScrollView();
         }
 
-        public PageList DrawCountry(string country, PageList pageList)
+        public PageList DrawCountry(string region, PageList pageList)
         {
-            var file = fileManager.GetLanguageFile(country);
+            var file = fileManager.GetLanguageFile(region);
             if (file == null)
             {
-                GUILayout.Label(country + " is not added to the File Manager");
+                GUILayout.Label(region + " is not added to the File Manager");
                 return pageList;
             }
 
             var possibleKeys = file.FindMatchedKeys(key, true);
             var first = possibleKeys.FirstOrDefault();
-            if (string.IsNullOrEmpty(first)) return pageList;
+            // no key matches
+            if (possibleKeys.Count == 0)
+            {
+                if (key.EndsWith('.'))
+                {
+                    key = key[..^1];
+                }
+                // has current key valid
+                if (file.HasKey(key, true))
+                {
+                    possibleKeys.Add(key);
+                    first = key;
+                }
+                //current key is not valid,return
+                else return pageList;
+            }
 
 
             GUILayout.BeginVertical();
             var keyLength = key?.Length ?? 0;
-            first = first[keyLength..^0];
-            int index = first.IndexOf(".");
-            if (setting.autoSwitchMode)
+            bool isAtButtomLevel = first[keyLength..^0].IndexOf(".") == -1;
+            if (setting.autoSwitch)
             {
                 selectClass = possibleKeys.Count <= setting.displayCount ? EntryDrawMode.entry : EntryDrawMode.@class;
             }
-
-            if (selectClass == EntryDrawMode.entry || index == -1)
+            if (selectClass == EntryDrawMode.entry || isAtButtomLevel)
             {
                 GUILayout.Label(file.Region.ToString(), EditorStyles.boldLabel);
-                pageList ??= DrawListPage(
-                    possibleKeys,
-                    (possibleKey) =>
-                    {
-                        drawEntry.Initialize(setting, key, fileManager);
-                        drawEntry.File = file;
-                        drawEntry.Draw(possibleKey);
-                    }
-                );
+                pageList ??= DrawListPage(possibleKeys, (possibleKey) => drawEntry.Draw(possibleKey));
+                drawEntry.Initialize(setting, key, fileManager, region);
                 ((GenericListPageList<string>)pageList).entryList = possibleKeys;
                 pageList.LinesPerPage = setting.LinePerPage;
                 pageList.Draw();
-                //foreach (var possibleKey in possibleKeys)
-                //{
-                //    drawEntry.Initialize(setting, key, fileManager);
-                //    drawEntry.File = file;
-                //    drawEntry.Draw(possibleKey);
-                //}
             }
             else
             {
-                selectClass = EntryDrawMode.@class;
-                ClassSelection();
-            }
-            GUILayout.EndVertical();
-            return pageList;
-        }
-
-        void ClassSelection()
-        {
-            List<string> possible = fileManager.FindPossibleNextClass(key);
-            foreach (var pkey in possible)
-            {
-                var s = GUILayout.Button(pkey, GUILayout.Height(setting.textEditorHeight));
-                if (s)
+                var possible = fileManager.FindPossibleNextClass(key);
+                foreach (var pkey in possible)
                 {
+                    var s = GUILayout.Button(pkey, GUILayout.Height(setting.textEditorHeight));
+                    if (!s) continue;
                     OpenSelectedClass(pkey);
                 }
             }
-
+            GUILayout.EndVertical();
+            return pageList;
         }
 
         void OpenSelectedClass(string nextClass)
         {
             if (key.EndsWith(".") || key.Length == 0)
             {
-                key += nextClass;
+                key += nextClass + ".";
             }
             else
             {
-                key += "." + nextClass;
+                key += "." + nextClass + ".";
             }
         }
 
@@ -435,7 +605,7 @@ namespace Minerva.Localizations.Editor
                 return;
             }
             list.RemoveAt(list.Count - 1);
-            key = string.Join('.', list);
+            key = string.Join('.', list) + '.';
         }
 
 
@@ -448,31 +618,31 @@ namespace Minerva.Localizations.Editor
 
         public class LanguagePackModule
         {
-            protected string key;
-            protected LocalizationDataManager fileManager;
-            protected LocalizationEditorSetting setting;
+            public string region;
+            public string key;
+            public L10nDataManager fileManager;
+            public LocalizationEditorSetting setting;
 
             public string CurrentKey { get => key; set => key = value; }
-            public LocalizationDataManager FileManager { get => fileManager; set => fileManager = value; }
+            public L10nDataManager FileManager { get => fileManager; set => fileManager = value; }
             public LocalizationEditorSetting Seting { get => setting; set => setting = value; }
 
-            public void Initialize(LocalizationEditorSetting setting, string key, LocalizationDataManager fileManager)
+            public void Initialize(LocalizationEditorSetting setting, string key, L10nDataManager fileManager, string region = L10n.DEFAULT_REGION)
             {
                 this.key = key;
                 this.setting = setting;
                 this.fileManager = fileManager;
+                this.region = region;
             }
         }
 
 
         public class DrawEntryModule : LanguagePackModule
         {
-            private LanguageFile file;
             private string changingKey;
             private string changeToKey;
 
             private int TextEditorHeight => setting.TextEditorHeight;
-            public LanguageFile File { get => file; set => file = value; }
 
             public void Draw(string key)
             {
@@ -481,13 +651,8 @@ namespace Minerva.Localizations.Editor
                 string partialKey = key[keyLength..^0];
                 string labelName = partialKey.StartsWith('.') ? partialKey[1..partialKey.Length] : partialKey;
 
-                string oldValue = File.Get(key);
-                var value = EditorGUILayout.TextField(labelName, oldValue, GUILayout.Height(TextEditorHeight));
-                if (value != oldValue)
-                {
-                    EditorUtility.SetDirty(File);
-                    File.Write(key, value);
-                }
+                SerializedProperty property = FileManager.PropertyTable[key][region];
+                DrawTableEntry(new GUIContent(labelName), property);
 
 
                 if (changingKey != key)
@@ -557,7 +722,11 @@ namespace Minerva.Localizations.Editor
                     if (add)
                     {
                         newKey = key + newKey;
-                        if (!fileManager.HasKey(newKey)) fileManager.AddKeyToFiles(newKey, newKeyValue);
+                        if (!fileManager.HasKey(newKey))
+                        {
+                            fileManager.AddKeyToFiles(newKey, newKeyValue);
+                        }
+
                         newKey = "";
                     }
                 }
