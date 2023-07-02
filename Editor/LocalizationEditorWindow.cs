@@ -66,15 +66,19 @@ namespace Minerva.Localizations.Editor
 
             scrollPos = GUILayout.BeginScrollView(scrollPos);
             GUILayout.BeginVertical();
-
-
             GUILayout.BeginVertical();
             //GUILayout.Space(10);
             GUILayout.Toolbar(-1, new string[] { "" });
             //GUILayout.Label("Language Manager", EditorStyles.boldLabel);
             fileManager = (L10nDataManager)EditorGUILayout.ObjectField("Language Manager", fileManager, typeof(L10nDataManager), false);
             //if (string.IsNullOrEmpty(key)) key = fileManager.topLevelDomain;
-            if (!fileManager) { EndWindow(); return; }
+            if (!fileManager)
+            {
+                GUILayout.EndVertical();
+                GUILayout.EndVertical();
+                GUILayout.EndScrollView();
+                return;
+            }
 
             if (serializedObject == null || serializedObject.targetObject != fileManager) serializedObject = new SerializedObject(fileManager);
 
@@ -113,9 +117,8 @@ namespace Minerva.Localizations.Editor
             }
 
             GUILayout.Space(30);
-
-
-            EndWindow();
+            GUILayout.EndVertical();
+            GUILayout.EndScrollView();
         }
 
         private void OnLostFocus()
@@ -124,16 +127,14 @@ namespace Minerva.Localizations.Editor
             SaveChanges();
         }
 
-        private void Update()
-        {
-            if (!fileManager) return;
-        }
-
         public override void SaveChanges()
         {
+            if (fileManager)
+            {
+                fileManager.EditorSaveSelf();
+                fileManager.RefreshTable();
+            }
             base.SaveChanges();
-            if (fileManager) fileManager.EditorSaveSelf();
-            fileManager.RefreshTable();
         }
 
 
@@ -513,12 +514,6 @@ namespace Minerva.Localizations.Editor
             if (index < 0) index = 0;
             index = EditorGUILayout.Popup(label, index, languages);
             return languages[index];
-        }
-
-        private static void EndWindow()
-        {
-            GUILayout.EndVertical();
-            GUILayout.EndScrollView();
         }
 
         public PageList DrawCountry(string region, PageList pageList)
