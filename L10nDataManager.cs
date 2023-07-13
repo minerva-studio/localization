@@ -62,7 +62,7 @@ namespace Minerva.Localizations
         private Dictionary<string, Dictionary<string, SerializedProperty>> propertyTable;
         private Trie trie;
         private SerializedObject sobj;
-        
+
         public SerializedObject serializedObject { get => sobj ??= new(this); }
         public Table LocalizationTable { get => localizationTable ??= GenerateTable(); set => localizationTable = value; }
         public Dictionary<string, Dictionary<string, SerializedProperty>> PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
@@ -132,12 +132,12 @@ namespace Minerva.Localizations
         /// <param name="key"></param>
         /// <param name="defaultValue"></param>
         /// <returns></returns>
-        public KeyData AddKey(string key, string defaultValue = "")
+        public void AddKey(string key, string defaultValue = "")
         {
+            Debug.Log(keyList.Count);
             AddKey_Internal(key, defaultValue);
-            var result = AddKeyToTable(key, defaultValue);
+            AddKeyToTable(key, defaultValue);
             L10n.ReloadIfInitialized();
-            return result;
         }
 
         /// <summary>
@@ -164,6 +164,7 @@ namespace Minerva.Localizations
                 EditorUtility.SetDirty(this);
                 keyList.Add(key);
                 trie.Add(key);
+                serializedObject.Update();
             }
 
             foreach (var file in files)
@@ -179,16 +180,25 @@ namespace Minerva.Localizations
         /// <param name="key"></param>
         /// <param name="defaultValue"></param>
         /// <returns></returns>
-        private KeyData AddKeyToTable(string key, string defaultValue = "")
+        private void AddKeyToTable(string key, string defaultValue = "")
         {
-            if (LocalizationTable.TryGetValue(key, out var table)) return table;
-            table = new KeyData();
+            if (!LocalizationTable.TryGetValue(key, out var strTable))
+            {
+                LocalizationTable[key] = strTable = new KeyData();
+            }
             foreach (var region in regions)
             {
-                table[region] = defaultValue;
+                strTable[region] = defaultValue;
             }
-            LocalizationTable.Add(key, table);
-            return table;
+
+            if (!propertyTable.TryGetValue(key, out var properties))
+            {
+                properties = propertyTable[key] = new Dictionary<string, SerializedProperty>();
+            }
+            foreach (var file in files)
+            {
+                properties[file.Region] = file.GetProperty(key);
+            }
         }
 
 
@@ -270,6 +280,7 @@ namespace Minerva.Localizations
         [ContextMenu("Sync key list")]
         public void SyncKeys()
         {
+            EditorUtility.SetDirty(this);
             UpdateKeyList();
             foreach (var file in files)
             {

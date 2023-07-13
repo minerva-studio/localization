@@ -194,6 +194,7 @@ namespace Minerva.Localizations
             var entry = GetEntry(key);
             if (entry != null) return false;
             else entries.Add(new Entry(key, value));
+            serializedObject.Update();
             Debug.Log($"Write Entry " + key + " with value " + value);
             if (updateAssets) AssetDatabase.SaveAssets();
             return true;
@@ -263,12 +264,18 @@ namespace Minerva.Localizations
         /// <returns>Whether file contains the key/value</returns>
         public bool TryGetProperty(string key, out SerializedProperty value)
         {
+            serializedObject.Update();
             value = null;
             var index = entries.FindIndex(e => e.Key == key);
             if (index != -1)
             {
-                value = serializedObject.FindProperty(nameof(entries)).GetArrayElementAtIndex(index).FindPropertyRelative("value");
-                return true;
+                SerializedProperty entriesProperty = serializedObject.FindProperty(nameof(entries));
+                if (entriesProperty.arraySize != 0 && entriesProperty.arraySize > index)
+                {
+                    value = entriesProperty.GetArrayElementAtIndex(index).FindPropertyRelative("value");
+                    return true;
+                }
+
             }
             if (!isMasterFile) return false;
 

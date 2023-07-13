@@ -1,5 +1,4 @@
-﻿using PlasticGui.WorkspaceWindow;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -31,7 +30,7 @@ namespace Minerva.Localizations.Editor
         public L10nDataManager fileManager;
         public LocalizationEditorSetting setting;
 
-        private SerializedObject serializedObject;
+        private SerializedObject serializedObject => fileManager.serializedObject;
 
         public string key;
         private string referenceRegion;
@@ -79,8 +78,6 @@ namespace Minerva.Localizations.Editor
                 GUILayout.EndScrollView();
                 return;
             }
-
-            if (serializedObject == null || serializedObject.targetObject != fileManager) serializedObject = new SerializedObject(fileManager);
 
             key = EditorGUILayout.TextField("Class Path", key);
             if (GUILayout.Button("Return")) ReturnClass();
