@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Minerva.Localizations.Editor
 {
-    [CustomEditor(typeof(TextLocalizer))]
+    [CustomEditor(typeof(TextLocalizerBase))]
     public class TextLocalizerEditor : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
@@ -16,7 +16,7 @@ namespace Minerva.Localizations.Editor
             GUILayoutOption height = GUILayout.Height(36);
 
             GUILayout.Space(10);
-            TextLocalizer languageLoader = target as TextLocalizer;
+            TextLocalizerBase languageLoader = target as TextLocalizerBase;
             L10nDataManager languageFileManager = languageLoader.languageFileManager;
             string key = languageLoader.key;
             Color currentContentColor = GUI.contentColor;
@@ -28,7 +28,7 @@ namespace Minerva.Localizations.Editor
                 GUI.contentColor = Color.red;
                 GUILayout.Label(new GUIContent("Language File Manager not found"));
             }
-            else if (languageLoader.HasValidkey)
+            else if (HasValidkey(languageLoader))
             {
                 GUI.contentColor = Color.green;
                 GUILayout.Label(new GUIContent("The key is valid"));
@@ -67,7 +67,7 @@ namespace Minerva.Localizations.Editor
 
                 GUILayout.Label("Tools");
                 GUILayout.BeginHorizontal(height);
-                if (!languageLoader.HasValidkey)
+                if (!HasValidkey(languageLoader))
                 {
                     if (GUILayout.Button("Add New Key", height))
                     {
@@ -103,9 +103,14 @@ namespace Minerva.Localizations.Editor
             return key;
         }
 
-        private static void ClearKey(params TextLocalizer[] languageLoaders)
+        private static bool HasValidkey(TextLocalizerBase textLocalizer)
         {
-            foreach (TextLocalizer languageLoader in languageLoaders)
+            return textLocalizer.languageFileManager.HasKey(textLocalizer.key) && !string.IsNullOrEmpty(textLocalizer.key);
+        }
+
+        private static void ClearKey(params TextLocalizerBase[] languageLoaders)
+        {
+            foreach (TextLocalizerBase languageLoader in languageLoaders)
             {
                 EditorUtility.SetDirty(languageLoader);
                 languageLoader.key = "";

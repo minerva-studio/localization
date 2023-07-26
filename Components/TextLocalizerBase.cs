@@ -15,9 +15,6 @@ namespace Minerva.Localizations.Components
         public string key;
         public L10nDataManager languageFileManager;
 
-        public bool HasValidkey => languageFileManager.HasKey(key) && !string.IsNullOrEmpty(key);
-
-
 
         void Awake()
         {
@@ -33,7 +30,7 @@ namespace Minerva.Localizations.Components
         {
             Load();
 #if UNITY_EDITOR
-            if (!HasValidkey) Debug.LogError("The Language Loader does not have a valid key");
+            if (!languageFileManager.HasKey(key) || string.IsNullOrEmpty(key)) Debug.LogError("The Language Loader does not have a valid key");
 #endif
         }
 
