@@ -11,7 +11,7 @@ namespace Minerva.Localizations.EscapePatterns
     /// </summary>
     internal static class EscapePattern
     {
-        public const string DYNAMIC_VALUE_ARG_PATTERN = @"\[([^\[\]\n:,$§]*)(?:\:(?:([^\[\]\n:,$§]*),?)+)*\]";
+        public const string DYNAMIC_VALUE_ARG_PATTERN = @"\{([^\{\}\n:,$§]*)(?:\:(?:([^\{\}\n:,$§]*),?)+)*\}";
         public const string CONTENT_REFERENCE_PATTERN = @"\$([^\$\n]*?)\$";
         public const string COLOR_SIMPLE_PATTERN = @"§(.)([^§\n]*?)§";
         public const string COLOR_CODE_PATTERN = @"§(#[0-9A-Fa-f]{6})([^§\n]*?)§";

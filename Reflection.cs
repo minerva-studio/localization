@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
 
 namespace Minerva.Localizations
@@ -15,6 +17,23 @@ namespace Minerva.Localizations
     /// </author>
     internal static class Reflection
     {
+        /// <summary>
+        /// An reflection entry name
+        /// </summary>
+        struct NameEntry
+        {
+            internal string name;
+            internal int? index;
+
+            public NameEntry(string name, int? index) : this()
+            {
+                this.name = name;
+                this.index = index;
+            }
+        }
+
+
+
         public static object GetObject(object obj, string path)
         {
             if (obj == null)
@@ -23,7 +42,8 @@ namespace Minerva.Localizations
             }
             try
             {
-                return GetObjectInternal(obj, path.Split('.'));
+                NameEntry[] path1 = ParsePath(obj, path);
+                return GetObjectInternal(obj, path1);
             }
             catch (Exception e)
             {
@@ -32,24 +52,26 @@ namespace Minerva.Localizations
             }
         }
 
-        public static object GetObject(object obj, string[] path)
+        private static NameEntry[] ParsePath(object obj, string path)
         {
-            if (obj == null)
+            string[] splitPath = path.Split('.');
+            NameEntry[] entries = new NameEntry[splitPath.Length];
+            for (int i = 0; i < splitPath.Length; i++)
             {
-                throw new ArgumentNullException(nameof(obj));
+                var index = HandleIndex(obj, splitPath[i]);
+                if (!index.HasValue)
+                {
+                    entries[i] = new NameEntry(splitPath[i], null);
+                    continue;
+                }
+                var name = splitPath[i][..index.Value.Item2.Start] + splitPath[i][index.Value.Item2.End..];
+                entries[i] = new NameEntry(name, index.Value.Item1);
             }
-            try
-            {
-                return GetObjectInternal(obj, path);
-            }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
-                return null;
-            }
+
+            return entries;
         }
 
-        private static object GetObjectInternal(object obj, string[] path)
+        private static object GetObjectInternal(object obj, NameEntry[] path)
         {
             if (path.Length == 0) return obj;
 
@@ -81,7 +103,8 @@ namespace Minerva.Localizations
 
             try
             {
-                return GetObjectNullPropagation(obj, path.Split('.'));
+                NameEntry[] path1 = ParsePath(obj, path);
+                return GetObjectNullPropagation(obj, path1);
             }
             catch (Exception e)
             {
@@ -97,7 +120,7 @@ namespace Minerva.Localizations
         /// <param name="path"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        private static object GetObjectNullPropagation(object obj, string[] path)
+        private static object GetObjectNullPropagation(object obj, NameEntry[] path)
         {
             if (path.Length == 0) return obj;
 
@@ -120,80 +143,119 @@ namespace Minerva.Localizations
 
 
 
-        public static object GetFieldOrProperty(object obj, string name)
+        static object GetFieldOrProperty(object obj, NameEntry entry)
         {
             if (obj == null)
             {
                 throw new ArgumentNullException(nameof(obj));
             }
-
-            //List<MemberInfo> members = GetMembers(obj, name);
-            //foreach (var item in members)
-            //{
-            //    if (item is FieldInfo field)
-            //    {
-            //        return field.GetValue(obj);
-            //    }
-            //    else if (item is PropertyInfo property)
-            //    {
-            //        return property.GetValue(obj);
-            //    }
-            //}
-            return GetValue(obj, name);
+            return GetValue(obj, entry);
         }
 
-        private static List<MemberInfo> GetMembers(object obj, string name)
+        private static object GetValue(object obj, NameEntry entry)
         {
-            var list = new List<MemberInfo>();
-            var type = obj.GetType();
-            IEnumerable<MemberInfo> collection = type.GetMembers().Where(predicate);
-            list.AddRange(collection);
-            list.AddRange(type.GetMember(name));
-
-            return list;
-
-            bool predicate(MemberInfo t)
-            {
-                if (t == null) return false;
-                if (Attribute.IsDefined(t, typeof(KeyNameAttribute))) return false;
-                return ((KeyNameAttribute)Attribute.GetCustomAttribute(t, typeof(KeyNameAttribute))).Key == name;
-            }
-        }
-
-        private static object GetValue(object obj, string name)
-        {
+            object value = null;
             var type = obj.GetType();
             foreach (var item in type.GetMembers().Where(predicate))
             {
                 if (item is FieldInfo field)
                 {
-                    return field.GetValue(obj);
+                    value = field.GetValue(obj);
+                    break;
                 }
                 else if (item is PropertyInfo property)
                 {
-                    return property.GetValue(obj);
-                }
-            }
-            foreach (var item in type.GetMember(name))
-            {
-                if (item is FieldInfo field)
-                {
-                    return field.GetValue(obj);
-                }
-                else if (item is PropertyInfo property)
-                {
-                    return property.GetValue(obj);
+                    value = property.GetValue(obj);
+                    break;
                 }
             }
 
-            return null;
+            if (value == null)
+            {
+                foreach (var item in type.GetMember(entry.name))
+                {
+                    if (item is FieldInfo field)
+                    {
+                        value = field.GetValue(obj);
+                        break;
+                    }
+                    else if (item is PropertyInfo property)
+                    {
+                        value = property.GetValue(obj);
+                        break;
+                    }
+                }
+
+            }
+
+            if (value != null)
+            {
+                if (!entry.index.HasValue)
+                {
+                    return value;
+                }
+                else
+                {
+                    return value is IList list ? list[entry.index.Value] : null;
+                }
+            }
+            else
+            {
+                return (object)null;
+            }
+
 
             bool predicate(MemberInfo t)
             {
                 if (t == null) return false;
                 KeyNameAttribute attr = (KeyNameAttribute)Attribute.GetCustomAttribute(t, typeof(KeyNameAttribute));
-                return attr?.Key == name == true;
+                return attr?.Key == entry.name == true;
             }
         }
+
+
+
+
+
+        private static (int, Range)? HandleIndex(object baseObject, string name)
+        {
+            //looks like contains indexer
+            if (!name.Contains("[") || !name.Contains("]"))
+            {
+                return null;
+            }
+
+            Range indexRange = name.IndexOf('[')..(name.IndexOf(']') + 1);
+            string indexStr = name[(name.IndexOf('[') + 1)..name.IndexOf(']')];
+            //Debug.Log(indexStr);
+            if (int.TryParse(indexStr, out int index))
+            {
+                return (index, indexRange);
+            }
+
+            var parsedIndex = GetObjectNullPropagation(baseObject, indexStr);
+            if (parsedIndex is int i)
+            {
+                return (i, indexRange);
+            }
+            else if (parsedIndex is float f)
+            {
+                return ((int)f, indexRange);
+            }
+            else if (parsedIndex is long l)
+            {
+                return ((int)l, indexRange);
+            }
+            else if (parsedIndex is double d)
+            {
+                return ((int)d, indexRange);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+
     }
 }
