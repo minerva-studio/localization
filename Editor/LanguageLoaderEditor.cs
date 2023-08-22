@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Minerva.Localizations.Editor
 {
-    [CustomEditor(typeof(TextLocalizerBase))]
+    [CustomEditor(typeof(TextLocalizerBase), true)]
     public class TextLocalizerEditor : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
