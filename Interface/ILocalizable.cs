@@ -34,6 +34,12 @@
             return rawString;
         }
 
+        string GetRawContentWithKey(string key, params string[] param)
+        {
+            var rawString = L10n.GetRawContent(key);
+            return rawString;
+        }
+
         /// <summary>
         /// Get escape value from the object
         /// </summary>

@@ -14,14 +14,18 @@ namespace Minerva.Localizations
     public class L10n
     {
         public const string DEFAULT_REGION = "EN_US";
+
         public bool initialized = false;
+        public bool disableEmptyEntries;
         public string region;
 
-        public bool disableEmptyEntries;
         public MissingKeySolution missingKeySolution;
-
         public L10nDataManager manager;
-        public Dictionary<string, string> dictionary;
+
+        // dictionary is for fast-lookup
+        private Dictionary<string, string> dictionary;
+        // trie is for hierachy search
+        private Tries<string> trie;
 
 
 
@@ -109,12 +113,14 @@ namespace Minerva.Localizations
             LanguageFile languageFile = manager.GetLanguageFile(this.region);
             if (!languageFile) languageFile = manager.GetLanguageFile(DEFAULT_REGION);
             if (!languageFile) throw new NullReferenceException("The localization manager has initialized, but given language type could not be found and default region is not available");
-            dictionary = languageFile.GetDictionary();
-            initialized = true;
 
+            dictionary = languageFile.GetDictionary();
             IEnumerable<string> items = dictionary.Keys.ShallowClone();
+            // directly convert color escape and key escape because they don't change
             foreach (var item in items) dictionary[item] = EscapePattern.ReplaceColorEscape(dictionary[item]);
             foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item]);
+            trie = new Tries<string>(dictionary);
+            initialized = true;
 
             TextLocalizerBase.ReloadAll();
         }
@@ -208,9 +214,31 @@ namespace Minerva.Localizations
             instance.dictionary[key] = value;
         }
 
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        public static List<string> OptionOf(string partialKey, bool firstLevelOnly = false)
+        {
+            if (instance == null || !instance.initialized) { return new List<string>(); }
+            return instance.Instance_OptionOf(partialKey, firstLevelOnly);
+        }
 
-
-
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        private List<string> Instance_OptionOf(string partialKey, bool firstLevelOnly = false)
+        {
+            if (!initialized) { return new List<string>(); }
+            if (firstLevelOnly)
+                return trie.GetSubTrie(partialKey).GetFirstLevelKeys();
+            else return trie.GetSubTrie(partialKey).Keys;
+        }
 
 
 

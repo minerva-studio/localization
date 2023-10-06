@@ -72,6 +72,28 @@ namespace Minerva.Localizations
             return Localizable.Tr(this, param);
         }
 
+        /// <summary>
+        /// <inheritdoc/>
+        /// </summary>
+        /// <returns>
+        /// <inheritdoc/>
+        /// </returns>
+        public string TrKey(string overrideKey, params string[] param)
+        {
+            return Localizable.TrKey(this, overrideKey, param);
+        }
+
+
+
+        /// <summary>
+        /// Get all possible option of this content
+        /// </summary>
+        /// <param name="firstLevelOnly"></param>
+        /// <returns></returns>
+        public List<string> GetOptions(bool firstLevelOnly = false)
+        {
+            return L10n.OptionOf(baseKey, firstLevelOnly);
+        }
 
 
 
