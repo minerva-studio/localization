@@ -31,7 +31,7 @@ namespace Minerva.Localizations
 
         public override bool Equals(object obj)
         {
-            return obj is Entry ? Equals((Entry)obj) : false;
+            return obj is Entry entry && Equals(entry);
         }
 
         public int CompareTo(Entry other)

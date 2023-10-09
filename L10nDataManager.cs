@@ -24,28 +24,34 @@ namespace Minerva.Localizations
 
         private const char CSV_SEPARATOR = ',';
 
-
-        private string Directory
+        /// <summary>
+        /// Get main language file by given region
+        /// </summary>
+        /// <param name="region"></param>
+        /// <returns></returns>
+        public LanguageFile GetLanguageFile(string region)
         {
-            get
-            {
-                string v = Application.dataPath;
-#if UNITY_EDITOR
-                var currentPath = AssetDatabase.GetAssetPath(this).Split('/').ToList();
-                currentPath.RemoveAt(0);
-                if (currentPath.Count > 0) currentPath.RemoveAt(currentPath.Count - 1);
-                foreach (var item in currentPath)
-                {
-                    v = v + "/" + item;
-                }
-#endif
-                return v;
-            }
+            return files
+                .Where(item => item.Region.ToString() == region)
+                .FirstOrDefault();
         }
 
-        public LanguageFile GetLanguageFile(string name)
+        /// <summary>
+        /// Get language file by given region
+        /// </summary>
+        /// <param name="region"></param>
+        /// <param name="tag"></param>
+        /// <returns></returns>
+        public LanguageFile GetLanguageFile(string region, string tag)
         {
-            return files.Where(item => item.Region.ToString() == name).FirstOrDefault();
+            var main = GetLanguageFile(region);
+            if (main.Tag == tag)
+            {
+                return main;
+            }
+            return main.ChildFiles
+                   .Where(item => item.Tag == tag)
+                   .FirstOrDefault();
         }
 
 
@@ -68,6 +74,9 @@ namespace Minerva.Localizations
         public Dictionary<string, Dictionary<string, SerializedProperty>> PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
 
 
+        /// <summary>
+        /// Refresh underlying table
+        /// </summary>
         public void RefreshTable()
         {
             serializedObject.Update();
@@ -159,18 +168,22 @@ namespace Minerva.Localizations
         /// <param name="defaultValue"></param>
         private void AddKey_Internal(string key, string defaultValue)
         {
-            if (!HasKey(key))
+            bool hasKey = !HasKey(key);
+            if (hasKey)
             {
                 EditorUtility.SetDirty(this);
-                keyList.Add(key);
-                trie.Add(key);
-                serializedObject.Update();
+                trie?.Add(key);
             }
 
             foreach (var file in files)
             {
-                EditorUtility.SetDirty(file);
                 if (!file.Add(key, defaultValue)) Debug.LogWarning($"File {file.name} has key '{key}' already.");
+            }
+
+            if (hasKey)
+            {
+                keyList.Add(key);
+                serializedObject.Update();
             }
         }
 
@@ -182,22 +195,56 @@ namespace Minerva.Localizations
         /// <returns></returns>
         private void AddKeyToTable(string key, string defaultValue = "")
         {
-            if (!LocalizationTable.TryGetValue(key, out var strTable))
+            if (propertyTable != null)
             {
-                LocalizationTable[key] = strTable = new KeyData();
-            }
-            foreach (var region in regions)
-            {
-                strTable[region] = defaultValue;
+                if (!LocalizationTable.TryGetValue(key, out var strTable))
+                {
+                    LocalizationTable[key] = strTable = new KeyData();
+                }
+                foreach (var region in regions)
+                {
+                    strTable[region] = defaultValue;
+                }
             }
 
-            if (!propertyTable.TryGetValue(key, out var properties))
+            if (propertyTable != null)
             {
-                properties = propertyTable[key] = new Dictionary<string, SerializedProperty>();
+                if (!propertyTable.TryGetValue(key, out var properties))
+                {
+                    properties = propertyTable[key] = new Dictionary<string, SerializedProperty>();
+                }
+                foreach (var file in files)
+                {
+                    properties[file.Region] = file.GetProperty(key);
+                }
             }
+        }
+
+        public void AddKeyToFile(string key, string fileTag, string defaultValue = "")
+        {
+            Debug.Log("Add");
+            bool hasKey = !HasKey(key);
+            if (hasKey)
+            {
+                EditorUtility.SetDirty(this);
+                trie?.Add(key);
+            }
+
             foreach (var file in files)
             {
-                properties[file.Region] = file.GetProperty(key);
+                if (file.AddToFile(key, fileTag, defaultValue))
+                {
+                    continue;
+                }
+                Debug.LogWarning($"File {file.name} has key '{key}' already.");
+            }
+
+            AddKeyToTable(key, defaultValue);
+            L10n.ReloadIfInitialized();
+            if (hasKey)
+            {
+                keyList.Add(key);
+                serializedObject.Update();
             }
         }
 

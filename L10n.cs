@@ -146,25 +146,28 @@ namespace Minerva.Localizations
         /// <returns></returns>
         private string Instance_GetRawContent(string key)
         {
-            if (initialized && !string.IsNullOrEmpty(key) && dictionary.TryGetValue(key, out var value) && value != null)
+            if (!initialized)
             {
-                if (!disableEmptyEntries || !string.IsNullOrEmpty(value))
-                {
-                    return value;
-                }
-                else
-                {
-                    Debug.LogWarning($"Key {key} has empty entry!");
-                }
+                Debug.LogWarning($"L10n not initialize");
+                goto missing;
             }
-            else
+            if (string.IsNullOrEmpty(key) || !dictionary.TryGetValue(key, out var value) || value == null)
             {
                 Debug.LogWarning($"Key {key} does not appear in the localization file {region}. The key will be added to localization manager if this happened in editor runtime.");
 #if UNITY_EDITOR
                 manager.AddMissingKey(key);
 #endif    
+                goto missing;
+            }
+            if (disableEmptyEntries && string.IsNullOrEmpty(value))
+            {
+                Debug.LogWarning($"Key {key} has empty entry!");
+                goto missing;
             }
 
+            return value;
+
+        missing:
             switch (missingKeySolution)
             {
                 default:

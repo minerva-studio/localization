@@ -22,6 +22,7 @@ namespace Minerva.Localizations.Editor
             GUI.enabled = state;
             GUI.enabled = file.IsMasterFile;
             EditorGUILayout.PropertyField(serializedObject.FindProperty("region")); GUI.enabled = state;
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("tag"));
 
             GUILayout.BeginHorizontal();
             EditorGUILayout.PropertyField(serializedObject.FindProperty(LanguageFile.IS_MASTER_FILE_NAME));
@@ -39,6 +40,7 @@ namespace Minerva.Localizations.Editor
             {
                 if (GUILayout.Button("Import from Yaml", height)) file.ImportFromYaml();
                 if (GUILayout.Button("Export as Yaml", height)) file.ExportToYaml();
+                //if (GUILayout.Button("Export as Source Yaml", height)) file.ExportToYamlAsSource();
             };
             pageList.OnSortList = () =>
             {

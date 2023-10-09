@@ -1,4 +1,5 @@
 ﻿using Minerva.Module;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,6 +19,7 @@ namespace Minerva.Localizations
         public const string CHILD_FILE_NAME = nameof(childFiles);
         public const string ENTRIES_NAME = nameof(entries);
 
+        [SerializeField] private string tag;
         [SerializeField] private bool isMasterFile;
         [SerializeField] private LanguageFile masterFile;
         [SerializeField] private List<LanguageFile> childFiles = new();
@@ -25,7 +27,8 @@ namespace Minerva.Localizations
         [SerializeField] private List<Entry> entries = new();
 
         /// <summary> Region of the file represent </summary>
-        public string Region { get => region; set => region = value; }
+        public string Region { get => isMasterFile ? region : masterFile.region; }
+        public string Tag { get => tag; set => tag = value; }
         public LanguageFile MasterFile { get => masterFile; set => masterFile = value; }
         public List<LanguageFile> ChildFiles { get => childFiles; set => childFiles = value; }
         public bool IsMasterFile => isMasterFile;
@@ -37,17 +40,7 @@ namespace Minerva.Localizations
         public Tries<string> GetTrie()
         {
             var dictionary = new Tries<string>();
-            foreach (var entry in entries)
-            {
-                dictionary[entry.Key] = entry.Value;
-            }
-            foreach (var item in childFiles)
-            {
-                foreach (var entry in item.entries)
-                {
-                    dictionary[entry.Key] = entry.Value;
-                }
-            }
+            GetDictionary(dictionary);
             return dictionary;
         }
 
@@ -58,18 +51,37 @@ namespace Minerva.Localizations
         public Dictionary<string, string> GetDictionary()
         {
             var dictionary = new Dictionary<string, string>();
-            foreach (var entry in entries)
-            {
-                dictionary[entry.Key] = entry.Value;
-            }
+            GetDictionary(dictionary);
+            return dictionary;
+        }
+
+        void GetDictionary(IDictionary<string, string> dictionary)
+        {
+            int duplicate = 0;
+
+            Import(entries);
             foreach (var item in childFiles)
             {
-                foreach (var entry in item.entries)
+                Import(item.entries);
+            }
+
+            if (duplicate > 0)
+            {
+                Debug.LogErrorFormat("{0} duplicate keys found in the language file", duplicate);
+            }
+
+            void Import(List<Entry> entries)
+            {
+                foreach (var entry in entries)
                 {
+                    if (dictionary.ContainsKey(entry.Key))
+                    {
+                        Debug.LogWarningFormat("Duplicate key found: {0}, override with {1}", entry.Key, entry.Value);
+                        duplicate++;
+                    }
                     dictionary[entry.Key] = entry.Value;
                 }
             }
-            return dictionary;
         }
 
 #if UNITY_EDITOR
@@ -77,6 +89,8 @@ namespace Minerva.Localizations
         private SerializedObject sobj;
         public SerializedObject serializedObject { get => sobj ??= new(this); }
         public IEnumerable<string> Keys => GetKeys();
+
+
         private IEnumerable<string> GetKeys()
         {
             foreach (var item in entries)
@@ -122,6 +136,7 @@ namespace Minerva.Localizations
         /// <returns>Whether file contains the key/value</returns>
         public bool TryGet(string key, out string value)
         {
+            entries ??= new();
             value = entries.Find(e => e.Key == key)?.Value;
 
             if (value != null) return true;
@@ -192,12 +207,47 @@ namespace Minerva.Localizations
         {
             EditorUtility.SetDirty(this);
             var entry = GetEntry(key);
-            if (entry != null) return false;
+            if (entry != null)
+            {
+                Debug.Log("Entry exist");
+                return false;
+            }
             else entries.Add(new Entry(key, value));
             serializedObject.Update();
             Debug.Log($"Write Entry " + key + " with value " + value);
             if (updateAssets) AssetDatabase.SaveAssets();
             return true;
+        }
+
+        /// <summary>
+        /// Add value by key
+        /// <para>
+        /// If the key appears in the file or child file, it will not override existing value, do nothing and return false.
+        /// </para>
+        /// <para>
+        /// If the key has not yet appears in the file, a new entry will be added to this file
+        /// </para>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns> Whether given key is in the file already </returns>
+        public bool AddToFile(string key, string fileTag, string value = "", bool updateAssets = false)
+        {
+            Debug.Log("Add");
+            if (fileTag == tag)
+            {
+                return Add(key, value, updateAssets);
+            }
+            if (isMasterFile)
+            {
+                var file = childFiles.FirstOrDefault(f => f.tag == fileTag);
+                if (!file) file = CreateChildFile(fileTag);
+                if (!file) return false;
+
+                return file.Add(key, value, updateAssets);
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -467,18 +517,57 @@ namespace Minerva.Localizations
             if (string.IsNullOrEmpty(path)) return;
             if (File.Exists(path + "_old")) File.Copy(path, path + "_old", true);
 
-            File.WriteAllText(path, string.Empty);
-            File.AppendAllText(path, $"{region}:\n");
-            var lines = entries
-                .Where(e => !string.IsNullOrEmpty(e.Key) && !string.IsNullOrWhiteSpace(e.Key))
-                .Select(e => $" {e.Key}: \"{ToProperString(e.Value)}\"");
-            File.AppendAllLines(path, lines);
+            Yaml.Export(entries, e => e.Key, e => e.Value, path);
+
+            AssetDatabase.Refresh();
+        }
+
+        [ContextMenu("Export to Yaml (Source)")]
+        public void ExportToYamlAsSource() => ExportToYamlAsSource(true);
+        [ContextMenu("Export to Yaml (Source with value)")]
+        public void ExportToYamlAsSourceWithVal() => ExportToYamlAsSource(false);
+        public void ExportToYamlAsSource(bool noValue = false)
+        {
+            string fileName = name.Replace(region + "_", "");
+            //string fileName = masterFile ? region : $"{name}-{region}";
+            string path = EditorUtility.SaveFilePanel("Save yaml file", AssetDatabase.GetAssetPath(this), fileName, "yml");
+
+            //Debug.Log(p);
+            if (string.IsNullOrEmpty(path)) return;
+            if (File.Exists(path + "_old")) File.Copy(path, path + "_old", true);
+
+            Func<Entry, string> valueSelector = noValue ? e => GetPlaceholder(e.Key) : e => e.Value;
+            var entries = new List<Entry>(this.entries);
+            entries.Sort();
+            Yaml.Export(entries, e => e.Key, valueSelector, path);
 
             AssetDatabase.Refresh();
 
-            static string ToProperString(string str)
+            static string GetPlaceholder(string key)
             {
-                return str.Replace("\n", "\\n");
+                var entries = key.Split('.');
+                string v;
+                if (entries.Length >= 2)
+                {
+                    if (entries[^1] == "name")
+                    {
+                        v = $"{entries[^2]}";
+                    }
+                    else
+                    {
+                        v = $"{entries[^2]}{entries[^1].ToTitleCase()}";
+                    }
+                }
+                else
+                {
+                    v = $"{entries[0].ToTitleCase()}";
+                }
+
+                if (entries[^1] == "desc" || entries[^1] == "msg")
+                {
+                    v += ".";
+                }
+                return v;
             }
         }
 
@@ -487,17 +576,11 @@ namespace Minerva.Localizations
         {
             var path = EditorUtility.OpenFilePanel("Select yml file", AssetDatabase.GetAssetPath(this), "yml");
             if (string.IsNullOrEmpty(path)) return;
-
+            EditorUtility.SetDirty(this);
             entries.Clear();
             var lines = File.ReadAllLines(path);
             for (int i = 0; i < lines.Length; i++)
             {
-                if (i == 0)
-                {
-                    region = lines[i].Replace(":", string.Empty);
-                    continue;
-                }
-                //Debug.Log(lines[i]);
                 if (string.IsNullOrWhiteSpace(lines[i])) continue;
                 string item = lines[i].Trim();
                 if (string.IsNullOrEmpty(item) || item.StartsWith('#')) continue;
@@ -507,20 +590,44 @@ namespace Minerva.Localizations
                 string value = item[(spliter + 1)..].Trim()[1..^1];
                 entries.Add(new Entry(key, value.Replace("\\n", "\n")));
             }
+
+            AssetDatabase.SaveAssets();
         }
 
         [ContextMenu("Create Child File")]
-        public void CreateChildFile()
+        public LanguageFile CreateChildFile()
         {
-            string fileName = $"Subfile-{region}";
+            string fileName = $"Lang_{region}_";
             string path = EditorUtility.SaveFilePanel("Save yaml file", AssetDatabase.GetAssetPath(this), fileName, "asset");
-            if (string.IsNullOrEmpty(path)) return;
+            int index = path.LastIndexOf('_');
+            if (index == -1) index = path.LastIndexOf('/');
+            string fileTag = path[(index + 1)..path.LastIndexOf('.')];
+            if (string.IsNullOrEmpty(path)) return null;
+            return CreateChildFilePath(fileTag, path);
+        }
+
+        public LanguageFile CreateChildFile(string fileTag)
+        {
+            string fileName = $"Lang_{region}_{fileTag}.asset";
+            string path = AssetDatabase.GetAssetPath(this);
+            path = path[..path.LastIndexOf('/')] + "/" + fileName;
+            if (string.IsNullOrEmpty(path)) return null;
+            return CreateChildFilePath(fileTag, path);
+        }
+
+        private LanguageFile CreateChildFilePath(string tag, string path)
+        {
             Debug.Log(path);
             var subfile = CreateInstance<LanguageFile>();
+            subfile.tag = tag;
             childFiles.Add(subfile);
+            EditorUtility.SetDirty(this);
             subfile.SetMasterFile(this);
             AssetDatabase.CreateAsset(subfile, "Assets" + path[Application.dataPath.Length..]);
+            AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+
+            return subfile;
         }
 #endif
     }
