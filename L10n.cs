@@ -262,5 +262,27 @@ namespace Minerva.Localizations
             rawString = EscapePattern.ReplaceColorEscape(rawString);
             return rawString;
         }
+
+        /// <summary>
+        /// Direct localization
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
+        public static string Tr(ILocalizable context, params string[] param)
+        {
+            return Localizable.Tr(context, param);
+        }
+
+        /// <summary>
+        /// Direct localization
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
+        public static string TrKey(string key, ILocalizable context, params string[] param)
+        {
+            return Localizable.TrKey(key, context, param);
+        }
     }
 }

@@ -19,8 +19,8 @@ namespace Minerva.Localizations
 
                 table.Add(attr.targetType, item);
             }
-            table[typeof(object)] = typeof(GenericL10nContent);
-            table[typeof(Enum)] = typeof(EnumL10nContent);
+            table[typeof(object)] = typeof(GenericL10nContext);
+            table[typeof(Enum)] = typeof(EnumL10nContext);
         }
 
         public CustomContentAttribute(Type targetType)

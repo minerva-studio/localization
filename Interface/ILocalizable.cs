@@ -34,6 +34,12 @@
             return rawString;
         }
 
+        /// <summary>
+        /// Get the raw content but with different key, override this for creating custom format of localized content
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
         string GetRawContentWithKey(string key, params string[] param)
         {
             var rawString = L10n.GetRawContent(key);

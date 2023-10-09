@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace Minerva.Localizations
 {
     /// <summary>
-    /// Common localization object base class
+    /// Base class of the context of localization
     /// </summary>
-    public abstract class L10nContent : ILocalizable, ILocalizer
+    public abstract class L10nContext : ILocalizable, ILocalizer
     {
         private readonly object value;
         protected string baseKey;
@@ -18,7 +18,7 @@ namespace Minerva.Localizations
         public virtual string BaseKey => baseKey;
 
 
-        protected L10nContent(object value)
+        protected L10nContext(object value)
         {
             this.value = value;
             this.baseKey = value?.GetType().FullName ?? string.Empty;
@@ -62,7 +62,9 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
-        /// <inheritdoc/>
+        /// <inheritdoc/> 
+        /// <br/>
+        /// Short hand for <see cref="L10n.Tr(ILocalizable, string[])"/>
         /// </summary>
         /// <returns>
         /// <inheritdoc/>
@@ -74,13 +76,15 @@ namespace Minerva.Localizations
 
         /// <summary>
         /// <inheritdoc/>
+        /// <br/>
+        /// Short hand for <see cref="L10n.TrKey(string, ILocalizable, string[])"/>
         /// </summary>
         /// <returns>
         /// <inheritdoc/>
         /// </returns>
         public string TrKey(string overrideKey, params string[] param)
         {
-            return Localizable.TrKey(this, overrideKey, param);
+            return Localizable.TrKey(overrideKey, this, param);
         }
 
 
@@ -98,9 +102,9 @@ namespace Minerva.Localizations
 
 
 
-        public static string AsKeyEscape(string BaseKey, params string[] args)
+        public static string AsKeyEscape(string baseKey, params string[] args)
         {
-            return EscapePattern.AsKeyEscape(BaseKey, args);
+            return EscapePattern.AsKeyEscape(baseKey, args);
         }
 
         /// <summary>

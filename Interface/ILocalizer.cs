@@ -1,7 +1,7 @@
 ﻿namespace Minerva.Localizations
 {
     /// <summary>
-    /// A localizer
+    /// A localizer, provide basic functions of how to translate given options to translated text
     /// </summary>
     public interface ILocalizer
     {

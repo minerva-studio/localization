@@ -1,4 +1,4 @@
-﻿using Minerva.Localizations.EscapePatterns;
+﻿using static Minerva.Localizations.EscapePatterns.EscapePattern;
 using System;
 using System.Linq;
 
@@ -18,9 +18,9 @@ namespace Minerva.Localizations
         public static string Tr(ILocalizable obj, params string[] param)
         {
             var rawString = obj.GetRawContent(param);
-            rawString = EscapePattern.ReplaceKeyEscape(rawString);
-            rawString = EscapePattern.ReplaceDynamicValueEscape(rawString, obj, param);
-            rawString = EscapePattern.ReplaceColorEscape(rawString);
+            rawString = ReplaceKeyEscape(rawString);
+            rawString = ReplaceDynamicValueEscape(rawString, obj, param);
+            rawString = ReplaceColorEscape(rawString);
             return rawString;
         }
 
@@ -30,12 +30,12 @@ namespace Minerva.Localizations
         /// <param name="obj"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string TrKey(ILocalizable obj, string key, params string[] param)
+        public static string TrKey(string key, ILocalizable obj, params string[] param)
         {
             var rawString = obj.GetRawContentWithKey(key, param);
-            rawString = EscapePattern.ReplaceKeyEscape(rawString);
-            rawString = EscapePattern.ReplaceDynamicValueEscape(rawString, obj, param);
-            rawString = EscapePattern.ReplaceColorEscape(rawString);
+            rawString = ReplaceKeyEscape(rawString);
+            rawString = ReplaceDynamicValueEscape(rawString, obj, param);
+            rawString = ReplaceColorEscape(rawString);
             return rawString;
         }
 
@@ -48,31 +48,45 @@ namespace Minerva.Localizations
         public static string Tr(object value, params string[] param)
         {
             // null value, return emtpy string
-            if (value == null) return string.Empty;
+            if (value == null)
+            {
+                return string.Empty;
+            }
             // raw value, return value directly
-            if (IsRawValue(value)) return value.ToString();
+            if (IsRawValue(value))
+            {
+                return value.ToString();
+            }
 
+            // is localizer 
             if (value is ILocalizer localizer)
             {
                 return localizer.Tr(param);
             }
-            // custom content defined
-            else if (IsL10nContentDefined(value, out var contentType))
-            {
-                return ((L10nContent)Activator.CreateInstance(contentType, value)).Tr(param);
-            }
-            else if (value is ILocalizable localizable)
+            // is localizable 
+            if (value is ILocalizable localizable)
             {
                 return Tr(localizable, param);
             }
+            // custom content defined
+            if (IsL10nContentDefined(value, out var contentType))
+            {
+                return ((L10nContext)Activator.CreateInstance(contentType, value)).Tr(param);
+            }
+
             // return unlocalized contents
-            else return EscapePattern.AsKeyEscape(value.GetType().FullName);
+            return AsKeyEscape(value.GetType().FullName);
         }
 
         /// <summary>
         /// Check whether the value is raw value to l10n
         /// </summary>
-        /// <remarks> The raw values are all primitives and <see cref="decimal"/></remarks>
+        /// <remarks> The raw values are all primitives and <see cref="decimal"/> <br/>
+        /// Examples: <br/>
+        /// - <see cref="string"/> <br/>
+        /// - <see cref="int"/> <br/>
+        /// - <see cref="long"/> <br/>
+        /// </remarks>
         /// <param name="value"></param>
         /// <returns></returns>
         private static bool IsRawValue(object value)

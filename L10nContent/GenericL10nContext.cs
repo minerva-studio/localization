@@ -4,8 +4,8 @@
     /// Default implementation of localization object
     /// </summary>
     [CustomContent(typeof(object))]
-    public sealed class GenericL10nContent : L10nContent
+    public sealed class GenericL10nContext : L10nContext
     {
-        public GenericL10nContent(object obj) : base(obj) { }
+        public GenericL10nContext(object obj) : base(obj) { }
     }
 }
