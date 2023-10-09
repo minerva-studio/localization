@@ -13,12 +13,25 @@ namespace Minerva.Localizations.Components
 
         [Header("Key")]
         public string key;
+        public ILocalizable context;
         public L10nDataManager languageFileManager;
 
+
+
+
+        private void OnValidate()
+        {
+#if UNITY_EDITOR
+            if (!languageFileManager.HasKey(key) || string.IsNullOrEmpty(key)) Debug.LogErrorFormat("Key not present in given l10n: {0}", key);
+#endif
+        }
 
         void Awake()
         {
             loaders.Add(this);
+#if UNITY_EDITOR
+            if (!languageFileManager.HasKey(key) || string.IsNullOrEmpty(key)) Debug.LogErrorFormat("Key not present in given l10n: {0}", key);
+#endif
         }
 
         void Start()
@@ -29,9 +42,6 @@ namespace Minerva.Localizations.Components
         private void OnEnable()
         {
             Load();
-#if UNITY_EDITOR
-            if (!languageFileManager.HasKey(key) || string.IsNullOrEmpty(key)) Debug.LogError("The Language Loader does not have a valid key");
-#endif
         }
 
 
@@ -46,8 +56,7 @@ namespace Minerva.Localizations.Components
         public void Load()
         {
             if (string.IsNullOrEmpty(key)) return;
-
-            var text = L10n.Tr(key);
+            string text = context != null ? L10n.TrKey(key, context) : L10n.Tr(key);
             SetDisplayText(text);
         }
 

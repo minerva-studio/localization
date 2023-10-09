@@ -173,5 +173,31 @@ namespace Minerva.Localizations
         {
             return L10n.Tr(key, param);
         }
+
+        /// <summary>
+        /// Create a L10n context
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static L10nContext Of(object value)
+        {
+            // custom content defined
+            if (Localizable.IsL10nContentDefined(value, out var contentType))
+            {
+                return (L10nContext)Activator.CreateInstance(contentType, value);
+            }
+
+            return new GenericL10nContext(value);
+        }
+
+        /// <summary>
+        /// Create a L10n context
+        /// </summary>
+        /// <param name="baseKey"></param>
+        /// <returns></returns>
+        public static L10nContext Of(string baseKey, params string[] args)
+        {
+            return new KeyL10nContext(Localizable.AppendKey(baseKey, args));
+        }
     }
 }
