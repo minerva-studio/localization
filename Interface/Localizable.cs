@@ -108,7 +108,7 @@ namespace Minerva.Localizations
 
         public static bool IsL10nContentDefined(object value, out Type type)
         {
-            return (type = CustomContentAttribute.GetContentType(value?.GetType())) != null;
+            return (type = CustomContextAttribute.GetContentType(value?.GetType())) != null;
         }
     }
 }

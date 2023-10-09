@@ -5,17 +5,17 @@ using System.Linq;
 namespace Minerva.Localizations
 {
     [System.AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-    public sealed class CustomContentAttribute : Attribute
+    public sealed class CustomContextAttribute : Attribute
     {
         private static Dictionary<Type, Type> table = new();
         private Type targetType;
 
-        static CustomContentAttribute()
+        static CustomContextAttribute()
         {
             foreach (var item in AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes()))
             {
                 if (item.IsAbstract) continue;
-                if (GetCustomAttribute(item, typeof(CustomContentAttribute)) is not CustomContentAttribute attr) continue;
+                if (GetCustomAttribute(item, typeof(CustomContextAttribute)) is not CustomContextAttribute attr) continue;
 
                 table.Add(attr.targetType, item);
             }
@@ -23,7 +23,7 @@ namespace Minerva.Localizations
             table[typeof(Enum)] = typeof(EnumL10nContext);
         }
 
-        public CustomContentAttribute(Type targetType)
+        public CustomContextAttribute(Type targetType)
         {
             this.targetType = targetType;
         }
