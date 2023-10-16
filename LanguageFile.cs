@@ -484,9 +484,12 @@ namespace Minerva.Localizations
         /// <param name="languageFile"></param>
         public void SetMasterFile(LanguageFile languageFile)
         {
-            isMasterFile = false;
+            isMasterFile = !languageFile;
             masterFile = languageFile;
-            region = languageFile.region;
+            if (languageFile)
+            {
+                region = languageFile.region;
+            }
         }
 
 
@@ -504,7 +507,22 @@ namespace Minerva.Localizations
 
 
 
-
+        [ContextMenu("Clear Duplicate Keys")]
+        public void ClearDuplicateKeys()
+        {
+            for (int i = entries.Count - 1; i >= 0; i--)
+            {
+                Entry item = entries[i];
+                for (int j = 0; j < childFiles.Count; j++)
+                {
+                    LanguageFile item1 = childFiles[j];
+                    if (item1.HasKey(item.Key))
+                    {
+                        entries.Remove(item);
+                    }
+                }
+            }
+        }
 
         [ContextMenu("Export to Yaml")]
         public void ExportToYaml()
@@ -579,6 +597,13 @@ namespace Minerva.Localizations
             EditorUtility.SetDirty(this);
             entries.Clear();
             var lines = File.ReadAllLines(path);
+            ImportFromYaml(lines);
+
+            AssetDatabase.SaveAssets();
+        }
+
+        public void ImportFromYaml(string[] lines)
+        {
             for (int i = 0; i < lines.Length; i++)
             {
                 if (string.IsNullOrWhiteSpace(lines[i])) continue;
@@ -590,8 +615,6 @@ namespace Minerva.Localizations
                 string value = item[(spliter + 1)..].Trim()[1..^1];
                 entries.Add(new Entry(key, value.Replace("\\n", "\n")));
             }
-
-            AssetDatabase.SaveAssets();
         }
 
         [ContextMenu("Create Child File")]
@@ -599,10 +622,10 @@ namespace Minerva.Localizations
         {
             string fileName = $"Lang_{region}_";
             string path = EditorUtility.SaveFilePanel("Save yaml file", AssetDatabase.GetAssetPath(this), fileName, "asset");
+            if (string.IsNullOrEmpty(path)) return null;
             int index = path.LastIndexOf('_');
             if (index == -1) index = path.LastIndexOf('/');
             string fileTag = path[(index + 1)..path.LastIndexOf('.')];
-            if (string.IsNullOrEmpty(path)) return null;
             return CreateChildFilePath(fileTag, path);
         }
 

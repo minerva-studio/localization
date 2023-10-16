@@ -89,7 +89,7 @@ namespace Minerva.Localizations
         private Table GenerateTable()
         {
             var localizationTable = new Table();
-            UpdateKeyList();
+            RebuildKeyList();
             foreach (var key in keyList)
             {
                 KeyData table = new();
@@ -312,8 +312,8 @@ namespace Minerva.Localizations
 
 
 
-        [ContextMenu("Update key list")]
-        public void UpdateKeyList()
+        [ContextMenu("Rebuild key list")]
+        public void RebuildKeyList()
         {
             HashSet<string> keys = new HashSet<string>();
             foreach (var item in files)
@@ -328,7 +328,7 @@ namespace Minerva.Localizations
         public void SyncKeys()
         {
             EditorUtility.SetDirty(this);
-            UpdateKeyList();
+            RebuildKeyList();
             foreach (var file in files)
             {
                 foreach (var keys in keyList)

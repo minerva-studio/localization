@@ -50,38 +50,39 @@ namespace Minerva.Localizations
         }
 
 
-
-
-
         /// <summary>
-        /// Load given type of language
-        /// <para>
-        /// If the given language is not found in manager, then <see cref="DEFAULT_REGION"/> would be used
-        /// </para>
+        /// Init L10n
         /// </summary>
-        /// <param name="manager">The localization Data Manager</param>
-        /// <param name="region">Region to set</param>
-        /// <exception cref="NullReferenceException"></exception>
-        public static void Load(L10nDataManager manager, string region = DEFAULT_REGION)
+        /// <param name="manager"></param>
+        public static void Init(L10nDataManager manager)
         {
-            Instance.Instance_Load(manager, region);
+            Instance.Instance_Init(manager);
         }
 
         /// <summary>
-        /// Load given type of language
-        /// <para>
-        /// If the given language is not found in manager, then <see cref="DEFAULT_REGION"/> would be used
-        /// </para>
+        /// Init L10n
         /// </summary>
-        /// <param name="manager">The localization Data Manager</param>
-        /// <param name="region">Region to set</param>
-        /// <exception cref="NullReferenceException"></exception>
-        private void Instance_Load(L10nDataManager manager, string region = DEFAULT_REGION)
+        /// <param name="manager"></param>
+        private void Instance_Init(L10nDataManager manager)
         {
             this.manager = manager;
             this.missingKeySolution = manager.missingKeySolution;
             this.disableEmptyEntries = manager.disableEmptyEntry;
-            Instance_Load(region);
+        }
+
+        /// <summary>
+        /// Init and Load given type of language
+        /// <para>
+        /// If the given language is not found in manager, then <see cref="DEFAULT_REGION"/> would be used
+        /// </para>
+        /// </summary>
+        /// <param name="manager">The localization Data Manager</param>
+        /// <param name="region">Region to set</param>
+        /// <exception cref="NullReferenceException"></exception>
+        public static void InitAndLoad(L10nDataManager manager, string region)
+        {
+            Init(manager);
+            Load(region);
         }
 
         /// <summary>
@@ -94,7 +95,7 @@ namespace Minerva.Localizations
         /// <exception cref="NullReferenceException"></exception>
         public static void Load(string region)
         {
-            instance.Instance_Load(region);
+            Instance.Instance_Load(region);
         }
 
         /// <summary>
