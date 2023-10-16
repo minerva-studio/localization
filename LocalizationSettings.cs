@@ -4,19 +4,19 @@ using UnityEngine;
 
 namespace Minerva.Localizations
 {
-    internal class LocalizationSettings : ScriptableObject
+    public class LocalizationSettings : ScriptableObject
     {
-        public const string SETTING_PATH = "Assets/Resources/Localization/LocalizationSetting.asset";
-        public const string RUNTIME_SETTING_PATH = "Localization/LocalizationSettings";
+        public const string SETTING_PATH = "Assets/Resources/" + RUNTIME_SETTING_PATH + ".asset";
+        public const string RUNTIME_SETTING_PATH = "Localization/LocalizationSetting";
 
 
         public L10nDataManager manager;
 
 
-        internal static LocalizationSettings GetOrCreateSettings()
-        {
 #if UNITY_EDITOR
 
+        internal static LocalizationSettings GetOrCreateSettings()
+        {
             var settings = AssetDatabase.LoadAssetAtPath<LocalizationSettings>(SETTING_PATH);
             if (settings == null)
             {
@@ -27,20 +27,23 @@ namespace Minerva.Localizations
                 AssetDatabase.SaveAssets();
             }
             return settings;
-
-#else
-            var settings = Resources.Load(RUNTIME_SETTING_PATH) as LocalizationSettings;
-            return settings;
-#endif
         }
 
-        internal static SerializedObject GetSerializedSettings()
+        public static SerializedObject GetSerializedSettings()
         {
             return new SerializedObject(GetOrCreateSettings());
         }
+#else
+        internal static LocalizationSettings GetOrCreateSettings()
+        {
+            var settings = Resources.Load(RUNTIME_SETTING_PATH) as LocalizationSettings;
+            return settings;
+        }
+#endif
 
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void OnInit()
         {
             var setting = GetOrCreateSettings();
