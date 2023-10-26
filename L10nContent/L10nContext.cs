@@ -181,13 +181,22 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static L10nContext Of(object value)
         {
-            // custom content defined
-            if (Localizable.IsL10nContentDefined(value, out var contentType))
+            if (value == null)
             {
-                return (L10nContext)Activator.CreateInstance(contentType, value);
+                return new NoContext();
             }
+            Type valueType = value.GetType();
+            return (L10nContext)Activator.CreateInstance(CustomContextAttribute.GetContextType(valueType), value);
+        }
 
-            return new GenericL10nContext(value);
+        /// <summary>
+        /// Create a L10n context
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static L10nContext Of<T>(T value)
+        {
+            return (L10nContext)Activator.CreateInstance(CustomContextAttribute.GetContextType(typeof(T)), value);
         }
 
         /// <summary>
@@ -198,6 +207,22 @@ namespace Minerva.Localizations
         public static L10nContext Of(string baseKey, params string[] args)
         {
             return new KeyL10nContext(Localizable.AppendKey(baseKey, args));
+        }
+
+        /// <summary>
+        /// Create a L10n no-context context
+        /// </summary>
+        /// <returns></returns>
+        public static L10nContext None()
+        {
+            return new NoContext();
+        }
+
+        private class NoContext : L10nContext
+        {
+            public NoContext() : base(null)
+            {
+            }
         }
     }
 }

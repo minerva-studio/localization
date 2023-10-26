@@ -1,20 +1,130 @@
 ﻿using Minerva.Module;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using KeyData = System.Collections.Generic.Dictionary<string, string>;
-using Table = System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, string>>;
+using static PlasticGui.LaunchDiffParameters;
 
 namespace Minerva.Localizations
 {
+
+
     /// <summary>
     /// Data manage class of localization system
     /// </summary>
     [CreateAssetMenu(fileName = "Localization Manager", menuName = "Localization/Localization Manager")]
     public class L10nDataManager : ScriptableObject
     {
+        public class Table : IEnumerable<KeyValuePair<string, KeyEntry>>, ITable
+        {
+            Dictionary<string, KeyEntry> entries;
+            string[] region;
+
+            public int Count => entries.Count;
+            public string[] ColumnNames => region;
+            public string[] RowNames => entries.Keys.ToArray();
+            IRow ITable.this[string row] { get => entries[row]; }
+
+            public Table(string[] region)
+            {
+                this.entries = new Dictionary<string, KeyEntry>();
+                this.region = region;
+            }
+
+
+            public KeyEntry this[string key]
+            {
+                get => entries[key];
+                set => entries[key] = value;
+            }
+
+            public string this[string key, string region]
+            {
+                get => entries[key].table[region];
+                set => entries[key].table[region] = value;
+            }
+
+            public IEnumerator<KeyValuePair<string, KeyEntry>> GetEnumerator()
+            {
+                return ((IEnumerable<KeyValuePair<string, KeyEntry>>)entries).GetEnumerator();
+            }
+
+            IEnumerator<IRow> IEnumerable<IRow>.GetEnumerator()
+            {
+                foreach (var item in entries.Values)
+                {
+                    yield return item;
+                }
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return ((IEnumerable)entries).GetEnumerator();
+            }
+
+            public bool Remove(string key)
+            {
+                return entries.Remove(key);
+            }
+
+            public void Add(string key, KeyEntry entry)
+            {
+                entries.Add(key, entry);
+            }
+
+            public bool ContainsKey(string key)
+            {
+                return entries.ContainsKey(key);
+            }
+
+            public bool TryGetValue(string key, out KeyEntry strTable)
+            {
+                return entries.TryGetValue(key, out strTable);
+            }
+
+            public KeyEntry GetOrCreateRow(string rowName)
+            {
+                if (TryGetValue(rowName, out var value)) return value;
+                value = new KeyEntry(rowName);
+                this[rowName] = value;
+                return value;
+            }
+
+            IRow ITable.GetOrCreateRow(string rowName)
+            {
+                return GetOrCreateRow(rowName);
+            }
+        }
+
+        public class KeyEntry : IRow
+        {
+            public string key;
+            public string fromFile;
+            public Dictionary<string, string> table = new();
+
+            public KeyEntry(string key)
+            {
+                this.key = key;
+            }
+
+            public string this[string col] { get => table[col]; set => table[col] = value; }
+            public string Name => key;
+            public int Count => table.Count;
+
+            public IEnumerator<string> GetEnumerator()
+            {
+                return table.Values.GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return table.Values.GetEnumerator();
+            }
+        }
+
         public string topLevelDomain;
         public bool disableEmptyEntry;
         public MissingKeySolution missingKeySolution;
@@ -64,8 +174,11 @@ namespace Minerva.Localizations
         [ContextMenuItem("Clear Obsolete Missing Keys", nameof(ClearObsoleteMissingKeys))]
         public List<string> missingKeys;
 
+        /// <summary> Table of [key][region] </summary>
         private Table localizationTable;
+        /// <summary> Serialized properties </summary>
         private Dictionary<string, Dictionary<string, SerializedProperty>> propertyTable;
+        /// <summary> Keys' trie </summary>
         private Trie trie;
         private SerializedObject sobj;
 
@@ -88,15 +201,15 @@ namespace Minerva.Localizations
 
         private Table GenerateTable()
         {
-            var localizationTable = new Table();
+            var localizationTable = new Table(regions.ToArray());
             RebuildKeyList();
             foreach (var key in keyList)
             {
-                KeyData table = new();
-                localizationTable.Add(key, table);
+                KeyEntry entry = new KeyEntry(key);
+                localizationTable.Add(key, entry);
                 foreach (var file in files)
                 {
-                    table.Add(file.Region, file.Get(key));
+                    entry.table.Add(file.Region, file.Get(key));
                 }
             }
             return localizationTable;
@@ -105,14 +218,15 @@ namespace Minerva.Localizations
         private Dictionary<string, Dictionary<string, SerializedProperty>> GeneratePropertyTable()
         {
             var localizationTable = new Dictionary<string, Dictionary<string, SerializedProperty>>();
-            SyncKeys();
+            RebuildKeyList();
             foreach (var key in keyList)
             {
                 Dictionary<string, SerializedProperty> table = new();
                 localizationTable.Add(key, table);
                 foreach (var file in files)
                 {
-                    table.Add(file.Region, file.GetProperty(key));
+                    SerializedProperty value = file.GetProperty(key);
+                    if (value != null) table.Add(file.Region, value);
                 }
             }
             return localizationTable;
@@ -141,10 +255,10 @@ namespace Minerva.Localizations
         /// <param name="key"></param>
         /// <param name="defaultValue"></param>
         /// <returns></returns>
-        public void AddKey(string key, string defaultValue = "")
+        public void AddKey(string key, string tag = "Main", string defaultValue = "")
         {
             Debug.Log(keyList.Count);
-            AddKey_Internal(key, defaultValue);
+            AddKey_Internal(key, tag, defaultValue);
             AddKeyToTable(key, defaultValue);
             L10n.ReloadIfInitialized();
         }
@@ -155,9 +269,9 @@ namespace Minerva.Localizations
         /// <remarks>This will refresh the localization table on the localization manager</remarks>
         /// <param name="key"></param>
         /// <param name="defaultValue"></param>
-        public void AddKeyToFiles(string key, string defaultValue = "")
+        public void AddKeyToFiles(string key, string tag = "Main", string defaultValue = "")
         {
-            AddKey_Internal(key, defaultValue);
+            AddKey_Internal(key, tag, defaultValue);
             RefreshTable();
         }
 
@@ -166,7 +280,7 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="key"></param>
         /// <param name="defaultValue"></param>
-        private void AddKey_Internal(string key, string defaultValue)
+        private void AddKey_Internal(string key, string tag, string defaultValue)
         {
             bool hasKey = !HasKey(key);
             if (hasKey)
@@ -177,7 +291,7 @@ namespace Minerva.Localizations
 
             foreach (var file in files)
             {
-                if (!file.Add(key, defaultValue)) Debug.LogWarning($"File {file.name} has key '{key}' already.");
+                if (!file.AddToFile(key, tag, defaultValue)) Debug.LogWarning($"File {file.name} has key '{key}' already.");
             }
 
             if (hasKey)
@@ -199,11 +313,11 @@ namespace Minerva.Localizations
             {
                 if (!LocalizationTable.TryGetValue(key, out var strTable))
                 {
-                    LocalizationTable[key] = strTable = new KeyData();
+                    LocalizationTable[key] = strTable = new KeyEntry(key);
                 }
                 foreach (var region in regions)
                 {
-                    strTable[region] = defaultValue;
+                    strTable.table[region] = defaultValue;
                 }
             }
 
@@ -286,7 +400,7 @@ namespace Minerva.Localizations
             foreach (var file in files)
             {
                 EditorUtility.SetDirty(file);
-                file.MoveKey(oldKey, newKey);
+                file.MoveKey(oldKey, newKey, true, true);
             }
 
             //keylist move
@@ -404,9 +518,10 @@ namespace Minerva.Localizations
             if (string.IsNullOrEmpty(path)) return;
 
             var file = CSV.Import(path);
-            regions = file.cols;
-            keyList = file.rows;
-            LocalizationTable = file.table;
+            regions = new List<string>(file.cols);
+            keyList = new List<string>(file.rows);
+            localizationTable = new(file.cols);
+            ITable.Convert(file, localizationTable);
         }
 
         [ContextMenu("Save to all small file")]
@@ -426,7 +541,7 @@ namespace Minerva.Localizations
             {
                 foreach (var file in files)
                 {
-                    if (table.Value.TryGetValue(file.Region, out string value))
+                    if (table.Value.table.TryGetValue(file.Region, out string value))
                         file.Write(table.Key, value, false);
                     else Debug.LogError($"Key {table.Key} in language {file.Region} not found");
                 }
@@ -501,6 +616,42 @@ namespace Minerva.Localizations
                 {
                     AssetDatabase.SaveAssetIfDirty(child);
                 }
+            }
+        }
+
+        public string[] GetFileTags()
+        {
+            var fileTags = new HashSet<string>();
+            foreach (var file in files)
+            {
+                fileTags.Add(file.Tag);
+                foreach (var child in file.ChildFiles)
+                {
+                    fileTags.Add(child.Tag);
+                }
+            }
+            return fileTags.ToArray();
+        }
+
+        public bool IsFileReadOnly(string fileTag)
+        {
+            foreach (var file in files)
+            {
+                if (Matches(file, fileTag))
+                    return true;
+            }
+            foreach (var file in files)
+            {
+                foreach (var child in file.ChildFiles)
+                    if (Matches(child, fileTag))
+                        return true;
+            }
+
+            return false;
+
+            static bool Matches(LanguageFile file, string fileTag)
+            {
+                return file.Tag == fileTag && file.IsReadOnly;
             }
         }
 #endif

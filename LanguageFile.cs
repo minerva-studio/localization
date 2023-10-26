@@ -20,6 +20,7 @@ namespace Minerva.Localizations
         public const string ENTRIES_NAME = nameof(entries);
 
         [SerializeField] private string tag;
+        [ReadOnly][SerializeField] private bool isReadOnly;
         [SerializeField] private bool isMasterFile;
         [SerializeField] private LanguageFile masterFile;
         [SerializeField] private List<LanguageFile> childFiles = new();
@@ -32,6 +33,7 @@ namespace Minerva.Localizations
         public LanguageFile MasterFile { get => masterFile; set => masterFile = value; }
         public List<LanguageFile> ChildFiles { get => childFiles; set => childFiles = value; }
         public bool IsMasterFile => isMasterFile;
+        public bool IsReadOnly => isReadOnly;
 
         /// <summary>
         /// Get a trie of the language file
@@ -651,6 +653,17 @@ namespace Minerva.Localizations
             AssetDatabase.Refresh();
 
             return subfile;
+        }
+
+        /// <summary>
+        /// Create an (inspector) read only lang file
+        /// </summary>
+        /// <returns></returns> 
+        public static LanguageFile NewLangFile()
+        {
+            var file = CreateInstance<LanguageFile>();
+            file.isReadOnly = true;
+            return file;
         }
 #endif
     }

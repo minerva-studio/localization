@@ -69,7 +69,7 @@ namespace Minerva.Localizations
                 return Tr(localizable, param);
             }
             // custom content defined
-            if (IsL10nContentDefined(value, out var contentType))
+            if (IsL10nContextDefined(value, out var contentType))
             {
                 return ((L10nContext)Activator.CreateInstance(contentType, value)).Tr(param);
             }
@@ -106,14 +106,9 @@ namespace Minerva.Localizations
             return string.Join(L10nSymbols.KEY_SEPARATOR, extensions);
         }
 
-        public static bool IsL10nContentDefined(object value, out Type type)
+        public static bool IsL10nContextDefined(object value, out Type contextType)
         {
-            return (type = CustomContextAttribute.GetContentType(value?.GetType())) != null;
-        }
-
-        public static bool IsL10nContentDefined<T>(out Type type)
-        {
-            return (type = CustomContextAttribute.GetContentType(typeof(T))) != null;
+            return CustomContextAttribute.HasContextTypeDefined(value?.GetType(), out contextType);
         }
     }
 }

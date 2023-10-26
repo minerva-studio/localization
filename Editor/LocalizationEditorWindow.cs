@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Minerva.Module.Editor;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -206,31 +207,31 @@ namespace Minerva.Localizations.Editor
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Label((++val).ToString(), maxWidthNum);
-                bool enabled = GUI.enabled;
                 bool keyExist = fileManager.HasKey(item);
-                if (keyExist) GUI.enabled = false;
-
-                if (GUILayout.Button("Add", maxWidth))
-                {
-                    index = i;
-                    add = item;
-                }
+                using (GUIEnable.By(!keyExist))
+                    if (GUILayout.Button("Add", maxWidth))
+                    {
+                        index = i;
+                        add = item;
+                    }
 
                 GUI.enabled = true;
-                if (GUILayout.Button("X", maxWidthX))
-                {
-                    index = i;
-                    remove = item;
-                }
-                GUI.enabled = !keyExist;
+                using (GUIEnable.By(true))
+                    if (GUILayout.Button("X", maxWidthX))
+                    {
+                        index = i;
+                        remove = item;
+                    }
 
-                if (keyExist) GUILayout.Label(item + " \t(Key exist in the files already)");
-                else GUILayout.Label(item);
-                GUI.enabled = enabled;
+                GUI.enabled = !keyExist;
+                using (GUIEnable.By(!keyExist))
+                    if (keyExist) GUILayout.Label(item + " \t(Key exist in the files already)");
+                    else GUILayout.Label(item);
                 GUILayout.EndHorizontal();
             }
             if (add != null)
             {
+                // TODO: new page on which file goes to
                 fileManager.AddKey(add);
                 property.DeleteArrayElementAtIndex(index);
             }
@@ -308,10 +309,10 @@ namespace Minerva.Localizations.Editor
                 }
 
                 EditorGUILayout.SelectableLabel(keyValPair.Key, keyEntrykeyWidth, keyEntryHeight);
-                foreach (var region in keyValPair.Value.Keys)
+                foreach (var region in keyValPair.Value.table.Keys)
                 {
                     string newText;
-                    string oldText = keyValPair.Value[region];
+                    string oldText = keyValPair.Value.table[region];
                     newText = GUILayout.TextField(oldText, keyEntryWidth, keyEntryHeight);
                     if (newText != oldText)
                     {
@@ -321,7 +322,7 @@ namespace Minerva.Localizations.Editor
                 }
                 if (changedRegion != string.Empty)
                 {
-                    keyValPair.Value[changedRegion] = changedVal;
+                    keyValPair.Value.table[changedRegion] = changedVal;
                     LanguageFile languageFile = fileManager.GetLanguageFile(changedRegion);
                     var oldVal = languageFile.Write(keyValPair.Key, changedVal);
                     changedVal = string.Empty;
@@ -388,7 +389,10 @@ namespace Minerva.Localizations.Editor
                 GUILayout.Label("Files", keyEntrykeyWidth);
                 foreach (var file in fileManager.files)
                 {
-                    GUILayout.Label(file.Region, keyEntryWidth);
+                    using (GUIEnable.By(false))
+                        EditorGUILayout.ObjectField(file, typeof(LanguageFile), false, keyEntryWidth);
+
+                    //GUILayout.Label(file.Region, keyEntryWidth);
                 }
                 GUILayout.EndHorizontal();
             }
@@ -397,23 +401,34 @@ namespace Minerva.Localizations.Editor
             {
                 string key = fileManager.keyList[i];
                 GUILayout.BeginHorizontal(keyEntryHeight);
-                // try remove
-                if (GUILayout.Button("x", GUILayout.Width(EditorGUIUtility.singleLineHeight)))
-                {
-                    if (setting.sudo || EditorUtility.DisplayDialog("Delete key " + key, $"Delete key {key} from all files?", "OK", "Cancel"))
+                Dictionary<string, SerializedProperty> dictionary = table[key];
+                using (GUIEnable.By(dictionary.Values.All(e => e != null && e.editable)))
+                    // try remove
+                    if (GUILayout.Button("x", GUILayout.Width(EditorGUIUtility.singleLineHeight)))
                     {
-                        fileManager.RemoveKey(key);
-                        GUILayout.EndHorizontal();
-                        break;
+                        if (setting.sudo || EditorUtility.DisplayDialog("Delete key " + key, $"Delete key {key} from all files?", "OK", "Cancel"))
+                        {
+                            fileManager.RemoveKey(key);
+                            GUILayout.EndHorizontal();
+                            break;
+                        }
                     }
-                }
 
                 // draw all entries
                 EditorGUILayout.SelectableLabel(key, keyEntrykeyWidth, keyEntryHeight);
                 var regionsValue = table[key];
                 foreach (var region in fileManager.files)
                 {
-                    var so = regionsValue[region.Region];
+                    SerializedProperty so;
+
+                    try
+                    {
+                        so = regionsValue[region.Region];
+                    }
+                    catch
+                    {
+                        so = null;
+                    }
                     DrawTableEntry(GUIContent.none, so, keyEntryWidth, keyEntryHeight);
                 }
                 GUILayout.EndHorizontal();
@@ -431,7 +446,7 @@ namespace Minerva.Localizations.Editor
         {
             if (so == null)
             {
-                EditorGUILayout.LabelField("===", options);
+                EditorGUILayout.LabelField("(NA)", options);
                 return;
             }
             EditorGUILayout.PropertyField(so, label, options);
@@ -643,40 +658,54 @@ namespace Minerva.Localizations.Editor
                 string partialKey = key[keyLength..^0];
                 string labelName = partialKey.StartsWith('.') ? partialKey[1..partialKey.Length] : partialKey;
 
-                SerializedProperty property = FileManager.PropertyTable[key][region];
+                SerializedProperty property;
+                try
+                {
+                    property = FileManager.PropertyTable[key][region];
+                }
+                catch
+                {
+                    property = null;
+                }
+                if (property == null)
+                {
+                    EditorGUILayout.LabelField(labelName, "(not exist)");
+                }
                 DrawTableEntry(new GUIContent(labelName), property);
-
-
-                if (changingKey != key)
+                using (new GUIEnable(property?.editable == true))
                 {
-                    bool tryChange = GUILayout.Button("Change", GUILayout.Height(TextEditorHeight), GUILayout.Width(60));
-                    if (tryChange)
+                    if (changingKey != key)
                     {
-                        changingKey = key;
-                        changeToKey = changingKey;
+                        bool tryChange = GUILayout.Button("Change", GUILayout.Height(TextEditorHeight), GUILayout.Width(60));
+                        if (tryChange)
+                        {
+                            changingKey = key;
+                            changeToKey = changingKey;
+                        }
                     }
-                }
-                if (GUILayout.Button("Delete", GUILayout.Height(TextEditorHeight), GUILayout.Width(60)))
-                {
-                    FileManager.RemoveKey(key);
-                }
-                else if (changingKey == key)
-                {
+                    if (GUILayout.Button("Delete", GUILayout.Height(TextEditorHeight), GUILayout.Width(60)))
+                    {
+                        FileManager.RemoveKey(key);
+                    }
+                    else if (changingKey == key)
+                    {
+                        GUILayout.EndHorizontal();
+                        GUILayout.BeginHorizontal();
+                        changeToKey = EditorGUILayout.TextField("New Key", changeToKey, GUILayout.Height(TextEditorHeight));
+                        var change = GUILayout.Button("Change", GUILayout.Height(TextEditorHeight), GUILayout.Width(60));
+                        var close = GUILayout.Button("Close", GUILayout.Height(TextEditorHeight), GUILayout.Width(60));
+                        if (close)
+                        {
+                            changingKey = "";
+                        }
+                        if (change)
+                        {
+                            FileManager.MoveKey(key, changeToKey);
+                        }
+                    }
                     GUILayout.EndHorizontal();
-                    GUILayout.BeginHorizontal();
-                    changeToKey = EditorGUILayout.TextField("New Key", changeToKey, GUILayout.Height(TextEditorHeight));
-                    var change = GUILayout.Button("Change", GUILayout.Height(TextEditorHeight), GUILayout.Width(60));
-                    var close = GUILayout.Button("Close", GUILayout.Height(TextEditorHeight), GUILayout.Width(60));
-                    if (close)
-                    {
-                        changingKey = "";
-                    }
-                    if (change)
-                    {
-                        FileManager.MoveKey(key, changeToKey);
-                    }
+
                 }
-                GUILayout.EndHorizontal();
             }
 
 
@@ -687,6 +716,7 @@ namespace Minerva.Localizations.Editor
             private bool addKey;
             private string newKey;
             private string newKeyValue;
+            private int selectedIndex;
 
             public bool AddKey { get => addKey; set => addKey = value; }
 
@@ -702,21 +732,26 @@ namespace Minerva.Localizations.Editor
                 else
                 {
                     newKey = EditorGUILayout.TextField("Key: " + key, newKey);
-                    newKeyValue = EditorGUILayout.TextField("Value:", newKeyValue);
+                    newKeyValue = EditorGUILayout.TextField("Value", newKeyValue);
+                    var tags = fileManager.GetFileTags();
+                    var options = tags.Where(t => !fileManager.IsFileReadOnly(t)).ToArray();
+
+                    selectedIndex = EditorGUILayout.Popup("File", selectedIndex, options);
                     var canAddNewKey = !fileManager.HasKey(newKey);
                     GUILayout.BeginHorizontal();
                     addKey = !GUILayout.Button("Close");
-                    var previousGUIState = GUI.enabled;
-                    GUI.enabled = canAddNewKey;
-                    bool add = GUILayout.Button("Add");
-                    GUI.enabled = previousGUIState;
+                    bool add;
+                    using (GUIEnable.By(canAddNewKey))
+                    {
+                        add = GUILayout.Button("Add");
+                    }
                     GUILayout.EndHorizontal();
                     if (add)
                     {
                         newKey = key + newKey;
                         if (!fileManager.HasKey(newKey))
                         {
-                            fileManager.AddKeyToFiles(newKey, newKeyValue);
+                            fileManager.AddKeyToFiles(newKey, tags[selectedIndex], newKeyValue);
                         }
 
                         newKey = "";

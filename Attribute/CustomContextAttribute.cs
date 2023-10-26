@@ -4,11 +4,12 @@ using System.Linq;
 
 namespace Minerva.Localizations
 {
-    [System.AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
     public sealed class CustomContextAttribute : Attribute
     {
-        private static Dictionary<Type, Type> table = new();
+        private static Dictionary<Type, (Type type, bool allowInheritance)> table = new();
         private Type targetType;
+        private bool inherit;
 
         static CustomContextAttribute()
         {
@@ -17,33 +18,61 @@ namespace Minerva.Localizations
                 if (item.IsAbstract) continue;
                 if (GetCustomAttribute(item, typeof(CustomContextAttribute)) is not CustomContextAttribute attr) continue;
 
-                table.Add(attr.targetType, item);
+                table.Add(attr.targetType, (item, attr.inherit));
             }
-            table[typeof(object)] = typeof(GenericL10nContext);
-            table[typeof(Enum)] = typeof(EnumL10nContext);
+            table ??= new();
+            table[typeof(object)] = (typeof(GenericL10nContext), true);
+            table[typeof(Enum)] = (typeof(EnumL10nContext), true);
+            table[typeof(string)] = (typeof(KeyL10nContext), true);
         }
 
-        public CustomContextAttribute(Type targetType)
+        public CustomContextAttribute(Type targetType, bool inherit = true)
         {
             this.targetType = targetType;
+            this.inherit = true;
         }
 
         /// <summary>
-        /// Get content type
+        /// Get context type for <paramref name="valueType"/>, considering parent
         /// </summary>
-        /// <param name="targetType"></param>
+        /// <param name="valueType"></param>
         /// <returns></returns>
-        public static Type GetContentType(Type targetType, bool allowDefault = false)
+        public static Type GetContextType(Type valueType)
         {
-            if (table.TryGetValue(targetType, out var result))
+            var currType = valueType;
+            while (currType != null)
             {
-                return result;
+                if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
+                {
+                    return result.type;
+                }
+                currType = currType.BaseType;
             }
-            if (targetType.IsEnum)
+            return typeof(GenericL10nContext);
+        }
+
+        /// <summary>
+        /// Get context type for <paramref name="valueType"/>, considering parent
+        /// </summary>
+        /// <remarks>
+        /// Strings and Enums are always considered context defined type
+        /// </remarks>
+        /// <param name="valueType"></param>
+        /// <returns></returns>
+        public static bool HasContextTypeDefined(Type valueType, out Type contextType)
+        {
+            contextType = null;
+            var currType = valueType;
+            while (currType != null)
             {
-                return table[typeof(Enum)];
+                if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
+                {
+                    contextType = result.type;
+                    return true;
+                }
+                currType = currType.BaseType;
             }
-            return allowDefault ? table[typeof(object)] : null;
+            return false;
         }
     }
 }

@@ -23,7 +23,7 @@ namespace Minerva.Localizations
         {
             if (!file)
             {
-                file = ScriptableObject.CreateInstance<LanguageFile>();
+                file = LanguageFile.NewLangFile();
             }
 
             file.ImportFromYaml(File.ReadAllLines(ctx.assetPath));
