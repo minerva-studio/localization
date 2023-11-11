@@ -119,7 +119,7 @@ namespace Minerva.Localizations
             IEnumerable<string> items = dictionary.Keys.ShallowClone();
             // directly convert color escape and key escape because they don't change
             foreach (var item in items) dictionary[item] = EscapePattern.ReplaceColorEscape(dictionary[item]);
-            foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item]);
+            foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
             trie = new Tries<string>(dictionary);
             initialized = true;
 
@@ -258,9 +258,7 @@ namespace Minerva.Localizations
         public static string Tr(string key, params string[] param)
         {
             var rawString = GetRawContent(key);
-            rawString = EscapePattern.ReplaceKeyEscape(rawString);
-            rawString = EscapePattern.ReplaceDynamicValueEscape(rawString, null, param);
-            rawString = EscapePattern.ReplaceColorEscape(rawString);
+            rawString = EscapePattern.Escape(rawString, null, param);
             return rawString;
         }
 

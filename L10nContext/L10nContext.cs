@@ -192,10 +192,16 @@ namespace Minerva.Localizations
         /// <summary>
         /// Create a L10n context
         /// </summary>
+        /// <remarks>
+        /// cannot create a context object for a context object, it will always returns a dynamic context
+        /// </remarks>
         /// <param name="value"></param>
         /// <returns></returns>
         public static L10nContext Of<T>(T value)
         {
+            if (typeof(T) == typeof(DynamicContext)) return ((DynamicContext)(object)value).Clone();
+            if (typeof(T).IsSubclassOf(typeof(L10nContext))) return new DynamicContext(value);
+
             return (L10nContext)Activator.CreateInstance(CustomContextAttribute.GetContextType(typeof(T)), value);
         }
 

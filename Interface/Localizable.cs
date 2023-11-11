@@ -12,31 +12,25 @@ namespace Minerva.Localizations
         /// <summary>
         /// Localize a localizable object with params
         /// </summary>
-        /// <param name="obj"></param>
+        /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string Tr(ILocalizable obj, params string[] param)
+        public static string Tr(ILocalizable context, params string[] param)
         {
-            var rawString = obj.GetRawContent(param);
-            rawString = ReplaceKeyEscape(rawString);
-            rawString = ReplaceDynamicValueEscape(rawString, obj, param);
-            rawString = ReplaceColorEscape(rawString);
-            return rawString;
+            var rawString = context.GetRawContent(param);
+            return Escape(rawString, context, param);
         }
 
         /// <summary>
         /// Localize a localizable object with params
         /// </summary>
-        /// <param name="obj"></param>
+        /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string TrKey(string key, ILocalizable obj, params string[] param)
+        public static string TrKey(string key, ILocalizable context, params string[] param)
         {
-            var rawString = obj.GetRawContentWithKey(key, param);
-            rawString = ReplaceKeyEscape(rawString);
-            rawString = ReplaceDynamicValueEscape(rawString, obj, param);
-            rawString = ReplaceColorEscape(rawString);
-            return rawString;
+            var rawString = context.GetRawContentWithKey(key, param);
+            return Escape(rawString, context, param);
         }
 
         /// <summary>
