@@ -3,11 +3,12 @@ using UnityEngine;
 using System.IO;
 using Minerva.Module;
 using UnityEditor;
+using System.Linq;
 
 namespace Minerva.Localizations
 {
     /// <summary>
-    /// Auto import, WIP
+    /// Auto import .lang file
     /// </summary>
     [ScriptedImporter(1, "lang")]
     public class LanguageFileImporter : ScriptedImporter
@@ -23,14 +24,18 @@ namespace Minerva.Localizations
         {
             if (!file)
             {
-                file = LanguageFile.NewLangFile();
+                file = LanguageFile.NewLangFile(ctx.assetPath);
             }
 
-            file.ImportFromYaml(File.ReadAllLines(ctx.assetPath));
+            string[] lines = File.ReadAllLines(ctx.assetPath);
+            file.ImportFromYaml(lines);
             file.Tag = tag;
             file.SetMasterFile(masterFile);
 
+            var plainText = new TextAsset(string.Join('\n', lines));
+            plainText.name = file.name;
             ctx.AddObjectToAsset("LangFile", file);
+            ctx.AddObjectToAsset("PlainText", plainText);
             ctx.SetMainObject(file);
         }
     }

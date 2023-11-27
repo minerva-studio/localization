@@ -760,6 +760,4 @@ namespace Minerva.Localizations.Editor
             }
         }
     }
-
-
 }

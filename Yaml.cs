@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using UnityEngine;
 
 namespace Minerva.Localizations
 {
@@ -32,7 +33,6 @@ namespace Minerva.Localizations
                 .Where(e => !string.IsNullOrEmpty(key(e)) && !string.IsNullOrWhiteSpace(value(e)))
                 .Select(e => $"{key(e)}: \"{ToProperString(value(e))}\"");
             File.AppendAllLines(path, lines);
-
 
             static string ToProperString(string str)
             {

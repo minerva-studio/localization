@@ -291,7 +291,7 @@ namespace Minerva.Localizations
 
             foreach (var file in files)
             {
-                if (!file.AddToFile(key, tag, defaultValue)) Debug.LogWarning($"File {file.name} has key '{key}' already.");
+                if (!file.PutAt(key, tag, defaultValue)) Debug.LogWarning($"File {file.name} has key '{key}' already.");
             }
 
             if (hasKey)
@@ -346,7 +346,7 @@ namespace Minerva.Localizations
 
             foreach (var file in files)
             {
-                if (file.AddToFile(key, fileTag, defaultValue))
+                if (file.PutAt(key, fileTag, defaultValue))
                 {
                     continue;
                 }

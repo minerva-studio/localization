@@ -20,7 +20,8 @@ namespace Minerva.Localizations
         public const string ENTRIES_NAME = nameof(entries);
 
         [SerializeField] private string tag;
-        [ReadOnly][SerializeField] private bool isReadOnly;
+        [ReadOnly, SerializeField] private bool isReadOnly;
+        [ReadOnly, SerializeField] private string path;
         [SerializeField] private bool isMasterFile;
         [SerializeField] private LanguageFile masterFile;
         [SerializeField] private List<LanguageFile> childFiles = new();
@@ -89,6 +90,8 @@ namespace Minerva.Localizations
 #if UNITY_EDITOR
 
         private SerializedObject sobj;
+        private bool isFileDirty;
+
         public SerializedObject serializedObject { get => sobj ??= new(this); }
         public IEnumerable<string> Keys => GetKeys();
 
@@ -153,6 +156,22 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
+        /// Determine whether the key exist in the file
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="searchInChild">whether search for key in child</param>
+        /// <returns></returns>
+        public bool HasKey(string key, bool searchInChild = false)
+        {
+            bool haskey = entries.Any(p => p.Key == key);
+            if (!haskey && searchInChild)
+            {
+                haskey = childFiles.Any(f => f.HasKey(key, false));
+            }
+            return haskey;
+        }
+
+        /// <summary>
         /// Write the value by key
         /// <para>
         /// If the key appears in the file or child file, it will override existing value
@@ -165,12 +184,19 @@ namespace Minerva.Localizations
         /// <returns> string of the old entry, null if it is a new entry </returns>
         public string Write(string key, string value = "", bool immediateSave = false)
         {
+            //if (IsReadOnly)
+            //{
+            //    return FileWrite(key, value, immediateSave);
+            //}
+
             EditorUtility.SetDirty(this);
             //Debug.Log($"Write Entry " + key + " with value " + value);
             var entry = GetEntry(key);
             var oldVal = entry?.Value;
             if (entry != null)
             {
+                // no change
+                if (entry.Value == value) return value;
                 entry.Value = value;
             }
             else
@@ -179,7 +205,7 @@ namespace Minerva.Localizations
                 entries.Add(entry);
             }
             // L10n is loading current region
-            if (L10n.Region == region)
+            if (L10n.isInitialized && L10n.Region == region)
             {
                 L10n.Override(key, value);
             }
@@ -205,8 +231,13 @@ namespace Minerva.Localizations
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <returns> Whether given key is in the file already </returns>
-        public bool Add(string key, string value = "", bool updateAssets = false)
+        public bool Add(string key, string value = "", bool immediateSave = false)
         {
+            //if (IsReadOnly)
+            //{
+            //    return FileAdd(key, value, immediateSave);
+            //}
+
             EditorUtility.SetDirty(this);
             var entry = GetEntry(key);
             if (entry != null)
@@ -217,7 +248,7 @@ namespace Minerva.Localizations
             else entries.Add(new Entry(key, value));
             serializedObject.Update();
             Debug.Log($"Write Entry " + key + " with value " + value);
-            if (updateAssets) AssetDatabase.SaveAssets();
+            if (immediateSave) AssetDatabase.SaveAssets();
             return true;
         }
 
@@ -233,9 +264,8 @@ namespace Minerva.Localizations
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <returns> Whether given key is in the file already </returns>
-        public bool AddToFile(string key, string fileTag, string value = "", bool updateAssets = false)
+        public bool PutAt(string key, string fileTag, string value = "", bool updateAssets = false)
         {
-            Debug.Log("Add");
             if (fileTag == tag)
             {
                 return Add(key, value, updateAssets);
@@ -252,21 +282,100 @@ namespace Minerva.Localizations
             return false;
         }
 
-        /// <summary>
-        /// Determine whether the key exist in the file
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="searchInChild">whether search for key in child</param>
-        /// <returns></returns>
-        public bool HasKey(string key, bool searchInChild = false)
-        {
-            bool haskey = entries.Any(p => p.Key == key);
-            if (!haskey && searchInChild)
-            {
-                haskey = childFiles.Any(f => f.HasKey(key, false));
-            }
-            return haskey;
-        }
+
+
+
+
+        //#region .lang File Editing
+
+
+        ///// <summary>
+        ///// Write the value by key
+        ///// <para>
+        ///// If the key appears in the file or child file, it will override existing value
+        ///// <br></br>
+        ///// If the key has not yet appears in the file, a new entry will be added to this file
+        ///// </para>
+        ///// </summary>
+        ///// <param name="key"></param>
+        ///// <param name="value"></param>
+        ///// <returns> string of the old entry, null if it is a new entry </returns>
+        //public string FileWrite(string key, string value = "", bool immediateSave = false)
+        //{
+        //    var entry = GetEntry(key);
+        //    var oldVal = entry?.Value;
+        //    if (entry != null)
+        //    {
+        //        // no change
+        //        if (entry.Value == value) return value;
+        //        entry.Value = value;
+        //    }
+        //    else
+        //    {
+        //        entry = new Entry(key, value);
+        //        entries.Add(entry);
+        //    }
+        //    Debug.Log($"Write Entry " + key + " with value " + value);
+        //    // L10n is loading current region
+        //    if (L10n.isInitialized && L10n.Region == region)
+        //    {
+        //        L10n.Override(key, value);
+        //    }
+
+        //    if (immediateSave)
+        //    {
+        //        FileSave();
+        //    }
+        //    isFileDirty = true;
+        //    return oldVal;
+        //}
+
+        ///// <summary>
+        ///// Add value by key
+        ///// <para>
+        ///// If the key appears in the file or child file, it will not override existing value, do nothing and return false.
+        ///// </para>
+        ///// <para>
+        ///// If the key has not yet appears in the file, a new entry will be added to this file
+        ///// </para>
+        ///// </summary>
+        ///// <param name="key"></param>
+        ///// <param name="value"></param>
+        ///// <returns> Whether given key is in the file already </returns>
+        //public bool FileAdd(string key, string value = "", bool immediateSave = false)
+        //{
+        //    var entry = GetEntry(key);
+        //    if (entry != null)
+        //    {
+        //        Debug.Log("Entry exist");
+        //        return false;
+        //    }
+        //    else entries.Add(new Entry(key, value));
+        //    isFileDirty = false;
+        //    Debug.Log($"Write Entry " + key + " with value " + value);
+
+        //    if (immediateSave) FileSave();
+        //    return true;
+        //}
+
+        ///// <summary>
+        ///// Save file (if is from .lang)
+        ///// </summary>
+        //public void FileSave()
+        //{
+        //    Debug.Log($"Saving {name}");
+        //    ExportTo(path, noBackup: true);
+        //    isFileDirty = false;
+        //    AssetDatabase.Refresh();
+        //}
+
+        //public bool FileDirty()
+        //{
+        //    return isFileDirty;
+        //}
+
+        //#endregion
+
 
 
 
@@ -509,6 +618,21 @@ namespace Minerva.Localizations
 
 
 
+        private void ExportTo(string path, bool noBackup = false)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            if (!noBackup && File.Exists(path + "_old")) File.Copy(path, path + "_old", true);
+
+            Yaml.Export(entries, e => e.Key, e => e.Value, path);
+
+            AssetDatabase.Refresh();
+        }
+
+
+
+
+
+
         [ContextMenu("Clear Duplicate Keys")]
         public void ClearDuplicateKeys()
         {
@@ -534,12 +658,7 @@ namespace Minerva.Localizations
             string path = EditorUtility.SaveFilePanel("Save yaml file", AssetDatabase.GetAssetPath(this), fileName, "yml");
 
             //Debug.Log(p);
-            if (string.IsNullOrEmpty(path)) return;
-            if (File.Exists(path + "_old")) File.Copy(path, path + "_old", true);
-
-            Yaml.Export(entries, e => e.Key, e => e.Value, path);
-
-            AssetDatabase.Refresh();
+            ExportTo(path);
         }
 
         [ContextMenu("Export to Yaml (Source)")]
@@ -659,10 +778,11 @@ namespace Minerva.Localizations
         /// Create an (inspector) read only lang file
         /// </summary>
         /// <returns></returns> 
-        public static LanguageFile NewLangFile()
+        public static LanguageFile NewLangFile(string path)
         {
             var file = CreateInstance<LanguageFile>();
             file.isReadOnly = true;
+            file.path = path;
             return file;
         }
 #endif
