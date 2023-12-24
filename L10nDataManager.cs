@@ -577,10 +577,7 @@ namespace Minerva.Localizations
         /// </summary>
         public void ClearObsoleteMissingKeys()
         {
-            foreach (var item in missingKeys.ShallowClone())
-            {
-                if (LocalizationTable.ContainsKey(item)) missingKeys.Remove(item);
-            }
+            missingKeys.RemoveAll(key => string.IsNullOrEmpty(key) || LocalizationTable.ContainsKey(key));
         }
 
         /// <summary>

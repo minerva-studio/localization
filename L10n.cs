@@ -3,6 +3,7 @@ using Minerva.Localizations.EscapePatterns;
 using Minerva.Module;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Minerva.Localizations
@@ -116,7 +117,7 @@ namespace Minerva.Localizations
             if (!languageFile) throw new NullReferenceException("The localization manager has initialized, but given language type could not be found and default region is not available");
 
             dictionary = languageFile.GetDictionary();
-            IEnumerable<string> items = dictionary.Keys.ShallowClone();
+            string[] items = dictionary.Keys.ToArray();
             // directly convert color escape and key escape because they don't change
             foreach (var item in items) dictionary[item] = EscapePattern.ReplaceColorEscape(dictionary[item]);
             foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
