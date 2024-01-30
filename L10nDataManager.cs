@@ -8,8 +8,6 @@ using UnityEngine;
 
 namespace Minerva.Localizations
 {
-
-
     /// <summary>
     /// Data manage class of localization system
     /// </summary>
@@ -128,6 +126,7 @@ namespace Minerva.Localizations
         public MissingKeySolution missingKeySolution;
         [Header("Data")]
         public List<LanguageFile> files;
+        public List<LanguageFileSource> sources;
         public List<string> regions;
 
         private const char CSV_SEPARATOR = ',';

@@ -8,6 +8,8 @@ using UnityEngine;
 
 namespace Minerva.Localizations
 {
+
+
     /// <summary>
     /// The language file
     /// </summary>
