@@ -55,7 +55,7 @@
         {
             var value = Reflection.GetObjectNullPropagation(this, escapeKey);
             if (value == null) return escapeKey;
-            return value.ToString();
+            return Localizable.Tr(value, param);
         }
     }
 }

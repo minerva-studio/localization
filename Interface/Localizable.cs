@@ -1,6 +1,7 @@
 ﻿using static Minerva.Localizations.EscapePatterns.EscapePattern;
 using System;
 using System.Linq;
+using UnityEngine;
 
 namespace Minerva.Localizations
 {
@@ -46,6 +47,10 @@ namespace Minerva.Localizations
             {
                 return string.Empty;
             }
+            if (IsNumber(value))
+            {
+                return NumberToString(value, param);
+            }
             // raw value, return value directly
             if (IsRawValue(value))
             {
@@ -70,6 +75,46 @@ namespace Minerva.Localizations
 
             // return unlocalized contents
             return AsKeyEscape(value.GetType().FullName);
+        }
+
+        private static bool IsNumber(object value)
+        {
+            return value is int or float or double or decimal or long or short;
+        }
+
+        private static double AsNumber(object value)
+        {
+            switch (value)
+            {
+                case int i:
+                    return i;
+                case float f:
+                    return f;
+                case long l:
+                    return l;
+                case short s:
+                    return s;
+                case decimal c:
+                    return (double)c;
+                case double d:
+                    return d;
+                default:
+                    break;
+            }
+            return 0;
+        }
+
+        public static string NumberToString(object numberLike, params string[] param)
+        {
+            var number = AsNumber(numberLike);
+            foreach (var item in param)
+            {
+                if (item.StartsWith("f_"))
+                {
+                    return number.ToString(item[2..]);
+                }
+            }
+            return number.ToString("F2");
         }
 
         /// <summary>
