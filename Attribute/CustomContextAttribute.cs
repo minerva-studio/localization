@@ -17,8 +17,17 @@ namespace Minerva.Localizations
             {
                 if (item.IsAbstract) continue;
                 if (GetCustomAttribute(item, typeof(CustomContextAttribute)) is not CustomContextAttribute attr) continue;
-
-                table.Add(attr.targetType, (item, attr.inherit));
+                // duplicate keys, likely some error from user input
+                if (table.ContainsKey(attr.targetType))
+                {
+                    var (type, inherit) = table[attr.targetType];
+                    // use the one that support inheritance
+                    if (inherit != attr.inherit && attr.inherit)
+                    {
+                        table[attr.targetType] = (item, true);
+                    }
+                }
+                else table.Add(attr.targetType, (item, attr.inherit));
             }
             table ??= new();
             table[typeof(object)] = (typeof(GenericL10nContext), true);

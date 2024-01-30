@@ -16,14 +16,10 @@ namespace Minerva.Localizations
             File.WriteAllText(path, string.Empty);
             var lines = keyValuePairs
                 .Where(e => !string.IsNullOrEmpty(e.Key) && !string.IsNullOrWhiteSpace(e.Key))
+                .OrderBy(e => e.Key)
                 .Select(e => $"{e.Key}: \"{ToProperString(e.Value)}\"");
             File.AppendAllLines(path, lines);
 
-
-            static string ToProperString(string str)
-            {
-                return str.Replace("\n", "\\n").Replace("\r", "");
-            }
         }
 
         public static void Export<T>(List<T> keyValuePairs, Func<T, string> key, Func<T, string> value, string path)
@@ -31,13 +27,15 @@ namespace Minerva.Localizations
             File.WriteAllText(path, string.Empty);
             var lines = keyValuePairs
                 .Where(e => !string.IsNullOrEmpty(key(e)) && !string.IsNullOrWhiteSpace(value(e)))
-                .Select(e => $"{key(e)}: \"{ToProperString(value(e))}\"");
+                .Select(e => (key: key(e), value: ToProperString(value(e))))
+                .OrderBy(e => e.key)
+                .Select(e => $"{e.key}: \"{e.value}\"");
             File.AppendAllLines(path, lines);
+        }
 
-            static string ToProperString(string str)
-            {
-                return str.Replace("\n", "\\n").Replace("\r", "");
-            }
+        static string ToProperString(string str)
+        {
+            return str.Replace("\n", "\\n").Replace("\r", "");
         }
     }
 }

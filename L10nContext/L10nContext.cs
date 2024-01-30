@@ -1,6 +1,7 @@
 ﻿using Minerva.Localizations.EscapePatterns;
 using System;
 using System.Collections.Generic;
+using static UnityEditor.Search.SearchValue;
 
 namespace Minerva.Localizations
 {
@@ -186,7 +187,14 @@ namespace Minerva.Localizations
                 return new NoContext();
             }
             Type valueType = value.GetType();
-            return (L10nContext)Activator.CreateInstance(CustomContextAttribute.GetContextType(valueType), value);
+            return Of(value, valueType);
+        }
+
+        private static L10nContext Of(object value, Type type)
+        {
+            if (type == typeof(DynamicContext)) return ((DynamicContext)(object)value).Clone();
+            if (type.IsSubclassOf(typeof(L10nContext))) return new DynamicContext(value);
+            return (L10nContext)Activator.CreateInstance(CustomContextAttribute.GetContextType(type), value);
         }
 
         /// <summary>
@@ -197,12 +205,9 @@ namespace Minerva.Localizations
         /// </remarks>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static L10nContext Of<T>(T value)
+        public static L10nContext Of<T>(object value)
         {
-            if (typeof(T) == typeof(DynamicContext)) return ((DynamicContext)(object)value).Clone();
-            if (typeof(T).IsSubclassOf(typeof(L10nContext))) return new DynamicContext(value);
-
-            return (L10nContext)Activator.CreateInstance(CustomContextAttribute.GetContextType(typeof(T)), value);
+            return Of(value, typeof(T));
         }
 
         /// <summary>

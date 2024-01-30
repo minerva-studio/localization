@@ -166,8 +166,8 @@ namespace Minerva.Localizations
 
 #if UNITY_EDITOR   
 
-        [ContextMenuItem("Sort", nameof(SortKeyList))]
-        public List<string> keyList;
+        //[ContextMenuItem("Sort", nameof(SortKeyList))]
+        private List<string> keyList;
         [ContextMenuItem("Sort", nameof(SortMissing))]
         [ContextMenuItem("Clear Obsolete Missing Keys", nameof(ClearObsoleteMissingKeys))]
         public List<string> missingKeys;
@@ -183,6 +183,7 @@ namespace Minerva.Localizations
         public SerializedObject serializedObject { get => sobj ??= new(this); }
         public Table LocalizationTable { get => localizationTable ??= GenerateTable(); set => localizationTable = value; }
         public Dictionary<string, Dictionary<string, SerializedProperty>> PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
+        public List<string> Keys { get => keyList ??= RebuildKeyList(); private set => keyList = value; }
 
 
         /// <summary>
@@ -193,7 +194,7 @@ namespace Minerva.Localizations
             serializedObject.Update();
             localizationTable = GenerateTable();
             propertyTable = GeneratePropertyTable();
-            trie = new Trie(keyList);
+            trie = new Trie(Keys);
             L10n.ReloadIfInitialized();
         }
 
@@ -201,7 +202,7 @@ namespace Minerva.Localizations
         {
             var localizationTable = new Table(regions.ToArray());
             RebuildKeyList();
-            foreach (var key in keyList)
+            foreach (var key in Keys)
             {
                 KeyEntry entry = new KeyEntry(key);
                 localizationTable.Add(key, entry);
@@ -217,7 +218,7 @@ namespace Minerva.Localizations
         {
             var localizationTable = new Dictionary<string, Dictionary<string, SerializedProperty>>();
             RebuildKeyList();
-            foreach (var key in keyList)
+            foreach (var key in Keys)
             {
                 Dictionary<string, SerializedProperty> table = new();
                 localizationTable.Add(key, table);
@@ -243,7 +244,7 @@ namespace Minerva.Localizations
             if (string.IsNullOrEmpty(key)) { return true; }
             if (string.IsNullOrWhiteSpace(key)) { return true; }
             if (key.EndsWith(".")) key = key.Remove(key.Length - 1);
-            return keyList.Contains(key);
+            return Keys.Contains(key);
         }
 
         /// <summary>
@@ -255,7 +256,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public void AddKey(string key, string tag = "Main", string defaultValue = "")
         {
-            Debug.Log(keyList.Count);
+            Debug.Log(Keys.Count);
             AddKey_Internal(key, tag, defaultValue);
             AddKeyToTable(key, defaultValue);
             L10n.ReloadIfInitialized();
@@ -294,7 +295,7 @@ namespace Minerva.Localizations
 
             if (hasKey)
             {
-                keyList.Add(key);
+                Keys.Add(key);
                 serializedObject.Update();
             }
         }
@@ -355,7 +356,7 @@ namespace Minerva.Localizations
             L10n.ReloadIfInitialized();
             if (hasKey)
             {
-                keyList.Add(key);
+                Keys.Add(key);
                 serializedObject.Update();
             }
         }
@@ -378,7 +379,7 @@ namespace Minerva.Localizations
             //remove key from localization table
             LocalizationTable.Remove(key);
             PropertyTable.Remove(key);
-            keyList.Remove(key);
+            Keys.Remove(key);
             trie.Remove(key);
             EditorUtility.SetDirty(this);
 
@@ -402,8 +403,8 @@ namespace Minerva.Localizations
             }
 
             //keylist move
-            keyList.Remove(oldKey);
-            keyList.Add(newKey);
+            Keys.Remove(oldKey);
+            Keys.Add(newKey);
             trie.Remove(oldKey);
             trie.Add(newKey);
             EditorUtility.SetDirty(this);
@@ -425,30 +426,32 @@ namespace Minerva.Localizations
 
 
         [ContextMenu("Rebuild key list")]
-        public void RebuildKeyList()
+        public List<string> RebuildKeyList()
         {
             HashSet<string> keys = new HashSet<string>();
             foreach (var item in files)
             {
                 keys.UnionWith(item.Keys);
             }
-            keyList = keys.ToList();
-            trie = new Trie(keyList);
+            Keys = keys.ToList();
+            trie = new Trie(Keys);
+
+            return Keys;
         }
 
-        [ContextMenu("Sync key list")]
-        public void SyncKeys()
-        {
-            EditorUtility.SetDirty(this);
-            RebuildKeyList();
-            foreach (var file in files)
-            {
-                foreach (var keys in keyList)
-                {
-                    file.Add(keys);
-                }
-            }
-        }
+        //[ContextMenu("Sync key list")]
+        //public void SyncKeys()
+        //{
+        //    EditorUtility.SetDirty(this);
+        //    RebuildKeyList();
+        //    foreach (var file in files)
+        //    {
+        //        foreach (var keys in keyList)
+        //        {
+        //            file.Add(keys);
+        //        }
+        //    }
+        //}
 
 
 
@@ -459,7 +462,7 @@ namespace Minerva.Localizations
         /// </summary>
         public void SortKeyList()
         {
-            keyList.Sort();
+            Keys.Sort();
             EditorUtility.SetDirty(this);
         }
 
@@ -480,7 +483,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public List<string> FindPossibleNextClass(string pKey)
         {
-            trie ??= new(keyList);
+            trie ??= new(Keys);
             if (string.IsNullOrEmpty(pKey))
             {
                 return trie.FirstLevelKeys.ToList();
@@ -517,7 +520,7 @@ namespace Minerva.Localizations
 
             var file = CSV.Import(path);
             regions = new List<string>(file.cols);
-            keyList = new List<string>(file.rows);
+            Keys = new List<string>(file.rows);
             localizationTable = new(file.cols);
             ITable.Convert(file, localizationTable);
         }

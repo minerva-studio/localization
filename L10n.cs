@@ -1,5 +1,4 @@
-﻿using Minerva.Localizations.Components;
-using Minerva.Localizations.EscapePatterns;
+﻿using Minerva.Localizations.EscapePatterns;
 using Minerva.Module;
 using System;
 using System.Collections.Generic;
@@ -30,6 +29,7 @@ namespace Minerva.Localizations
 
 
 
+        public static event Action OnLocalizationLoaded;
         private static L10n instance;
 
 
@@ -124,7 +124,12 @@ namespace Minerva.Localizations
             trie = new Tries<string>(dictionary);
             initialized = true;
 
-            TextLocalizerBase.ReloadAll();
+            // safely invoke all method in delegate
+            foreach (var item in OnLocalizationLoaded.GetInvocationList())
+            {
+                try { item?.DynamicInvoke(); }
+                catch (Exception e) { Debug.LogException(e); }
+            }
         }
 
         public static void ReloadIfInitialized()
@@ -158,7 +163,7 @@ namespace Minerva.Localizations
                 Debug.LogWarning($"Key {key} does not appear in the localization file {region}. The key will be added to localization manager if this happened in editor runtime.");
 #if UNITY_EDITOR
                 manager.AddMissingKey(key);
-#endif    
+#endif
                 goto missing;
             }
             if (disableEmptyEntries && string.IsNullOrEmpty(value))
@@ -210,6 +215,21 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
+        /// Check whether given key is present in current localization file
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public static bool Contains(string key)
+        {
+            return Instance?.Instance_Contains(key) == true;
+        }
+
+        private bool Instance_Contains(string key)
+        {
+            return dictionary.ContainsKey(key);
+        }
+
+        /// <summary>
         /// Override given key's entry to value
         /// </summary>
         /// <param name="key"></param>
@@ -228,7 +248,7 @@ namespace Minerva.Localizations
         public static List<string> OptionOf(string partialKey, bool firstLevelOnly = false)
         {
             if (instance == null || !instance.initialized) { return new List<string>(); }
-            return instance.Instance_OptionOf(partialKey, firstLevelOnly);
+            return instance.Instance_OptionOf(partialKey, new List<string>(), firstLevelOnly);
         }
 
         /// <summary>
@@ -237,12 +257,28 @@ namespace Minerva.Localizations
         /// <param name="partialKey"></param>
         /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
         /// <returns></returns>
-        private List<string> Instance_OptionOf(string partialKey, bool firstLevelOnly = false)
+        public static void OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (!initialized) { return new List<string>(); }
-            if (firstLevelOnly)
-                return trie.GetSubTrie(partialKey).GetFirstLevelKeys();
-            else return trie.GetSubTrie(partialKey).Keys;
+            if (instance == null || !instance.initialized) { return; }
+            instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
+        }
+
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        private List<string> Instance_OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
+        {
+            if (!initialized) { return strings; }
+            if (trie.TryGetSubTrie(partialKey, out var subTrie))
+                if (firstLevelOnly)
+                    subTrie.CopyFirstLevelKeys(strings);
+                else
+                    subTrie.CopyKeys(strings);
+
+            return strings;
         }
 
 
@@ -285,4 +321,5 @@ namespace Minerva.Localizations
             return Localizable.TrKey(key, context, param);
         }
     }
+
 }

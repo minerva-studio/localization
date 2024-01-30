@@ -75,6 +75,7 @@ namespace Minerva.Localizations
 
             void Import(List<Entry> entries)
             {
+                if (entries == null) return;
                 foreach (var entry in entries)
                 {
                     if (dictionary.ContainsKey(entry.Key))
@@ -732,9 +733,27 @@ namespace Minerva.Localizations
                 if (string.IsNullOrEmpty(item) || item.StartsWith('#')) continue;
 
                 int spliter = item.IndexOf(':');
+                // some reason it is not right, skip line
+                if (spliter == -1) continue;
+
                 string key = item[..spliter].Trim();
-                string value = item[(spliter + 1)..].Trim()[1..^1];
-                entries.Add(new Entry(key, value.Replace("\\n", "\n")));
+                string value = ParseValue(item[(spliter + 1)..]);//.Trim()[1..^1];
+                entries.Add(new Entry(key, value));
+            }
+        }
+
+        private string ParseValue(string raw)
+        {
+            var value = raw.Trim();
+            if (QuotedBy(value, '"') || QuotedBy(value, '\''))
+            {
+                value = value[1..^1];
+            }
+            return value.Replace("\\n", "\n");
+
+            static bool QuotedBy(string value, char c)
+            {
+                return value.StartsWith(c) && value.EndsWith(c);
             }
         }
 

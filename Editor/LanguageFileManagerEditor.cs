@@ -26,16 +26,16 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.files)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.regions)));
 
-            SerializedProperty serializedProperty = serializedObject.FindProperty(nameof(file.keyList));
-            pageList ??= EditorFieldDrawers.DrawListPage(serializedProperty);
-            pageList.entryList = serializedProperty;
-            pageList.OnSortList = () =>
-            {
-                file.keyList.Sort();
-                serializedObject.Update();
-                EditorUtility.SetDirty(file);
-            };
-            pageList.Draw("Keys");
+            //SerializedProperty serializedProperty = serializedObject.FindProperty(nameof(file.keyList));
+            //pageList ??= EditorFieldDrawers.DrawListPage(serializedProperty);
+            //pageList.entryList = serializedProperty;
+            //pageList.OnSortList = () =>
+            //{
+            //    file.keyList.Sort();
+            //    serializedObject.Update();
+            //    EditorUtility.SetDirty(file);
+            //};
+            //pageList.Draw("Keys");
 
             SerializedProperty serializedProperty1 = serializedObject.FindProperty(nameof(file.missingKeys));
             missingPageList ??= EditorFieldDrawers.DrawListPage(serializedProperty1);

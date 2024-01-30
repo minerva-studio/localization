@@ -141,10 +141,6 @@ namespace Minerva.Localizations.Editor
         {
             GUILayout.BeginVertical();
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
-            if (GUILayout.Button("Sync keys", GUILayout.Width(240), GUILayout.Height(30)))
-            {
-                fileManager.SyncKeys();
-            }
 
             if (GUILayout.Button("Refresh Localization Table", GUILayout.Width(240), GUILayout.Height(30)))
             {
@@ -399,7 +395,7 @@ namespace Minerva.Localizations.Editor
             GUILayout.BeginVertical(GUILayout.Height(position.height - HEIGHT_OFFSET));
             for (int i = tableBaseIndex; i < upperTableIndex; i++)
             {
-                string key = fileManager.keyList[i];
+                string key = fileManager.Keys[i];
                 GUILayout.BeginHorizontal(keyEntryHeight);
                 Dictionary<string, SerializedProperty> dictionary = table[key];
                 using (GUIEnable.By(dictionary.Values.All(e => e != null && e.editable)))
@@ -432,6 +428,10 @@ namespace Minerva.Localizations.Editor
                     DrawTableEntry(GUIContent.none, so, keyEntryWidth, keyEntryHeight);
                 }
                 GUILayout.EndHorizontal();
+            }
+            if (Event.current.isScrollWheel)
+            {
+                GUI.FocusControl(null);
             }
             GUILayout.EndVertical();
             // try remove key

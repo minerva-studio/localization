@@ -8,7 +8,7 @@ namespace Minerva.Localizations.Components
     /// </summary>
     public abstract class TextLocalizerBase : MonoBehaviour
     {
-        public static List<TextLocalizerBase> loaders = new List<TextLocalizerBase>();
+        public static List<TextLocalizerBase> loaders;
 
 
         [Header("Key")]
@@ -18,6 +18,11 @@ namespace Minerva.Localizations.Components
 
 
 
+        static TextLocalizerBase()
+        {
+            loaders = new();
+            L10n.OnLocalizationLoaded += ReloadAll;
+        }
 
         private void OnValidate()
         {
