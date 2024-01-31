@@ -774,8 +774,8 @@ namespace Minerva.Localizations
         public LanguageFile CreateChildFile(string fileTag)
         {
             string fileName = $"Lang_{region}_{fileTag}.asset";
-            string path = AssetDatabase.GetAssetPath(this);
-            path = path[..path.LastIndexOf('/')] + "/" + fileName;
+            string path = Path.Join(Application.dataPath, AssetDatabase.GetAssetPath(this));
+            path = $"{path[..path.LastIndexOf('/')]}/{fileName}";
             if (string.IsNullOrEmpty(path)) return null;
             return CreateChildFilePath(fileTag, path);
         }
