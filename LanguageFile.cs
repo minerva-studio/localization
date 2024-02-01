@@ -34,7 +34,7 @@ namespace Minerva.Localizations
         public string Region { get => isMasterFile ? region : masterFile.region; }
         public string Tag { get => tag; set => tag = value; }
         public LanguageFile MasterFile { get => masterFile; set => masterFile = value; }
-        public List<LanguageFile> ChildFiles { get => childFiles; set => childFiles = value; }
+        public List<LanguageFile> ChildFiles { get { childFiles.RemoveAll(t => !t); return childFiles; } }
         public bool IsMasterFile => isMasterFile;
         public bool IsReadOnly => isReadOnly;
 
@@ -44,6 +44,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public Tries<string> GetTrie()
         {
+            ChildFiles.RemoveAll(c => !c);
             var dictionary = new Tries<string>();
             GetDictionary(dictionary);
             return dictionary;
@@ -55,6 +56,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public Dictionary<string, string> GetDictionary()
         {
+            ChildFiles.RemoveAll(c => !c);
             var dictionary = new Dictionary<string, string>();
             GetDictionary(dictionary);
             return dictionary;
@@ -65,8 +67,9 @@ namespace Minerva.Localizations
             int duplicate = 0;
 
             Import(entries);
-            foreach (var item in childFiles)
+            foreach (var item in ChildFiles)
             {
+                if (!item) continue;
                 Import(item.entries);
             }
 
@@ -107,7 +110,7 @@ namespace Minerva.Localizations
             }
             if (isMasterFile)
             {
-                foreach (var file in childFiles)
+                foreach (var file in ChildFiles)
                 {
                     foreach (var item in file.entries)
                     {
@@ -150,8 +153,9 @@ namespace Minerva.Localizations
             if (value != null) return true;
             if (!isMasterFile) return false;
 
-            foreach (var item in childFiles)
+            foreach (var item in ChildFiles)
             {
+                if (!item) continue;
                 if (item.TryGet(key, out value)) return true;
             }
             value = null;
@@ -169,7 +173,7 @@ namespace Minerva.Localizations
             bool haskey = entries.Any(p => p.Key == key);
             if (!haskey && searchInChild)
             {
-                haskey = childFiles.Any(f => f.HasKey(key, false));
+                haskey = ChildFiles.Any(f => f.HasKey(key, false));
             }
             return haskey;
         }
@@ -275,7 +279,8 @@ namespace Minerva.Localizations
             }
             if (isMasterFile)
             {
-                var file = childFiles.FirstOrDefault(f => f.tag == fileTag);
+                ChildFiles.RemoveAll(t => !t);
+                var file = ChildFiles.FirstOrDefault(f => f.tag == fileTag);
                 if (!file) file = CreateChildFile(fileTag);
                 if (!file) return false;
 
@@ -396,7 +401,7 @@ namespace Minerva.Localizations
 
         private Entry GetEntryFromChild(string key)
         {
-            foreach (var item in childFiles)
+            foreach (var item in ChildFiles)
             {
                 Entry entry = item.GetEntryOnSelf(key);
                 if (entry != null) return entry;
@@ -443,7 +448,7 @@ namespace Minerva.Localizations
             }
             if (!isMasterFile) return false;
 
-            foreach (var item in childFiles)
+            foreach (var item in ChildFiles)
             {
                 if (item.TryGetProperty(key, out value)) return true;
             }
@@ -461,7 +466,7 @@ namespace Minerva.Localizations
         public void Sort(bool searchInChild = false)
         {
             entries.Sort();
-            if (searchInChild) childFiles.ForEach(f => f.Sort(false));
+            if (searchInChild) ChildFiles.ForEach(f => f.Sort(false));
         }
 
         /// <summary>
@@ -474,7 +479,7 @@ namespace Minerva.Localizations
             EditorUtility.SetDirty(this);
             entries.RemoveAll(p => p.Key == key);
 
-            if (searchInChild) childFiles.ForEach(f => f.RemoveKey(key, false));
+            if (searchInChild) ChildFiles.ForEach(f => f.RemoveKey(key, false));
             if (updateAssets) AssetDatabase.SaveAssets();
         }
 
@@ -527,7 +532,7 @@ namespace Minerva.Localizations
             {
                 return result;
             }
-            foreach (var child in childFiles)
+            foreach (var child in ChildFiles)
             {
                 child.FindMatchedKeys_Internal(partialKey, result);
             }
@@ -547,7 +552,7 @@ namespace Minerva.Localizations
             {
                 return;
             }
-            foreach (var child in childFiles)
+            foreach (var child in ChildFiles)
             {
                 child.FindMatchedKeys_Internal(partialKey, result);
             }
@@ -581,7 +586,7 @@ namespace Minerva.Localizations
         {
             if (isMasterFile)
             {
-                foreach (var item in childFiles)
+                foreach (var item in ChildFiles)
                 {
                     if (item) item.SetMasterFile(this);
                 }
@@ -642,9 +647,9 @@ namespace Minerva.Localizations
             for (int i = entries.Count - 1; i >= 0; i--)
             {
                 Entry item = entries[i];
-                for (int j = 0; j < childFiles.Count; j++)
+                for (int j = 0; j < ChildFiles.Count; j++)
                 {
-                    LanguageFile item1 = childFiles[j];
+                    LanguageFile item1 = ChildFiles[j];
                     if (item1.HasKey(item.Key))
                     {
                         entries.Remove(item);
@@ -785,7 +790,7 @@ namespace Minerva.Localizations
             Debug.Log(path);
             var subfile = CreateInstance<LanguageFile>();
             subfile.tag = tag;
-            childFiles.Add(subfile);
+            ChildFiles.Add(subfile);
             EditorUtility.SetDirty(this);
             subfile.SetMasterFile(this);
             AssetDatabase.CreateAsset(subfile, "Assets" + path[Application.dataPath.Length..]);

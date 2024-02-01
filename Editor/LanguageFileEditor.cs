@@ -39,7 +39,8 @@ namespace Minerva.Localizations.Editor
             pageList.OnDrawHeader = () =>
             {
                 if (GUILayout.Button("Import from Yaml", height)) file.ImportFromYaml();
-                if (GUILayout.Button("Export as Yaml", height)) file.ExportToYaml();
+                using (GUIEnable.By(true))
+                    if (GUILayout.Button("Export as Yaml", height)) file.ExportToYaml();
                 //if (GUILayout.Button("Export as Source Yaml", height)) file.ExportToYamlAsSource();
             };
             pageList.OnSortList = () =>
