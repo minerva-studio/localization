@@ -7,7 +7,7 @@ namespace Minerva.Localizations
     public class LanguageFileSource : ScriptableObject
     {
         public string tag;
-        [SerializeField] private List<string> keys = new();
+        public List<string> keys = new();
 
         /// <summary>
         /// Create an (inspector) read only lang file

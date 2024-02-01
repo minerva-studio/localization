@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 namespace Minerva.Localizations.Editor
@@ -13,8 +14,20 @@ namespace Minerva.Localizations.Editor
         public const int TABLE_ENTRY_MIN_HEIGHT = 20;
         public const int TABLE_ENTRY_MAX_HEIGHT = 250;
 
+
+        static LocalizationEditorSetting()
+        {
+            L10n.OnKeyMissing += (key) => GetOrCreateSettings().AddMissingKey(key);
+        }
+
+
+
         private SerializedObject obj;
         public SerializedObject serializedObject => obj ?? new SerializedObject(this);
+
+
+
+
 
         [Tooltip("Reference sheet will automatically show entries if there are entries fewer than display count met current partial key")]
         public bool autoSwitch;
@@ -32,6 +45,13 @@ namespace Minerva.Localizations.Editor
         public bool useOldTableStyle;
 
         public bool sudo;
+
+        [ContextMenuItem("Sort", nameof(SortMissing))]
+        //[ContextMenuItem("Clear Obsolete Missing Keys", nameof(ClearObsoleteMissingKeys))]
+        public List<string> missingKeys;
+
+
+
 
         public int TextEditorHeight => textEditorHeight = Mathf.Max(TEXT_EDITOR_DEFAULT_HEIGHT, textEditorHeight);
         public int LinePerPage => linePerPage = Mathf.Max(TEXT_EDITOR_MIN_LINE_PER_PAGE, linePerPage);
@@ -55,7 +75,26 @@ namespace Minerva.Localizations.Editor
             }
             return settings;
         }
+
+        /// <summary>
+        /// Sort all missing key
+        /// </summary>
+        public void SortMissing()
+        {
+            missingKeys.Sort();
+        }
+
+
+        /// <summary>
+        /// Add a missing key
+        /// </summary>
+        /// <param name="key"></param>
+        public void AddMissingKey(string key)
+        {
+            if (missingKeys.Contains(key)) return;
+            if (string.IsNullOrEmpty(key)) return;
+
+            missingKeys.Add(key);
+        }
     }
-
-
 }

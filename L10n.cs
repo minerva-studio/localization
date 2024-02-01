@@ -30,6 +30,7 @@ namespace Minerva.Localizations
 
 
         public static event Action OnLocalizationLoaded;
+        public static event Action<string> OnKeyMissing;
         private static L10n instance;
 
 
@@ -162,7 +163,7 @@ namespace Minerva.Localizations
             {
                 Debug.LogWarning($"Key {key} does not appear in the localization file {region}. The key will be added to localization manager if this happened in editor runtime.");
 #if UNITY_EDITOR
-                manager.AddMissingKey(key);
+                OnKeyMissing?.Invoke(key);
 #endif
                 goto missing;
             }

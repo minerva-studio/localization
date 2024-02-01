@@ -165,7 +165,7 @@ namespace Minerva.Localizations.Editor
         private void DrawMissingPage()
         {
             GUILayout.BeginVertical();
-            if (fileManager.missingKeys.Count == 0)
+            if (setting.missingKeys.Count == 0)
             {
                 GUILayout.FlexibleSpace();
                 GUILayout.BeginHorizontal();
@@ -193,9 +193,10 @@ namespace Minerva.Localizations.Editor
             int index = -1;
             string remove = null;
             string add = null;
-            GUILayout.Label($"{fileManager.missingKeys.Count} missing entries:");
+            GUILayout.Label($"{setting.missingKeys.Count} missing entries:");
 
-            var property = serializedObject.FindProperty(nameof(fileManager.missingKeys));
+            var so = setting.serializedObject;
+            var property = so.FindProperty(nameof(setting.missingKeys));
             for (int i = 0; i < property.arraySize; i++)
             {
                 var elementProperty = property.GetArrayElementAtIndex(i);
@@ -235,19 +236,40 @@ namespace Minerva.Localizations.Editor
             {
                 property.DeleteArrayElementAtIndex(index);
             }
-            if (serializedObject.hasModifiedProperties)
+            if (so.hasModifiedProperties)
             {
-                serializedObject.ApplyModifiedProperties();
-                serializedObject.Update();
+                so.ApplyModifiedProperties();
+                so.Update();
                 EditorUtility.SetDirty(fileManager);
             }
 
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("Resolve all missing keys"))
             {
-                fileManager.ResolveAllMissingKey();
+                ResolveAllMissingKey();
             }
             GUILayout.EndScrollView();
+        }
+
+        /// <summary>
+        /// Add all missing keys to the table
+        /// </summary>
+        [ContextMenu("Add all missing keys to files")]
+        public void ResolveAllMissingKey()
+        {
+            EditorUtility.SetDirty(this);
+            foreach (var key in setting.missingKeys)
+            {
+                foreach (var file in fileManager.files)
+                {
+                    if (!file.Add(key))
+                    {
+                        Debug.LogWarning($"Key {key} appears to be missing but is in file {file.name}");
+                    }
+                }
+            }
+            setting.missingKeys.Clear();
+            fileManager.RefreshTable();
         }
 
         private void DrawClassic()
@@ -387,8 +409,6 @@ namespace Minerva.Localizations.Editor
                 {
                     using (GUIEnable.By(false))
                         EditorGUILayout.ObjectField(file, typeof(LanguageFile), false, keyEntryWidth);
-
-                    //GUILayout.Label(file.Region, keyEntryWidth);
                 }
                 GUILayout.EndHorizontal();
             }
@@ -733,7 +753,7 @@ namespace Minerva.Localizations.Editor
                 {
                     newKey = EditorGUILayout.TextField("Key: " + key, newKey);
                     newKeyValue = EditorGUILayout.TextField("Value", newKeyValue);
-                    var tags = fileManager.GetFileTags();
+                    var tags = fileManager.FileTags;
                     var options = tags.Where(t => !fileManager.IsFileReadOnly(t)).ToArray();
 
                     selectedIndex = EditorGUILayout.Popup("File", selectedIndex, options);

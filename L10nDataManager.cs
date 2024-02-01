@@ -1,10 +1,12 @@
 ﻿using Minerva.Module;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using PropertyTable = System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, UnityEditor.SerializedProperty>>;
 
 namespace Minerva.Localizations
 {
@@ -167,22 +169,37 @@ namespace Minerva.Localizations
 
         //[ContextMenuItem("Sort", nameof(SortKeyList))]
         private List<string> keyList;
-        [ContextMenuItem("Sort", nameof(SortMissing))]
-        [ContextMenuItem("Clear Obsolete Missing Keys", nameof(ClearObsoleteMissingKeys))]
-        public List<string> missingKeys;
 
         /// <summary> Table of [key][region] </summary>
         private Table localizationTable;
         /// <summary> Serialized properties </summary>
-        private Dictionary<string, Dictionary<string, SerializedProperty>> propertyTable;
+        private PropertyTable propertyTable;
         /// <summary> Keys' trie </summary>
         private Trie trie;
         private SerializedObject sobj;
 
+        /// <summary> Self as Serializable Object </summary>
         public SerializedObject serializedObject { get => sobj ??= new(this); }
         public Table LocalizationTable { get => localizationTable ??= GenerateTable(); set => localizationTable = value; }
-        public Dictionary<string, Dictionary<string, SerializedProperty>> PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
+        /// <summary> Self as Serializable Object </summary>
+        public PropertyTable PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
         public List<string> Keys { get => keyList ??= RebuildKeyList(); private set => keyList = value; }
+        public string[] FileTags
+        {
+            get
+            {
+                var fileTags = new HashSet<string>();
+                foreach (var file in files)
+                {
+                    if (!string.IsNullOrEmpty(file.Tag)) fileTags.Add(file.Tag);
+                    foreach (var child in file.ChildFiles)
+                    {
+                        if (!string.IsNullOrEmpty(child.Tag)) fileTags.Add(child.Tag);
+                    }
+                }
+                return fileTags.ToArray();
+            }
+        }
 
 
         /// <summary>
@@ -213,9 +230,9 @@ namespace Minerva.Localizations
             return localizationTable;
         }
 
-        private Dictionary<string, Dictionary<string, SerializedProperty>> GeneratePropertyTable()
+        private PropertyTable GeneratePropertyTable()
         {
-            var localizationTable = new Dictionary<string, Dictionary<string, SerializedProperty>>();
+            var localizationTable = new PropertyTable();
             RebuildKeyList();
             foreach (var key in Keys)
             {
@@ -232,6 +249,19 @@ namespace Minerva.Localizations
 
 
 
+
+        /// <summary>
+        /// Given key in source
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public bool IsInSource(string key)
+        {
+            if (string.IsNullOrEmpty(key)) { return true; }
+            if (string.IsNullOrWhiteSpace(key)) { return true; }
+            if (key.EndsWith(".")) key = key.Remove(key.Length - 1);
+            return sources.Any(s => s && s.keys.Contains(key));
+        }
 
         /// <summary>
         /// Given key in the key list
@@ -553,56 +583,6 @@ namespace Minerva.Localizations
 
 
 
-
-        /// <summary>
-        /// Add a missing key
-        /// </summary>
-        /// <param name="key"></param>
-        public void AddMissingKey(string key)
-        {
-            if (missingKeys.Contains(key)) return;
-            if (string.IsNullOrEmpty(key)) return;
-
-            missingKeys.Add(key);
-        }
-
-        /// <summary>
-        /// Sort all missing key
-        /// </summary>
-        public void SortMissing()
-        {
-            missingKeys.Sort();
-        }
-
-        /// <summary>
-        /// Clear the obsolete missing keys from the missing keys entry
-        /// </summary>
-        public void ClearObsoleteMissingKeys()
-        {
-            missingKeys.RemoveAll(key => string.IsNullOrEmpty(key) || LocalizationTable.ContainsKey(key));
-        }
-
-        /// <summary>
-        /// Add all missing keys to the table
-        /// </summary>
-        [ContextMenu("Add all missing keys to files")]
-        public void ResolveAllMissingKey()
-        {
-            EditorUtility.SetDirty(this);
-            foreach (var key in missingKeys)
-            {
-                foreach (var file in files)
-                {
-                    if (!file.Add(key))
-                    {
-                        Debug.LogWarning($"Key {key} appears to be missing but is in file {file.name}");
-                    }
-                }
-            }
-            missingKeys.Clear();
-            RefreshTable();
-        }
-
         public void EditorSaveSelf()
         {
             AssetDatabase.SaveAssetIfDirty(this);
@@ -614,20 +594,6 @@ namespace Minerva.Localizations
                     AssetDatabase.SaveAssetIfDirty(child);
                 }
             }
-        }
-
-        public string[] GetFileTags()
-        {
-            var fileTags = new HashSet<string>();
-            foreach (var file in files)
-            {
-                fileTags.Add(file.Tag);
-                foreach (var child in file.ChildFiles)
-                {
-                    fileTags.Add(child.Tag);
-                }
-            }
-            return fileTags.ToArray();
         }
 
         public bool IsFileReadOnly(string fileTag)

@@ -24,6 +24,7 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.disableEmptyEntry)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.missingKeySolution)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.files)));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.sources)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.regions)));
 
             //SerializedProperty serializedProperty = serializedObject.FindProperty(nameof(file.keyList));
@@ -37,10 +38,10 @@ namespace Minerva.Localizations.Editor
             //};
             //pageList.Draw("Keys");
 
-            SerializedProperty serializedProperty1 = serializedObject.FindProperty(nameof(file.missingKeys));
-            missingPageList ??= EditorFieldDrawers.DrawListPage(serializedProperty1);
-            missingPageList.entryList = serializedProperty1;
-            missingPageList.Draw("Missing Keys");
+            //SerializedProperty serializedProperty1 = serializedObject.FindProperty(nameof(file.missingKeys));
+            //missingPageList ??= EditorFieldDrawers.DrawListPage(serializedProperty1);
+            //missingPageList.entryList = serializedProperty1;
+            //missingPageList.Draw("Missing Keys");
 
             if (serializedObject.hasModifiedProperties)
             {
