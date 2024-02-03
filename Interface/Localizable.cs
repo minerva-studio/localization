@@ -114,7 +114,15 @@ namespace Minerva.Localizations
                     return number.ToString(item[2..]);
                 }
             }
-            return number.ToString("F2");
+            switch (numberLike)
+            {
+                case int:
+                case long:
+                case short:
+                    return numberLike.ToString();
+                default:
+                    return number.ToString("F2");
+            }
         }
 
         /// <summary>
