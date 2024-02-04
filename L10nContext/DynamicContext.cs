@@ -1,5 +1,4 @@
 ﻿using Minerva.Localizations.EscapePatterns;
-using System;
 using System.Collections.Generic;
 
 namespace Minerva.Localizations

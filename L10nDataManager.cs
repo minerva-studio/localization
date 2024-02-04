@@ -1,12 +1,13 @@
 ﻿using Minerva.Module;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+#if UNITY_EDITOR
 using PropertyTable = System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, UnityEditor.SerializedProperty>>;
+#endif
 
 namespace Minerva.Localizations
 {
@@ -131,7 +132,6 @@ namespace Minerva.Localizations
         public List<LanguageFileSource> sources;
         public List<string> regions;
 
-        private const char CSV_SEPARATOR = ',';
 
         /// <summary>
         /// Get main language file by given region
@@ -164,8 +164,8 @@ namespace Minerva.Localizations
         }
 
 
-
-#if UNITY_EDITOR   
+        #region Editor
+#if UNITY_EDITOR
 
         //[ContextMenuItem("Sort", nameof(SortKeyList))]
         private List<string> keyList;
@@ -617,7 +617,8 @@ namespace Minerva.Localizations
                 return file.Tag == fileTag && file.IsReadOnly;
             }
         }
-#endif
+#endif 
+        #endregion
 
     }
 }

@@ -1,7 +1,6 @@
-﻿using static Minerva.Localizations.EscapePatterns.EscapePattern;
-using System;
+﻿using System;
 using System.Linq;
-using UnityEngine;
+using static Minerva.Localizations.EscapePatterns.EscapePattern;
 
 namespace Minerva.Localizations
 {

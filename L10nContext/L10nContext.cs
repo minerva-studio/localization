@@ -1,7 +1,6 @@
 ﻿using Minerva.Localizations.EscapePatterns;
 using System;
 using System.Collections.Generic;
-using static UnityEditor.Search.SearchValue;
 
 namespace Minerva.Localizations
 {
