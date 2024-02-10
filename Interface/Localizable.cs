@@ -120,7 +120,7 @@ namespace Minerva.Localizations
                 case short:
                     return numberLike.ToString();
                 default:
-                    return number.ToString("F2");
+                    return number.ToString("F1");
             }
         }
 

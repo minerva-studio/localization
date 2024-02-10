@@ -121,7 +121,7 @@ namespace Minerva.Localizations
             string[] items = dictionary.Keys.ToArray();
             // directly convert color escape and key escape because they don't change
             foreach (var item in items) dictionary[item] = EscapePattern.ReplaceColorEscape(dictionary[item]);
-            foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
+            //foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
             trie = new Tries<string>(dictionary);
             initialized = true;
 
@@ -131,6 +131,8 @@ namespace Minerva.Localizations
                 try { item?.DynamicInvoke(); }
                 catch (Exception e) { Debug.LogException(e); }
             }
+
+            Debug.Log($"Localization Loaded. (Region: {region}, Entry Count: {dictionary.Count})");
         }
 
         public static void ReloadIfInitialized()
