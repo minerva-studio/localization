@@ -11,17 +11,19 @@ namespace Minerva.Localizations.Editor
     [CustomEditor(typeof(TextLocalizerBase), true)]
     public class TextLocalizerEditor : UnityEditor.Editor
     {
+        private bool entryFoldout = true;
+
         public override void OnInspectorGUI()
         {
             base.OnInspectorGUI();
             GUILayoutOption height = GUILayout.Height(36);
 
             GUILayout.Space(10);
-            TextLocalizerBase languageLoader = target as TextLocalizerBase;
-            L10nDataManager manager = languageLoader.languageFileManager;
-            string key = languageLoader.key;
+            TextLocalizerBase localizer = target as TextLocalizerBase;
+            L10nDataManager manager = localizer.languageFileManager;
+            string key = localizer.key;
             Color currentContentColor = GUI.contentColor;
-            SerializedObject obj = new SerializedObject(languageLoader);
+            SerializedObject obj = new SerializedObject(localizer);
             var property = obj.FindProperty("key");
 
             if (manager == null)
@@ -29,25 +31,49 @@ namespace Minerva.Localizations.Editor
                 using (GUIContentColor.By(Color.red))
                     GUILayout.Label(new GUIContent("Language File Manager not found"));
             }
-            else if (HasValidkey(languageLoader))
+            else if (!string.IsNullOrEmpty(key))
             {
-                using (GUIContentColor.By(Color.green))
-                    GUILayout.Label(new GUIContent("The key is valid"));
-                foreach (var file in manager.files)
+                if (HasValidkey(localizer))
                 {
-                    EditorGUILayout.LabelField(file.Region.ToString(), file.Get(key));
+                    using (GUIContentColor.By(Color.green))
+                        GUILayout.Label(new GUIContent("The key is valid"));
+                    if (entryFoldout = EditorGUILayout.Foldout(entryFoldout, "Entries"))
+                        foreach (var file in manager.files)
+                        {
+                            EditorGUILayout.LabelField(file.Region.ToString(), file.Get(key));
+                        }
+                }
+                else if (HasValidkeyInSource(localizer))
+                {
+                    using (GUIContentColor.By(Color.yellow))
+                        GUILayout.Label(new GUIContent("Current input key is in source, but the translation is not given yet"));
+                    // none
+                    if (manager.files.All(f => !f.HasKey(key, true)))
+                    {
+                    }
+                    else if (entryFoldout = EditorGUILayout.Foldout(entryFoldout, "Entries"))
+                    {
+                        foreach (var file in manager.files)
+                        {
+                            if (file.TryGet(key, out var content))
+                            {
+                                EditorGUILayout.LabelField(file.Region.ToString(), content);
+                            }
+                            else
+                            {
+                                using (GUIContentColor.By(Color.red))
+                                    EditorGUILayout.LabelField(file.Region.ToString(), "!!!MISSING!!!");
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    using (GUIContentColor.By(Color.red))
+                        GUILayout.Label(new GUIContent("Current input key not found"));
                 }
             }
-            else if (HasValidkeyInSource(languageLoader))
-            {
-                using (GUIContentColor.By(Color.yellow))
-                    GUILayout.Label(new GUIContent("Current input key is in source, but the translation is not given yet"));
-            }
-            else
-            {
-                using (GUIContentColor.By(Color.red))
-                    GUILayout.Label(new GUIContent("Current input key not found"));
-            }
+
 
             if (manager != null)
             {
@@ -59,19 +85,19 @@ namespace Minerva.Localizations.Editor
                     if (string.IsNullOrEmpty(item)) continue;
                     if (!GUILayout.Button(item)) continue;
 
-                    if (string.IsNullOrWhiteSpace(key)) property.stringValue = item;
-                    else property.stringValue = key + "." + item;
+                    property.stringValue = string.IsNullOrWhiteSpace(key) ? item : key + "." + item;
+                    EditorUtility.SetDirty(localizer);
                 }
                 GUILayout.Space(10);
                 if (GUILayout.Button("Back"))
                 {
-                    languageLoader.key = KeyReturnClass(languageLoader.key);
+                    localizer.key = KeyReturnClass(localizer.key);
                 }
 
                 GUILayout.Label("Tools");
                 using (new GUIHorizontalLayout(height))
                 {
-                    if (!HasValidkey(languageLoader) && GUILayout.Button("Add New Key", height))
+                    if (!HasValidkey(localizer) && GUILayout.Button("Add New Key", height))
                     {
                         var menu = new GenericMenu();
                         foreach (var tag in manager.FileTags)
@@ -86,7 +112,7 @@ namespace Minerva.Localizations.Editor
                     }
                     if (GUILayout.Button("Clear", height))
                     {
-                        ClearKey(languageLoader);
+                        ClearKey(localizer);
                     }
                 }
             }
@@ -115,7 +141,7 @@ namespace Minerva.Localizations.Editor
 
         private static bool HasValidkey(TextLocalizerBase textLocalizer)
         {
-            return textLocalizer.languageFileManager.HasKey(textLocalizer.key) && !string.IsNullOrEmpty(textLocalizer.key);
+            return textLocalizer.languageFileManager.HasKey(textLocalizer.key) && !string.IsNullOrEmpty(textLocalizer.key) && textLocalizer.languageFileManager.files.All(f => f.HasKey(textLocalizer.key, true));
         }
 
         private static bool HasValidkeyInSource(TextLocalizerBase textLocalizer)
