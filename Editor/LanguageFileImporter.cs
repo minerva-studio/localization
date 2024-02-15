@@ -37,6 +37,9 @@ namespace Minerva.Localizations
             ctx.AddObjectToAsset("LangFile", file);
             ctx.AddObjectToAsset("PlainText", plainText);
             ctx.SetMainObject(file);
+
+            var settings = LocalizationSettings.GetOrCreateSettings();
+            if (settings.manager) settings.manager.RebuildKeyList();
         }
     }
 }

@@ -15,7 +15,7 @@ namespace Minerva.Localizations
 
 #if UNITY_EDITOR
 
-        internal static LocalizationSettings GetOrCreateSettings()
+        public static LocalizationSettings GetOrCreateSettings()
         {
             var settings = AssetDatabase.LoadAssetAtPath<LocalizationSettings>(SETTING_PATH);
             if (settings == null)
