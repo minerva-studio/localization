@@ -1,6 +1,7 @@
 ﻿using Minerva.Localizations.EscapePatterns;
 using System;
 using System.Collections.Generic;
+using UnityEditor;
 
 namespace Minerva.Localizations
 {
@@ -98,6 +99,45 @@ namespace Minerva.Localizations
         {
             return L10n.OptionOf(baseKey, firstLevelOnly);
         }
+
+        /// <summary>
+        /// Get dynamic values
+        /// </summary>
+        /// <returns></returns>
+        public List<string> GetDynamicValues()
+        {
+            var l = new List<string>();
+            GetDynamicValues(l);
+            return l;
+        }
+
+        /// <summary>
+        /// Get dynamic values
+        /// </summary>
+        /// <param name="list"></param>
+        /// <returns></returns>
+        public virtual int GetDynamicValues(List<string> list)
+        {
+            System.Reflection.Assembly assembly = typeof(UnityEngine.Object).Assembly;
+            list.Clear();
+            if (value == null) return 0;
+            var type = value.GetType();
+            var fields = type.GetFields();
+            foreach (var item in fields)
+            {
+                if (item.DeclaringType.Assembly != assembly)
+                    list.Add(item.Name);
+            }
+            var properties = type.GetProperties();
+            foreach (var item in properties)
+            {
+                if (item.DeclaringType.Assembly != assembly && item.CanRead)
+                    list.Add(item.Name);
+            }
+            return list.Count;
+        }
+
+
 
 
 
