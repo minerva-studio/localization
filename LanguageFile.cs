@@ -240,10 +240,10 @@ namespace Minerva.Localizations
         /// <returns> Whether given key is in the file already </returns>
         public bool Add(string key, string value = "", bool immediateSave = false)
         {
-            //if (IsReadOnly)
-            //{
-            //    return FileAdd(key, value, immediateSave);
-            //}
+            if (IsReadOnly)
+            {
+                return false;
+            }
 
             EditorUtility.SetDirty(this);
             var entry = GetEntry(key);
