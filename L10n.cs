@@ -26,6 +26,9 @@ namespace Minerva.Localizations
         private Dictionary<string, string> dictionary;
         // trie is for hierachy search
         private Tries<string> trie;
+#if UNITY_EDITOR
+        private HashSet<string> missing = new();
+#endif
 
 
 
@@ -163,8 +166,11 @@ namespace Minerva.Localizations
             }
             if (string.IsNullOrEmpty(key) || !dictionary.TryGetValue(key, out var value) || value == null)
             {
-                Debug.LogWarning($"Key {key} does not appear in the localization file {region}. The key will be added to localization manager if this happened in editor runtime.");
 #if UNITY_EDITOR
+                if (missing.Add(key))
+                {
+                    Debug.LogWarning($"Key {key} does not appear in the localization file {region}. The key will be added to localization manager if this happened in editor.");
+                }
                 OnKeyMissing?.Invoke(key);
 #endif
                 goto missing;
@@ -250,20 +256,10 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static List<string> OptionOf(string partialKey, bool firstLevelOnly = false)
         {
-            if (instance == null || !instance.initialized) { return new List<string>(); }
-            return instance.Instance_OptionOf(partialKey, new List<string>(), firstLevelOnly);
-        }
-
-        /// <summary>
-        /// Get all options (possible complete key) of the partial key
-        /// </summary>
-        /// <param name="partialKey"></param>
-        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
-        /// <returns></returns>
-        public static void OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
-        {
-            if (instance == null || !instance.initialized) { return; }
+            List<string> strings = new List<string>();
+            if (instance == null || !instance.initialized) { return strings; }
             instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
+            return strings;
         }
 
         /// <summary>
@@ -272,16 +268,72 @@ namespace Minerva.Localizations
         /// <param name="partialKey"></param>
         /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
         /// <returns></returns>
-        private List<string> Instance_OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
+        public static List<string> OptionOf(Key partialKey, bool firstLevelOnly = false)
         {
-            if (!initialized) { return strings; }
-            if (trie.TryGetSubTrie(partialKey, out var subTrie))
-                if (firstLevelOnly)
-                    subTrie.CopyFirstLevelKeys(strings);
-                else
-                    subTrie.CopyKeys(strings);
-
+            List<string> strings = new List<string>();
+            if (instance == null || !instance.initialized) { return strings; }
+            instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
             return strings;
+        }
+
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        public static bool OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
+        {
+            if (instance == null || !instance.initialized) { return false; }
+            return instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
+        }
+
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        public static bool OptionOf(Key partialKey, List<string> strings, bool firstLevelOnly = false)
+        {
+            if (instance == null || !instance.initialized) { return false; }
+            return instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
+        }
+
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        private bool Instance_OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
+        {
+            if (!initialized) { return false; }
+            if (!trie.TryGetSubTrie(partialKey, out var subTrie))
+                return false;
+            if (firstLevelOnly)
+                subTrie.CopyFirstLevelKeys(strings);
+            else
+                subTrie.CopyKeys(strings);
+            return true;
+        }
+
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        private bool Instance_OptionOf(Key partialKey, List<string> strings, bool firstLevelOnly = false)
+        {
+            if (!initialized) { return false; }
+            if (!trie.TryGetSubTrie((IEnumerable<string>)partialKey, out var subTrie))
+                return false;
+            if (firstLevelOnly)
+                subTrie.CopyFirstLevelKeys(strings);
+            else
+                subTrie.CopyKeys(strings);
+            return true;
         }
 
 

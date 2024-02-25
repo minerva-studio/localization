@@ -4,6 +4,7 @@ using static Minerva.Localizations.EscapePatterns.EscapePattern;
 
 namespace Minerva.Localizations
 {
+
     /// <summary>
     /// Extensions for localizable interface
     /// </summary>
@@ -148,8 +149,24 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string AppendKey(string baseKey, params string[] param)
         {
-            var extensions = param.Where(p => !p.Contains('=') && !string.IsNullOrEmpty(p)).Prepend(baseKey);
+            var extensions = param.Where(p => Key.VALID_KEY_MEMBER.IsMatch(p)).Prepend(baseKey);
             return string.Join(L10nSymbols.KEY_SEPARATOR, extensions);
+        }
+
+        /// <summary>
+        /// append given key
+        /// </summary>
+        /// <param name="baseKey"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
+        public static Key AppendKey(Key baseKey, params string[] param)
+        {
+            foreach (var item in param)
+            {
+                if (Key.VALID_KEY_MEMBER.IsMatch(item))
+                    baseKey += item;
+            };
+            return baseKey;
         }
 
         public static bool IsL10nContextDefined(object value, out Type contextType)

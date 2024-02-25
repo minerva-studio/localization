@@ -3,17 +3,21 @@ using System.Collections.Generic;
 
 namespace Minerva.Localizations
 {
-    public record L10nTraverse(string Key)
+    public record L10nTraverse
     {
-        public string Key { get; private set; } = Key;
-
+        private Key key;
         private string region;
         private List<string> options;
 
 
         private bool IsValidState => region == L10n.Region;
 
+        public L10nTraverse(Key key)
+        {
+            this.key = key;
+        }
 
+        public L10nTraverse(string str) : this(new Key(str)) { }
         public L10nTraverse() : this("")
         {
             L10n.OnLocalizationLoaded += L10n_OnLocalizationLoaded;
@@ -37,50 +41,45 @@ namespace Minerva.Localizations
         public List<string> GetOptions()
         {
             if (L10n.Instance == null) throw new InvalidOperationException();
-            if (options == null)
-            {
-                UpdateOptions();
-            }
+            options ??= UpdateOptions();
+            if (options == null) return new();
             return new(options);
         }
 
-        private void UpdateOptions()
+        private List<string> UpdateOptions()
         {
             options = new();
-            L10n.OptionOf(Key, options, true);
+            if (!L10n.OptionOf(key, options, true))
+            {
+                options = null;
+            }
+            return options;
         }
 
         public bool Move(string childLevel)
         {
+            options ??= UpdateOptions();
             if (options == null)
             {
-                UpdateOptions();
+                return false;
             }
             return Move(options.IndexOf(childLevel));
         }
 
         public bool Move(int optionIndex)
         {
-            if (options == null)
-            {
-                UpdateOptions();
-            }
+            options ??= UpdateOptions();
+            if (options == null) return false;
             if (optionIndex < 0 || optionIndex >= options.Count) return false;
 
-            Key = Localizable.AppendKey(Key, options[optionIndex]);
+            key.Append(options[optionIndex]);
             options = null;
             return true;
         }
 
         public bool Back()
         {
-            int idx = Key.LastIndexOf(L10nSymbols.KEY_SEPARATOR);
-            if (idx == -1)
-            {
-                Key = "";
-                return false;
-            }
-            Key = Key[..idx];
+            key -= 1;
             options = null;
             return true;
         }

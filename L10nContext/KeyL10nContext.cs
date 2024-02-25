@@ -8,7 +8,7 @@
     {
         public KeyL10nContext(string value) : base(value)
         {
-            baseKey = value;
+            BaseKeyString = value;
         }
 
         /// <summary>

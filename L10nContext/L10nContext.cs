@@ -1,7 +1,6 @@
 ﻿using Minerva.Localizations.EscapePatterns;
 using System;
 using System.Collections.Generic;
-using UnityEditor;
 
 namespace Minerva.Localizations
 {
@@ -11,18 +10,19 @@ namespace Minerva.Localizations
     public abstract class L10nContext : ILocalizable, ILocalizer
     {
         private readonly object value;
-        protected string baseKey;
+        private string keyStr;
+        private Key key;
 
         /// <summary>
         /// Get the base localization key of the object
-        /// </summary>
-        public virtual string BaseKey => baseKey;
-
+        /// </summary> 
+        public virtual string BaseKeyString { get => keyStr ??= key; protected set { keyStr = value; key = new Key(value); } }
+        public Key BaseKey { get => key; protected set { key = value; keyStr = null; } }
 
         protected L10nContext(object value)
         {
             this.value = value;
-            this.baseKey = value?.GetType().FullName ?? string.Empty;
+            this.BaseKeyString = value is string str ? str : (value?.GetType().FullName ?? string.Empty);
         }
 
 
@@ -33,9 +33,9 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="param"></param>
         /// <returns></returns>
-        public virtual string GetLocalizationKey(params string[] param)
+        public virtual Key GetLocalizationKey(params string[] param)
         {
-            return Localizable.AppendKey(BaseKey, param);
+            return Localizable.AppendKey(key, param);
         }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public List<string> GetOptions(bool firstLevelOnly = false)
         {
-            return L10n.OptionOf(baseKey, firstLevelOnly);
+            return L10n.OptionOf(BaseKey, firstLevelOnly);
         }
 
         /// <summary>

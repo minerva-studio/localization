@@ -25,7 +25,7 @@ namespace Minerva.Localizations
         {
             if (type.GetField(name) is FieldInfo nameField && nameField.FieldType == typeof(string))
             {
-                baseKey = Localizable.AppendKey(baseKey, nameField.GetValue(value).ToString());
+                BaseKey += nameField.GetValue(value).ToString();
                 return true;
             }
             return false;
@@ -35,7 +35,7 @@ namespace Minerva.Localizations
         {
             if (type.GetProperty(name) is PropertyInfo nameField && nameField.PropertyType == typeof(string))
             {
-                baseKey = Localizable.AppendKey(baseKey, nameField.GetValue(value).ToString());
+                BaseKey += nameField.GetValue(value).ToString();
                 return true;
             }
             return false;

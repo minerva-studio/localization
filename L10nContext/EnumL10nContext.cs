@@ -10,7 +10,7 @@ namespace Minerva.Localizations
     {
         public EnumL10nContext(Enum value) : base(value)
         {
-            baseKey = Localizable.AppendKey(baseKey, value.ToString());
+            BaseKey += value.ToString();
         }
 
         /// <summary>
