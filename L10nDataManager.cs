@@ -285,7 +285,6 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public void AddKey(string key, string tag = "Main", string defaultValue = "")
         {
-            Debug.Log(Keys.Count);
             AddKey_Internal(key, tag, defaultValue);
             AddKeyToTable(key, defaultValue);
             L10n.ReloadIfInitialized();
@@ -364,7 +363,6 @@ namespace Minerva.Localizations
 
         public void AddKeyToFile(string key, string fileTag, string defaultValue = "")
         {
-            Debug.Log("Add");
             bool hasKey = !HasKey(key);
             if (hasKey)
             {

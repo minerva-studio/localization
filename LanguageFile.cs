@@ -249,12 +249,12 @@ namespace Minerva.Localizations
             var entry = GetEntry(key);
             if (entry != null)
             {
-                Debug.Log("Entry exist");
+                Debug.LogWarning($"Entry exist for key {key}");
                 return false;
             }
             else entries.Add(new Entry(key, value));
             serializedObject.Update();
-            Debug.Log($"Write Entry " + key + " with value " + value);
+            // Debug.Log($"Add Entry " + key + " with value " + value);
             if (immediateSave) AssetDatabase.SaveAssets();
             return true;
         }

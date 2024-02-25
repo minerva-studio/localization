@@ -20,7 +20,7 @@ namespace Minerva.Localizations
             var settings = AssetDatabase.LoadAssetAtPath<LocalizationSettings>(SETTING_PATH);
             if (settings == null)
             {
-                Debug.Log("Recreate");
+                // Debug.Log("Recreate");
                 settings = CreateInstance<LocalizationSettings>();
                 Directory.CreateDirectory(Path.GetDirectoryName(SETTING_PATH));
                 AssetDatabase.CreateAsset(settings, SETTING_PATH);

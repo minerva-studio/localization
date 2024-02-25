@@ -66,7 +66,6 @@ namespace Minerva.Localizations.Editor
             var settings = AssetDatabase.LoadAssetAtPath<LocalizationEditorSetting>(SETTING_PATH);
             if (settings == null)
             {
-                Debug.Log("Recreate");
                 settings = CreateInstance<LocalizationEditorSetting>();
                 //settings.m_Number = 42;
                 //settings.m_SomeString = "The answer to the universe";
