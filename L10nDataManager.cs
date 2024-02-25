@@ -363,7 +363,7 @@ namespace Minerva.Localizations
 
         public void AddKeyToFile(string key, string fileTag, string defaultValue = "")
         {
-            bool hasKey = !HasKey(key);
+            bool hasKey = HasKey(key);
             if (hasKey)
             {
                 EditorUtility.SetDirty(this);
