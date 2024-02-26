@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using static Minerva.Localizations.L10nSymbols;
 
 namespace Minerva.Localizations
 {
@@ -12,7 +13,7 @@ namespace Minerva.Localizations
     public struct Key : IEnumerable<string>
     {
         public static readonly Regex VALID_KEY_MEMBER = new(@"^[A-Za-z0-9_]+$");
-        public static readonly Regex VALID_KEY = new(@"(?:([A-Za-z0-9_]+)\.?)+");
+        public static readonly Regex VALID_KEY = new(@"(?:([A-Za-z0-9_-]+)\.?)+");
 
 
         public int valid { get; private set; }
@@ -60,20 +61,21 @@ namespace Minerva.Localizations
             levels = key.Split('.');
             valid = levels.Length;
             cachedKeyString = key;
-            if (levels.Any(k => !VALID_KEY_MEMBER.IsMatch(k)))
+            if (!levels.All(k => VALID_KEY_MEMBER.IsMatch(k)))
             {
-                throw new ArgumentException("key");
-                //levels = Array.Empty<string>();
-                //valid = 0;
+                throw new ArgumentException(key);
             }
-            //var match = VALID_KEY.Match(key);
-            //if (!match.Success)
-            //{
-            //    levels = Array.Empty<string>();
-            //    valid = 0;
-            //    return;
-            //}
-            //levels = match.Groups[1].Captures.Select(s => s.Value).ToArray();
+        }
+
+        public Key(params string[] path)
+        {
+            cachedKeyString = string.Join(KEY_SEPARATOR, path);
+            levels = cachedKeyString.Split('.');
+            valid = levels.Length;
+            if (!levels.All(k => VALID_KEY_MEMBER.IsMatch(k)))
+            {
+                throw new ArgumentException(string.Join(KEY_SEPARATOR, path));
+            }
         }
 
         public void Append(string v)

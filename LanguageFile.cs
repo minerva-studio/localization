@@ -34,7 +34,7 @@ namespace Minerva.Localizations
         public string Region { get => isMasterFile ? region : masterFile.region; }
         public string Tag { get => tag; set => tag = value; }
         public LanguageFile MasterFile { get => masterFile; set => masterFile = value; }
-        public List<LanguageFile> ChildFiles { get { childFiles.RemoveAll(t => !t); return childFiles; } }
+        public List<LanguageFile> ChildFiles { get => childFiles; }
         public bool IsMasterFile => isMasterFile;
         public bool IsReadOnly => isReadOnly;
 
@@ -44,7 +44,6 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public Tries<string> GetTrie()
         {
-            ChildFiles.RemoveAll(c => !c);
             var dictionary = new Tries<string>();
             GetDictionary(dictionary);
             return dictionary;
@@ -56,7 +55,6 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public Dictionary<string, string> GetDictionary()
         {
-            ChildFiles.RemoveAll(c => !c);
             var dictionary = new Dictionary<string, string>();
             GetDictionary(dictionary);
             return dictionary;
@@ -112,6 +110,7 @@ namespace Minerva.Localizations
             {
                 foreach (var file in ChildFiles)
                 {
+                    if (!file) continue;
                     foreach (var item in file.entries)
                     {
                         yield return item.Key;
@@ -173,7 +172,7 @@ namespace Minerva.Localizations
             bool haskey = entries.Any(p => p.Key == key);
             if (!haskey && searchInChild)
             {
-                haskey = ChildFiles.Any(f => f.HasKey(key, false));
+                haskey = ChildFiles.Any(f => f && f.HasKey(key, false));
             }
             return haskey;
         }
@@ -279,8 +278,7 @@ namespace Minerva.Localizations
             }
             if (isMasterFile)
             {
-                ChildFiles.RemoveAll(t => !t);
-                var file = ChildFiles.FirstOrDefault(f => f.tag == fileTag);
+                var file = ChildFiles.FirstOrDefault(f => f && f.tag == fileTag);
                 if (!file) file = CreateChildFile(fileTag);
                 if (!file) return false;
 
@@ -401,9 +399,10 @@ namespace Minerva.Localizations
 
         private Entry GetEntryFromChild(string key)
         {
-            foreach (var item in ChildFiles)
+            foreach (var child in ChildFiles)
             {
-                Entry entry = item.GetEntryOnSelf(key);
+                if (!child) continue;
+                Entry entry = child.GetEntryOnSelf(key);
                 if (entry != null) return entry;
             }
             return null;
@@ -448,9 +447,10 @@ namespace Minerva.Localizations
             }
             if (!isMasterFile) return false;
 
-            foreach (var item in ChildFiles)
+            foreach (var child in ChildFiles)
             {
-                if (item.TryGetProperty(key, out value)) return true;
+                if (!child) continue;
+                if (child.TryGetProperty(key, out value)) return true;
             }
             return false;
         }
@@ -466,7 +466,12 @@ namespace Minerva.Localizations
         public void Sort(bool searchInChild = false)
         {
             entries.Sort();
-            if (searchInChild) ChildFiles.ForEach(f => f.Sort(false));
+            if (searchInChild) ChildFiles.ForEach(Sort);
+
+            static void Sort(LanguageFile f)
+            {
+                if (f) f.Sort(false);
+            }
         }
 
         /// <summary>
@@ -479,8 +484,17 @@ namespace Minerva.Localizations
             EditorUtility.SetDirty(this);
             entries.RemoveAll(p => p.Key == key);
 
-            if (searchInChild) ChildFiles.ForEach(f => f.RemoveKey(key, false));
+            if (searchInChild)
+            {
+                ChildFiles.ForEach(f => RemoveKey(key, f));
+            }
+
             if (updateAssets) AssetDatabase.SaveAssets();
+
+            static void RemoveKey(string key, LanguageFile f)
+            {
+                if (f) f.RemoveKey(key, false);
+            }
         }
 
         /// <summary>
@@ -534,7 +548,7 @@ namespace Minerva.Localizations
             }
             foreach (var child in ChildFiles)
             {
-                child.FindMatchedKeys_Internal(partialKey, result);
+                if (child) child.FindMatchedKeys_Internal(partialKey, result);
             }
             return result;
         }
@@ -554,7 +568,7 @@ namespace Minerva.Localizations
             }
             foreach (var child in ChildFiles)
             {
-                child.FindMatchedKeys_Internal(partialKey, result);
+                if (child) child.FindMatchedKeys_Internal(partialKey, result);
             }
         }
 
@@ -586,9 +600,9 @@ namespace Minerva.Localizations
         {
             if (isMasterFile)
             {
-                foreach (var item in ChildFiles)
+                foreach (var child in ChildFiles)
                 {
-                    if (item) item.SetMasterFile(this);
+                    if (child) child.SetMasterFile(this);
                 }
             }
             else if (masterFile)
@@ -649,8 +663,8 @@ namespace Minerva.Localizations
                 Entry item = entries[i];
                 for (int j = 0; j < ChildFiles.Count; j++)
                 {
-                    LanguageFile item1 = ChildFiles[j];
-                    if (item1.HasKey(item.Key))
+                    LanguageFile file = ChildFiles[j];
+                    if (file && file.HasKey(item.Key))
                     {
                         entries.Remove(item);
                     }

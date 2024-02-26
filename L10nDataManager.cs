@@ -194,7 +194,7 @@ namespace Minerva.Localizations
                     if (!string.IsNullOrEmpty(file.Tag)) fileTags.Add(file.Tag);
                     foreach (var child in file.ChildFiles)
                     {
-                        if (!string.IsNullOrEmpty(child.Tag)) fileTags.Add(child.Tag);
+                        if (child && !string.IsNullOrEmpty(child.Tag)) fileTags.Add(child.Tag);
                     }
                 }
                 return fileTags.ToArray();
@@ -589,7 +589,7 @@ namespace Minerva.Localizations
                 AssetDatabase.SaveAssetIfDirty(file);
                 foreach (var child in file.ChildFiles)
                 {
-                    AssetDatabase.SaveAssetIfDirty(child);
+                    if (child) AssetDatabase.SaveAssetIfDirty(child);
                 }
             }
         }
@@ -604,7 +604,7 @@ namespace Minerva.Localizations
             foreach (var file in files)
             {
                 foreach (var child in file.ChildFiles)
-                    if (Matches(child, fileTag))
+                    if (child && Matches(child, fileTag))
                         return true;
             }
 

@@ -10,19 +10,30 @@ namespace Minerva.Localizations
     public abstract class L10nContext : ILocalizable, ILocalizer
     {
         private readonly object value;
-        private string keyStr;
         private Key key;
 
         /// <summary>
         /// Get the base localization key of the object
         /// </summary> 
-        public virtual string BaseKeyString { get => keyStr ??= key; protected set { keyStr = value; key = new Key(value); } }
-        public Key BaseKey { get => key; protected set { key = value; keyStr = null; } }
+        public virtual string BaseKeyString { get => key; protected set { key = new Key(value); } }
+        public Key BaseKey { get => key; protected set { key = value; } }
 
         protected L10nContext(object value)
         {
             this.value = value;
             this.BaseKeyString = value is string str ? str : (value?.GetType().FullName ?? string.Empty);
+        }
+
+        protected L10nContext(object value, string key)
+        {
+            this.value = value;
+            this.BaseKeyString = key;
+        }
+
+        protected L10nContext(object value, Key key)
+        {
+            this.value = value;
+            this.key = key;
         }
 
 
