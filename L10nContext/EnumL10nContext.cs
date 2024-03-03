@@ -5,7 +5,6 @@ namespace Minerva.Localizations
     /// <summary>
     /// L10n content directly use given string as base key
     /// </summary>
-    [CustomContext(typeof(Enum))]
     public class EnumL10nContext : L10nContext
     {
         public EnumL10nContext(Enum value) : base(value)

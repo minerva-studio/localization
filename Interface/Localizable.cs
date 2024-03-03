@@ -4,7 +4,6 @@ using static Minerva.Localizations.EscapePatterns.EscapePattern;
 
 namespace Minerva.Localizations
 {
-
     /// <summary>
     /// Extensions for localizable interface
     /// </summary>
@@ -165,13 +164,13 @@ namespace Minerva.Localizations
             {
                 if (Key.VALID_KEY_MEMBER.IsMatch(item))
                     baseKey += item;
-            };
+            }
             return baseKey;
         }
 
         public static bool IsL10nContextDefined(object value, out Type contextType)
         {
-            return CustomContextAttribute.HasContextTypeDefined(value?.GetType(), out contextType);
+            return ContextTable.HasContextTypeDefined(value?.GetType(), out contextType);
         }
     }
 }

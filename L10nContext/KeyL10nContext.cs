@@ -3,7 +3,6 @@
     /// <summary>
     /// L10n content directly use given string as base key, for short term translation, try to use <see cref="L10n.Tr(string, string[])"/> instead
     /// </summary>
-    [CustomContext(typeof(string))]
     public class KeyL10nContext : L10nContext
     {
         public KeyL10nContext(string value) : base(value)

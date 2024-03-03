@@ -244,7 +244,7 @@ namespace Minerva.Localizations
         {
             if (type == typeof(DynamicContext)) return ((DynamicContext)(object)value).Clone();
             if (type.IsSubclassOf(typeof(L10nContext))) return new DynamicContext(value);
-            return (L10nContext)Activator.CreateInstance(CustomContextAttribute.GetContextType(type), value);
+            return (L10nContext)Activator.CreateInstance(ContextTable.GetContextType(type), value);
         }
 
         /// <summary>
@@ -284,6 +284,29 @@ namespace Minerva.Localizations
             public NoContext() : base(null)
             {
             }
+        }
+
+        /// <summary>
+        /// Register given l10n context type to target type
+        /// </summary>
+        /// <typeparam name="TContext"></typeparam>
+        /// <typeparam name="TTarget"></typeparam>
+        /// <param name="allowInheritance">does child classes also applied?</param>
+        public static void Register<TContext, TTarget>(bool allowInheritance) where TContext : L10nContext
+        {
+            ContextTable.Register<TContext, TTarget>(allowInheritance);
+        }
+
+
+        /// <summary>
+        /// Register given l10n context type to target type
+        /// </summary>
+        /// <typeparam name="TContext"></typeparam>
+        /// <typeparam name="TTarget"></typeparam>
+        /// <param name="allowInheritance"></param>
+        public static void Register(Type contextType, Type targetType, bool allowInheritance)
+        {
+            ContextTable.Register(contextType, targetType, allowInheritance);
         }
     }
 }
