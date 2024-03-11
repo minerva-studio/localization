@@ -26,17 +26,21 @@ namespace Minerva.Localizations.Components
 
         private void OnValidate()
         {
+            LogMissingMessage();
+        }
+
+        private void LogMissingMessage()
+        {
 #if UNITY_EDITOR
-            if (!languageFileManager.HasKey(key) || string.IsNullOrEmpty(key)) Debug.LogErrorFormat("Key not present in given l10n: {0}", key);
+            if (!languageFileManager.HasKey(key)) Debug.LogErrorFormat("Key not present in given L10n: {0}", key);
+            if (string.IsNullOrEmpty(key)) Debug.LogWarning($"Key is missing for {name}", this);
 #endif
         }
 
         void Awake()
         {
             loaders.Add(this);
-#if UNITY_EDITOR
-            if (!languageFileManager.HasKey(key) || string.IsNullOrEmpty(key)) Debug.LogErrorFormat("Key not present in given l10n: {0}", key);
-#endif
+            LogMissingMessage();
         }
 
         void Start()

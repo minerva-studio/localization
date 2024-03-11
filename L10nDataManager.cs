@@ -165,11 +165,9 @@ namespace Minerva.Localizations
 
 
         #region Editor
-#if UNITY_EDITOR
-
-        //[ContextMenuItem("Sort", nameof(SortKeyList))]
+#if UNITY_EDITOR 
+        private bool keyBuild = false;
         private List<string> keyList;
-
         /// <summary> Table of [key][region] </summary>
         private Table localizationTable;
         /// <summary> Serialized properties </summary>
@@ -183,7 +181,7 @@ namespace Minerva.Localizations
         public Table LocalizationTable { get => localizationTable ??= GenerateTable(); set => localizationTable = value; }
         /// <summary> Self as Serializable Object </summary>
         public PropertyTable PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
-        public List<string> Keys { get => keyList ??= RebuildKeyList(); private set => keyList = value; }
+        public List<string> Keys { get => keyBuild ? keyList ??= RebuildKeyList() : keyList = RebuildKeyList(); }
         public string[] FileTags
         {
             get
@@ -460,25 +458,11 @@ namespace Minerva.Localizations
             {
                 keys.UnionWith(item.Keys);
             }
-            Keys = keys.ToList();
-            trie = new Trie(Keys);
-
+            keyList = keys.ToList();
+            trie = new Trie(keyList);
+            keyBuild = true;
             return Keys;
         }
-
-        //[ContextMenu("Sync key list")]
-        //public void SyncKeys()
-        //{
-        //    EditorUtility.SetDirty(this);
-        //    RebuildKeyList();
-        //    foreach (var file in files)
-        //    {
-        //        foreach (var keys in keyList)
-        //        {
-        //            file.Add(keys);
-        //        }
-        //    }
-        //}
 
 
 
@@ -547,7 +531,7 @@ namespace Minerva.Localizations
 
             var file = CSV.Import(path);
             regions = new List<string>(file.cols);
-            Keys = new List<string>(file.rows);
+            keyList = new List<string>(file.rows);
             localizationTable = new(file.cols);
             ITable.Convert(file, localizationTable);
         }
