@@ -95,7 +95,7 @@ namespace Minerva.Localizations.Editor
                 }
 
                 GUILayout.Label("Tools");
-                using (new GUIHorizontalLayout(height))
+                using (new GUILayout.HorizontalScope(height))
                 {
                     if (!HasValidkey(localizer) && GUILayout.Button("Add New Key", height))
                     {
