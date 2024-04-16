@@ -174,6 +174,8 @@ namespace Minerva.Localizations
         private PropertyTable propertyTable;
         /// <summary> Keys' trie </summary>
         private Trie trie;
+        /// <summary> Source's trie </summary>
+        private Trie sourceTrie;
         private SerializedObject sobj;
 
         /// <summary> Self as Serializable Object </summary>
@@ -207,15 +209,14 @@ namespace Minerva.Localizations
         {
             serializedObject.Update();
             localizationTable = GenerateTable();
-            propertyTable = GeneratePropertyTable();
-            trie = new Trie(Keys);
+            propertyTable = GeneratePropertyTable(false);
             L10n.ReloadIfInitialized();
         }
 
-        private Table GenerateTable()
+        private Table GenerateTable(bool rebuildKeys = true)
         {
             var localizationTable = new Table(regions.ToArray());
-            RebuildKeyList();
+            if (rebuildKeys) RebuildKeyList();
             foreach (var key in Keys)
             {
                 KeyEntry entry = new KeyEntry(key);
@@ -228,10 +229,10 @@ namespace Minerva.Localizations
             return localizationTable;
         }
 
-        private PropertyTable GeneratePropertyTable()
+        private PropertyTable GeneratePropertyTable(bool rebuildKeys = true)
         {
             var localizationTable = new PropertyTable();
-            RebuildKeyList();
+            if (rebuildKeys) RebuildKeyList();
             foreach (var key in Keys)
             {
                 Dictionary<string, SerializedProperty> table = new();
@@ -460,10 +461,21 @@ namespace Minerva.Localizations
             }
             keyList = keys.ToList();
             trie = new Trie(keyList);
+            sourceTrie = new Trie(sources.SelectMany(s => s.keys));
             keyBuild = true;
             return Keys;
         }
 
+        public void UpdateSources()
+        {
+            sourceTrie = new Trie(sources.SelectMany(s => s.keys));
+        }
+
+        public void UpdateSources(List<string> keys)
+        {
+            sourceTrie = new Trie(sources.SelectMany(s => s.keys));
+            sourceTrie.AddRange(keys);
+        }
 
 
 
@@ -492,7 +504,7 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="pKey"></param>
         /// <returns></returns>
-        public List<string> FindPossibleNextClass(string pKey)
+        public List<string> FindPossibleNextClass(string pKey, bool allowSource = false)
         {
             trie ??= new(Keys);
             if (string.IsNullOrEmpty(pKey))
@@ -500,7 +512,18 @@ namespace Minerva.Localizations
                 return trie.FirstLevelKeys.ToList();
             }
             bool hasKey = trie.TryGetSubTrie(pKey, out Trie subTrie);
-            return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
+            if (!allowSource)
+            {
+                return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
+            }
+            sourceTrie ??= new Trie(sources.SelectMany(s => s.keys));
+            if (!sourceTrie.TryGetSubTrie(pKey, out var sourceSubTrie))
+                return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
+
+            if (subTrie != null) subTrie.AddRange(sourceSubTrie);
+            else subTrie = sourceSubTrie;
+
+            return subTrie.GetChildrenKeys();
         }
 
 
@@ -599,7 +622,7 @@ namespace Minerva.Localizations
                 return file.Tag == fileTag && file.IsReadOnly;
             }
         }
-#endif 
+#endif
         #endregion
 
     }

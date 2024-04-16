@@ -79,13 +79,14 @@ namespace Minerva.Localizations.Editor
             {
                 GUILayout.Label("Possible Next Class");
                 //string currentFullKey = currentKey.Contains('.') ? currentKey[..currentKey.LastIndexOf('.')] : currentKey;
-                var possibleNextClass = manager.FindPossibleNextClass(key).ToArray();
+                var possibleNextClass = manager.FindPossibleNextClass(key, true).ToArray();
                 foreach (var item in possibleNextClass)
                 {
                     if (string.IsNullOrEmpty(item)) continue;
                     if (!GUILayout.Button(item)) continue;
 
                     property.stringValue = string.IsNullOrWhiteSpace(key) ? item : key + "." + item;
+                    GUI.FocusControl(null);
                     EditorUtility.SetDirty(localizer);
                 }
                 GUILayout.Space(10);

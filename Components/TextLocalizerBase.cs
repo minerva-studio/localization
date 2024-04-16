@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Minerva.Module.Editor;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Minerva.Localizations.Components
@@ -28,6 +29,46 @@ namespace Minerva.Localizations.Components
         {
             LogMissingMessage();
         }
+
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            Color color;
+            if (string.IsNullOrEmpty(key))
+            {
+                color = Color.red;
+            }
+            else if (languageFileManager.HasKey(key))
+            {
+                color = Color.white;
+            }
+            else if (languageFileManager.IsInSource(key))
+            {
+                color = Color.yellow;
+            }
+            else
+            {
+                color = Color.red;
+            }
+            using (new GizmosColor(color))
+            {
+                Vector3 size;
+                if (transform is RectTransform rectTransform)
+                {
+                    Vector3[] corners = new Vector3[4];
+                    rectTransform.GetWorldCorners(corners);
+                    float width = Vector3.Distance(corners[0], corners[3]);
+                    float height = Vector3.Distance(corners[0], corners[1]);
+                    size = new Vector3(width, height, 0);
+                }
+                else
+                {
+                    size = Vector3.one;
+                }
+                Gizmos.DrawWireCube(transform.position, size);
+            }
+        }
+#endif
 
         private void LogMissingMessage()
         {

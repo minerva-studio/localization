@@ -33,7 +33,7 @@ namespace Minerva.Localizations
             file.SetMasterFile(masterFile);
 
             var plainText = new TextAsset(string.Join('\n', lines));
-            plainText.name = file.name;
+            plainText.name = Path.GetFileNameWithoutExtension(ctx.assetPath);
             ctx.AddObjectToAsset("LangFile", file);
             ctx.AddObjectToAsset("PlainText", plainText);
             ctx.SetMainObject(file);
