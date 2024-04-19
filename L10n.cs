@@ -18,6 +18,8 @@ namespace Minerva.Localizations
         public bool initialized = false;
         public bool disableEmptyEntries;
         public string region;
+        public string wordSpace;
+        public string listDelimiter;
 
         public MissingKeySolution missingKeySolution;
         public L10nDataManager manager;
@@ -42,6 +44,9 @@ namespace Minerva.Localizations
         public static bool isInitialized => instance?.initialized == true;
         public static string Region => instance?.region ?? string.Empty;
         public static List<string> Regions => instance?.manager != null ? instance.manager.regions : new List<string>();
+        public static string ListDelimiter => instance?.listDelimiter ?? string.Empty;
+        public static string WordSpace => instance?.wordSpace ?? string.Empty;
+
 
 
         /// <summary>
@@ -120,6 +125,8 @@ namespace Minerva.Localizations
             if (!languageFile) languageFile = manager.GetLanguageFile(DEFAULT_REGION);
             if (!languageFile) throw new NullReferenceException("The localization manager has initialized, but given language type could not be found and default region is not available");
 
+            listDelimiter = languageFile.listDelimiter;
+            wordSpace = languageFile.wordSpace;
             dictionary = languageFile.GetDictionary();
             string[] items = dictionary.Keys.ToArray();
             // directly convert color escape and key escape because they don't change

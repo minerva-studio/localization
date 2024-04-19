@@ -17,11 +17,17 @@ namespace Minerva.Localizations.Editor
             var height = GUILayout.Height(27);
 
             GUILayout.FlexibleSpace();
-            var state = GUI.enabled; GUI.enabled = false;
-            EditorGUILayout.ObjectField("Script", MonoScript.FromScriptableObject(file), typeof(MonoScript), false);
-            GUI.enabled = state;
-            GUI.enabled = file.IsMasterFile;
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("region")); GUI.enabled = state;
+            using (GUIEnable.By(false))
+                EditorGUILayout.ObjectField("Script", MonoScript.FromScriptableObject(file), typeof(MonoScript), false);
+            using (GUIEnable.By(file.IsMasterFile))
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("region"));
+
+            if (file.IsMasterFile)
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(LanguageFile.listDelimiter)));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(LanguageFile.wordSpace)));
+            }
+
             EditorGUILayout.PropertyField(serializedObject.FindProperty("tag"));
 
             GUILayout.BeginHorizontal();
@@ -54,9 +60,8 @@ namespace Minerva.Localizations.Editor
             EditorGUI.indentLevel++;
             if (debugFold)
             {
-                GUI.enabled = false;
-                EditorGUILayout.ObjectField("Editor", MonoScript.FromScriptableObject(this), typeof(MonoScript), false);
-                GUI.enabled = state;
+                using (GUIEnable.By(false))
+                    EditorGUILayout.ObjectField("Editor", MonoScript.FromScriptableObject(this), typeof(MonoScript), false);
                 EditorGUILayout.PropertyField(entryList, true);
             }
             EditorGUI.indentLevel--;

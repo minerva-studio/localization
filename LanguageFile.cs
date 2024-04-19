@@ -8,8 +8,6 @@ using UnityEngine;
 
 namespace Minerva.Localizations
 {
-
-
     /// <summary>
     /// The language file
     /// </summary>
@@ -29,6 +27,9 @@ namespace Minerva.Localizations
         [SerializeField] private List<LanguageFile> childFiles = new();
         [SerializeField] private string region = string.Empty;
         [SerializeField] private List<Entry> entries = new();
+
+        public string listDelimiter;
+        public string wordSpace;
 
         /// <summary> Region of the file represent </summary>
         public string Region { get => isMasterFile ? region : masterFile.region; }
