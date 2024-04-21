@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using UnityEngine;
 
 namespace Minerva.Localizations.EscapePatterns
 {
@@ -104,24 +105,33 @@ namespace Minerva.Localizations.EscapePatterns
         {
             rawString = DYNAMIC_VALUE_ARG_PATTERN.Replace(rawString, (m) =>
             {
-                string key = m.Groups[2].Value;
-                string[] localParam;
-                Dictionary<string, string> localOptions;
+                // we can't really guarantee context can correctly provide replacements
+                try
+                {
+                    string key = m.Groups[2].Value;
+                    string[] localParam;
+                    Dictionary<string, string> localOptions;
 
-                // has custom param
-                if (m.Groups[3].Success) (localParam, localOptions) = GetLocalParam(m.Groups[3], param);
-                else (localParam, localOptions) = (param, ParseDynamicValue(new(), false, param));
+                    // has custom param
+                    if (m.Groups[3].Success) (localParam, localOptions) = GetLocalParam(m.Groups[3], param);
+                    else (localParam, localOptions) = (param, ParseDynamicValue(new(), false, param));
 
-                // if defined, then use it, otherwise ask context
-                if (!localOptions.TryGetValue(key, out string replacement) && context != null)
-                    replacement = context.GetEscapeValue(key, localParam);
+                    // if defined, then use it, otherwise ask context
+                    if (!localOptions.TryGetValue(key, out string replacement) && context != null)
+                        replacement = context.GetEscapeValue(key, localParam);
 
-                // no replacement if not found
-                if (replacement == key)
+                    // no replacement if not found
+                    if (replacement == key)
+                        return m.Value;
+
+                    replacement = ReplaceKeyEscape(replacement, context, localParam);
+                    return m.Value.Replace(m.Groups[1].Value, replacement);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
                     return m.Value;
-
-                replacement = ReplaceKeyEscape(replacement, context, localParam);
-                return m.Value.Replace(m.Groups[1].Value, replacement);
+                }
             });
             return rawString;
         }

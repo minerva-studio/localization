@@ -8,7 +8,7 @@ namespace Minerva.Localizations
     /// </summary>
     public sealed class GenericL10nContext : L10nContext
     {
-        public GenericL10nContext(object value) : base(value)
+        protected override void Parse(object value)
         {
             if (value != null)
             {

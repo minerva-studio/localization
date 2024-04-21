@@ -7,7 +7,7 @@ namespace Minerva.Localizations
     /// </summary>
     public class EnumL10nContext : L10nContext
     {
-        public EnumL10nContext(Enum value) : base(value)
+        protected override void Parse(object value)
         {
             BaseKey += value.ToString();
         }

@@ -9,7 +9,7 @@ namespace Minerva.Localizations
     /// </summary>
     public abstract class L10nContext : ILocalizable, ILocalizer
     {
-        private readonly object value;
+        private object value;
         private Key key;
 
         /// <summary>
@@ -17,24 +17,41 @@ namespace Minerva.Localizations
         /// </summary> 
         public virtual string BaseKeyString { get => key; protected set { key = new Key(value); } }
         public Key BaseKey { get => key; protected set { key = value; } }
+        public object BaseValue { get => value; set => this.value = value; }
+
+        /// <summary>
+        /// The default constructor, might called from L10nContext.Of()
+        /// </summary>
+        protected L10nContext() { }
 
         protected L10nContext(object value)
         {
-            this.value = value;
-            this.BaseKeyString = value is string str ? str : (value?.GetType().FullName ?? string.Empty);
+            Init(value, value is string str ? str : (value?.GetType().FullName ?? string.Empty));
         }
 
         protected L10nContext(object value, string key)
         {
-            this.value = value;
-            this.BaseKeyString = key;
+            Init(value, key);
         }
 
         protected L10nContext(object value, Key key)
         {
+            Init(value, key);
+        }
+
+        private void Init(object value) => Init(value, Key.Empty);
+        private void Init(object value, string key) => Init(value, new Key(key));
+
+        private void Init(object value, Key key)
+        {
             this.value = value;
             this.key = key;
+            Parse(value);
         }
+
+        protected abstract void Parse(object value);
+
+
 
 
         /// <summary>
@@ -244,7 +261,9 @@ namespace Minerva.Localizations
         {
             if (type == typeof(DynamicContext)) return ((DynamicContext)(object)value).Clone();
             if (type.IsSubclassOf(typeof(L10nContext))) return new DynamicContext(value);
-            return (L10nContext)Activator.CreateInstance(ContextTable.GetContextType(type), value);
+            var l10nContext = ContextTable.GetContextBuilder(type)();
+            l10nContext.Init(value);
+            return l10nContext;
         }
 
         /// <summary>
@@ -281,9 +300,7 @@ namespace Minerva.Localizations
 
         private class NoContext : L10nContext
         {
-            public NoContext() : base(null)
-            {
-            }
+            protected override void Parse(object value) { }
         }
 
         /// <summary>
@@ -292,21 +309,9 @@ namespace Minerva.Localizations
         /// <typeparam name="TContext"></typeparam>
         /// <typeparam name="TTarget"></typeparam>
         /// <param name="allowInheritance">does child classes also applied?</param>
-        public static void Register<TContext, TTarget>(bool allowInheritance) where TContext : L10nContext
+        public static void Register<TContext, TTarget>(bool allowInheritance = false) where TContext : L10nContext, new()
         {
             ContextTable.Register<TContext, TTarget>(allowInheritance);
-        }
-
-
-        /// <summary>
-        /// Register given l10n context type to target type
-        /// </summary>
-        /// <typeparam name="TContext"></typeparam>
-        /// <typeparam name="TTarget"></typeparam>
-        /// <param name="allowInheritance"></param>
-        public static void Register(Type contextType, Type targetType, bool allowInheritance)
-        {
-            ContextTable.Register(contextType, targetType, allowInheritance);
         }
     }
 }

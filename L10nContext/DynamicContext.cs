@@ -8,8 +8,8 @@ namespace Minerva.Localizations
     /// </summary> 
     public class DynamicContext : L10nContext
     {
-        readonly Dictionary<string, string> dynamicValues = new();
-        readonly L10nContext parentContext;
+        Dictionary<string, string> dynamicValues = new();
+        L10nContext parentContext;
 
         public string this[string index]
         {
@@ -28,6 +28,14 @@ namespace Minerva.Localizations
         public DynamicContext(object value, Dictionary<string, string> dynamicValues) : this(value)
         {
             this.dynamicValues = dynamicValues;
+        }
+
+        protected override void Parse(object value)
+        {
+            if (value is L10nContext context)
+            {
+                parentContext = context;
+            }
         }
 
 

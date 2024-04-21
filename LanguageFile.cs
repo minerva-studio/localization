@@ -466,6 +466,7 @@ namespace Minerva.Localizations
         /// <param name="searchInChild">also sort childs</param>
         public void Sort(bool searchInChild = false)
         {
+            if (isReadOnly) return;
             entries.Sort();
             if (searchInChild) ChildFiles.ForEach(Sort);
 

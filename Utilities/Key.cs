@@ -16,6 +16,8 @@ namespace Minerva.Localizations
         public static readonly Regex VALID_KEY = new(@"(?:([A-Za-z0-9_-]+)\.?)+");
 
 
+        public static readonly Key Empty = new Key() { levels = Array.Empty<string>() };
+
         public int valid { get; private set; }
         private string[] levels { get; set; }
         private string cachedKeyString { get; set; }

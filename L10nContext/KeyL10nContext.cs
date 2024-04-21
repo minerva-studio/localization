@@ -5,9 +5,15 @@
     /// </summary>
     public class KeyL10nContext : L10nContext
     {
-        public KeyL10nContext(string value) : base(value)
+        public KeyL10nContext() : base() { }
+        public KeyL10nContext(string value)
         {
-            BaseKeyString = value;
+            BaseKeyString = (string)value;
+        }
+
+        protected override void Parse(object value)
+        {
+            BaseKeyString = (string)value;
         }
 
         /// <summary>

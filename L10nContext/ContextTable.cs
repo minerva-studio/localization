@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Minerva.Localizations
 {
@@ -9,7 +10,14 @@ namespace Minerva.Localizations
     /// </summary>
     internal class ContextTable
     {
-        private static Dictionary<Type, (Type type, bool allowInheritance)> table;
+        interface IContextFactory<in T>
+        {
+            L10nContext Create(T t);
+        }
+
+        delegate L10nContext ContextFactory<in T>(T baseValue);
+
+        private static Dictionary<Type, (Type type, Func<L10nContext> builder, bool allowInheritance)> table;
 
         static ContextTable()
         {
@@ -18,34 +26,32 @@ namespace Minerva.Localizations
 
         private static void Init()
         {
-            table = new()
-            {
-                [typeof(object)] = (typeof(GenericL10nContext), true),
-                [typeof(Enum)] = (typeof(EnumL10nContext), true),
-                [typeof(string)] = (typeof(KeyL10nContext), true)
-            };
+            table = new();
+            Register<GenericL10nContext, object>();
+            Register<EnumL10nContext, Enum>();
+            Register<KeyL10nContext, string>();
         }
 
-        internal static void Register(Type contextType, Type targetType, bool allowInheritance = false)
+        internal static void Register<TContext, TTarget>(bool allowInheritance = false) where TContext : L10nContext, new()
         {
+            var targetType = typeof(TTarget);
             // duplicate keys, likely some error from user input
-            if (table.ContainsKey(targetType))
+            if (table.TryGetValue(targetType, out var existing))
             {
-                var (type, inherit) = table[targetType];
+                (_, _, var inherit) = existing;
                 // use the one that support inheritance
                 if (inherit != allowInheritance && allowInheritance)
                 {
-                    table[targetType] = (contextType, true);
+                    table[targetType] = (typeof(TContext), Constructor<TContext>, true);
                 }
             }
-            else table.Add(targetType, (contextType, allowInheritance));
+            else table.Add(targetType, (typeof(TContext), Constructor<TContext>, allowInheritance));
         }
 
-        internal static void Register<TContext, TTarget>(bool allowInheritance = false) where TContext : L10nContext
+        static T Constructor<T>() where T : new()
         {
-            Register(typeof(TContext), typeof(TTarget), allowInheritance);
+            return new T();
         }
-
 
         /// <summary>
         /// Get context type for <paramref name="valueType"/>, considering parent
@@ -54,16 +60,37 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static Type GetContextType(Type valueType)
         {
+            return GetContextData(valueType).type;
+        }
+
+        /// <summary>
+        /// Get context builder for <paramref name="valueType"/>, considering parent
+        /// </summary>
+        /// <param name="valueType"></param>
+        /// <returns></returns>
+        public static Func<L10nContext> GetContextBuilder(Type valueType)
+        {
+            return GetContextData(valueType).builder;
+        }
+
+        /// <summary>
+        /// Get context type for <paramref name="valueType"/>, considering parent
+        /// </summary>
+        /// <param name="valueType"></param>
+        /// <returns></returns>
+        public static (Type type, Func<L10nContext> builder) GetContextData(Type valueType)
+        {
             var currType = valueType;
             while (currType != null)
             {
                 if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
                 {
-                    return result.type;
+                    // result is in 
+                    return (result.type, result.builder);
                 }
                 currType = currType.BaseType;
             }
-            return typeof(GenericL10nContext);
+            return (typeof(GenericL10nContext), () => new GenericL10nContext());
         }
 
         /// <summary>
@@ -83,6 +110,30 @@ namespace Minerva.Localizations
                 if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
                 {
                     contextType = result.type;
+                    return true;
+                }
+                currType = currType.BaseType;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Get context type for <paramref name="valueType"/>, considering parent
+        /// </summary>
+        /// <remarks>
+        /// Strings and Enums are always considered context defined type
+        /// </remarks>
+        /// <param name="valueType"></param>
+        /// <returns></returns>
+        public static bool HasContextConstructorDefined(Type valueType, out Func<L10nContext> contextType)
+        {
+            contextType = null;
+            var currType = valueType;
+            while (currType != null)
+            {
+                if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
+                {
+                    contextType = result.builder;
                     return true;
                 }
                 currType = currType.BaseType;

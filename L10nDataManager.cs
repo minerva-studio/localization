@@ -165,25 +165,34 @@ namespace Minerva.Localizations
 
 
         #region Editor
-#if UNITY_EDITOR 
+#if UNITY_EDITOR
+
         private bool keyBuild = false;
-        private List<string> keyList;
+
+        private LocalizationKeyCollection localizationKeyCollection;
+
+        //private HashSet<string> keys;
+        //private List<string> keyList;
+        ///// <summary> Keys' trie </summary>
+        //private Trie trie;
+        /// <summary> Source's trie </summary>
+        private Trie sourceTrie;
+
+
         /// <summary> Table of [key][region] </summary>
         private Table localizationTable;
         /// <summary> Serialized properties </summary>
         private PropertyTable propertyTable;
-        /// <summary> Keys' trie </summary>
-        private Trie trie;
-        /// <summary> Source's trie </summary>
-        private Trie sourceTrie;
         private SerializedObject sobj;
 
         /// <summary> Self as Serializable Object </summary>
         public SerializedObject serializedObject { get => sobj ??= new(this); }
+        public LocalizationKeyCollection LocalizationKeyCollection => localizationKeyCollection;
         public Table LocalizationTable { get => localizationTable ??= GenerateTable(); set => localizationTable = value; }
         /// <summary> Self as Serializable Object </summary>
         public PropertyTable PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
-        public List<string> Keys { get => keyBuild ? keyList ??= RebuildKeyList() : keyList = RebuildKeyList(); }
+        //public HashSet<string> Keys { get => keyBuild ? keys ??= RebuildKeyList() : keys = RebuildKeyList(); }
+        //public List<string> KeyList { get => keyList ??= new(keys); }
         public string[] FileTags
         {
             get
@@ -217,7 +226,7 @@ namespace Minerva.Localizations
         {
             var localizationTable = new Table(regions.ToArray());
             if (rebuildKeys) RebuildKeyList();
-            foreach (var key in Keys)
+            foreach (var key in localizationKeyCollection)
             {
                 KeyEntry entry = new KeyEntry(key);
                 localizationTable.Add(key, entry);
@@ -233,7 +242,7 @@ namespace Minerva.Localizations
         {
             var localizationTable = new PropertyTable();
             if (rebuildKeys) RebuildKeyList();
-            foreach (var key in Keys)
+            foreach (var key in localizationKeyCollection)
             {
                 Dictionary<string, SerializedProperty> table = new();
                 localizationTable.Add(key, table);
@@ -272,7 +281,17 @@ namespace Minerva.Localizations
             if (string.IsNullOrEmpty(key)) { return true; }
             if (string.IsNullOrWhiteSpace(key)) { return true; }
             if (key.EndsWith(".")) key = key.Remove(key.Length - 1);
-            return Keys.Contains(key);
+            return localizationKeyCollection.Contains(key);
+        }
+        /// <summary>
+        /// Check given key is in the key list
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="allowInSource"></param>
+        /// <returns></returns>
+        public bool HasKey(string key, bool allowInSource)
+        {
+            return HasKey(key) || (allowInSource && IsInSource(key));
         }
 
         /// <summary>
@@ -285,7 +304,7 @@ namespace Minerva.Localizations
         public void AddKey(string key, string tag = "Main", string defaultValue = "")
         {
             AddKey_Internal(key, tag, defaultValue);
-            AddKeyToTable(key, defaultValue);
+            AddKeyToTable(key, defaultValue); // no need to refresh table?
             L10n.ReloadIfInitialized();
         }
 
@@ -299,6 +318,7 @@ namespace Minerva.Localizations
         {
             AddKey_Internal(key, tag, defaultValue);
             RefreshTable();
+            L10n.ReloadIfInitialized();
         }
 
         /// <summary>
@@ -308,23 +328,11 @@ namespace Minerva.Localizations
         /// <param name="defaultValue"></param>
         private void AddKey_Internal(string key, string tag, string defaultValue)
         {
-            bool hasKey = !HasKey(key);
-            if (hasKey)
-            {
-                EditorUtility.SetDirty(this);
-                trie?.Add(key);
-            }
-
             foreach (var file in files)
             {
                 if (!file.PutAt(key, tag, defaultValue)) Debug.LogWarning($"File {file.name} has key '{key}' already.");
             }
-
-            if (hasKey)
-            {
-                Keys.Add(key);
-                serializedObject.Update();
-            }
+            serializedObject.Update();
         }
 
         /// <summary>
@@ -335,7 +343,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         private void AddKeyToTable(string key, string defaultValue = "")
         {
-            if (propertyTable != null)
+            if (LocalizationTable != null)
             {
                 if (!LocalizationTable.TryGetValue(key, out var strTable))
                 {
@@ -358,20 +366,15 @@ namespace Minerva.Localizations
                     properties[file.Region] = file.GetProperty(key);
                 }
             }
+
+            localizationKeyCollection.Add(key);
         }
 
         public void AddKeyToFile(string key, string fileTag, string defaultValue = "")
         {
-            bool hasKey = HasKey(key);
-            if (hasKey)
-            {
-                EditorUtility.SetDirty(this);
-                trie?.Add(key);
-            }
-
             foreach (var file in files)
             {
-                if (file.PutAt(key, fileTag, defaultValue))
+                if (file.PutAt(key, fileTag, defaultValue, true))
                 {
                     continue;
                 }
@@ -380,11 +383,6 @@ namespace Minerva.Localizations
 
             AddKeyToTable(key, defaultValue);
             L10n.ReloadIfInitialized();
-            if (hasKey)
-            {
-                Keys.Add(key);
-                serializedObject.Update();
-            }
         }
 
 
@@ -405,8 +403,7 @@ namespace Minerva.Localizations
             //remove key from localization table
             LocalizationTable.Remove(key);
             PropertyTable.Remove(key);
-            Keys.Remove(key);
-            trie.Remove(key);
+            localizationKeyCollection.Remove(key);
             EditorUtility.SetDirty(this);
 
             L10n.ReloadIfInitialized();
@@ -428,11 +425,9 @@ namespace Minerva.Localizations
                 file.MoveKey(oldKey, newKey, true, true);
             }
 
-            //keylist move
-            Keys.Remove(oldKey);
-            Keys.Add(newKey);
-            trie.Remove(oldKey);
-            trie.Add(newKey);
+            //keylist move 
+            localizationKeyCollection.Remove(oldKey);
+            localizationKeyCollection.Add(newKey);
             EditorUtility.SetDirty(this);
 
             //table move key
@@ -452,18 +447,15 @@ namespace Minerva.Localizations
 
 
         [ContextMenu("Rebuild key list")]
-        public List<string> RebuildKeyList()
+        public void RebuildKeyList()
         {
-            HashSet<string> keys = new HashSet<string>();
+            localizationKeyCollection = new();
             foreach (var item in files)
             {
-                keys.UnionWith(item.Keys);
+                localizationKeyCollection.UnionWith(item.Keys);
             }
-            keyList = keys.ToList();
-            trie = new Trie(keyList);
             sourceTrie = new Trie(sources.SelectMany(s => s.keys));
             keyBuild = true;
-            return Keys;
         }
 
         public void UpdateSources()
@@ -480,18 +472,9 @@ namespace Minerva.Localizations
 
 
 
-        /// <summary>
-        /// Sort key list
-        /// </summary>
-        public void SortKeyList()
-        {
-            Keys.Sort();
-            EditorUtility.SetDirty(this);
-        }
 
         public void SortEntries()
         {
-            SortKeyList();
             foreach (var item in files)
             {
                 item.Sort(true);
@@ -506,12 +489,11 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public List<string> FindPossibleNextClass(string pKey, bool allowSource = false)
         {
-            trie ??= new(Keys);
             if (string.IsNullOrEmpty(pKey))
             {
-                return trie.FirstLevelKeys.ToList();
+                return localizationKeyCollection.FirstLevelKeys.ToList();
             }
-            bool hasKey = trie.TryGetSubTrie(pKey, out Trie subTrie);
+            bool hasKey = localizationKeyCollection.TryGetSubTrie(pKey, out Trie subTrie);
             if (!allowSource)
             {
                 return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
@@ -554,7 +536,7 @@ namespace Minerva.Localizations
 
             var file = CSV.Import(path);
             regions = new List<string>(file.cols);
-            keyList = new List<string>(file.rows);
+            localizationKeyCollection = new LocalizationKeyCollection(file.rows);
             localizationTable = new(file.cols);
             ITable.Convert(file, localizationTable);
         }

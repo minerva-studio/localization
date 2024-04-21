@@ -415,7 +415,7 @@ namespace Minerva.Localizations.Editor
             GUILayout.BeginVertical(GUILayout.Height(position.height - HEIGHT_OFFSET));
             for (int i = tableBaseIndex; i < upperTableIndex; i++)
             {
-                string key = fileManager.Keys[i];
+                string key = fileManager.LocalizationKeyCollection[i];
                 GUILayout.BeginHorizontal(keyEntryHeight);
                 Dictionary<string, SerializedProperty> dictionary = table[key];
                 using (GUIEnable.By(dictionary.Values.All(e => e != null && e.editable)))
