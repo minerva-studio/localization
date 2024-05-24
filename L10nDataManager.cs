@@ -281,6 +281,11 @@ namespace Minerva.Localizations
             if (string.IsNullOrEmpty(key)) { return true; }
             if (string.IsNullOrWhiteSpace(key)) { return true; }
             if (key.EndsWith(".")) key = key.Remove(key.Length - 1);
+
+            if (localizationKeyCollection == null || localizationKeyCollection.Count == 0)
+            {
+                RebuildKeyList();
+            }
             return localizationKeyCollection.Contains(key);
         }
         /// <summary>

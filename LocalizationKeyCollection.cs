@@ -2,18 +2,20 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEditor;
+using ArrayUtility = Minerva.Module.ArrayUtility;
 
 namespace Minerva.Localizations
 {
 #if UNITY_EDITOR
     [Serializable]
-    public class LocalizationKeyCollection : IEnumerable<string>
+    public class LocalizationKeyCollection : IEnumerable<string>, ICollection<string>
     {
         public Trie keyTrie;
         string[] indexed;
 
         public ICollection<string> FirstLevelKeys => keyTrie.FirstLevelKeys;
+        public int Count => indexed?.Length ?? 0;
+        public bool IsReadOnly => ((ICollection<string>)indexed).IsReadOnly;
 
         public string this[int index]
         {
@@ -79,6 +81,17 @@ namespace Minerva.Localizations
         {
             indexed ??= keyTrie.ToArray();
             return indexed.GetEnumerator();
+        }
+
+        public void Clear()
+        {
+            ((ICollection<string>)indexed).Clear();
+            keyTrie.Clear();
+        }
+
+        public void CopyTo(string[] array, int arrayIndex)
+        {
+            indexed.CopyTo(array, arrayIndex);
         }
     }
 #endif

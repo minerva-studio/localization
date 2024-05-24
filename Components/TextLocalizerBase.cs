@@ -72,8 +72,7 @@ namespace Minerva.Localizations.Components
 
         private void LogMissingMessage()
         {
-#if UNITY_EDITOR
-            if (!languageFileManager.HasKey(key)) Debug.LogErrorFormat("Key not present in given L10n: {0}", key);
+#if UNITY_EDITOR 
             if (string.IsNullOrEmpty(key)) Debug.LogWarning($"Key is missing for {name}", this);
 #endif
         }
