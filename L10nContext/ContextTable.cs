@@ -81,6 +81,7 @@ namespace Minerva.Localizations
         public static (Type type, Func<L10nContext> builder) GetContextData(Type valueType)
         {
             var currType = valueType;
+            // try get from class inheritance
             while (currType != null)
             {
                 if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
@@ -89,6 +90,16 @@ namespace Minerva.Localizations
                     return (result.type, result.builder);
                 }
                 currType = currType.BaseType;
+            }
+            // try get from interface implement 
+            foreach (var interfaceInfo in valueType.GetInterfaces())
+            {
+                currType = interfaceInfo;
+                if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
+                {
+                    // result is in 
+                    return (result.type, result.builder);
+                }
             }
             return (typeof(GenericL10nContext), () => new GenericL10nContext());
         }

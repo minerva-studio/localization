@@ -362,6 +362,20 @@ namespace Minerva.Localizations
             return rawString;
         }
 
+        /// <summary>
+        /// Direct localization from key
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
+        public static string Tr(Key key, params string[] param)
+        {
+            var fullKey = Localizable.AppendKey(key, param);
+            var rawString = GetRawContent(fullKey);
+            rawString = EscapePattern.Escape(rawString, null, param);
+            return rawString;
+        }
+
         public static string Tr(object context, params string[] param)
         {
             return context switch

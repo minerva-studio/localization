@@ -12,7 +12,7 @@ namespace Minerva.Localizations
     /// </summary>
     public struct Key : IEnumerable<string>
     {
-        public static readonly Regex VALID_KEY_MEMBER = new(@"^[A-Za-z0-9_]+$");
+        public static readonly Regex VALID_KEY_MEMBER = new(@"^[A-Za-z0-9_\-+]+$");
         public static readonly Regex VALID_KEY = new(@"(?:([A-Za-z0-9_-]+)\.?)+");
 
 
@@ -22,11 +22,7 @@ namespace Minerva.Localizations
         private string[] levels { get; set; }
         private string cachedKeyString { get; set; }
 
-        public string this[int index]
-        {
-            get => levels[index];
-            set => levels[index] = value;
-        }
+        public readonly string this[int index] => levels[index];
 
         public Key this[Range range]
         {
@@ -82,10 +78,19 @@ namespace Minerva.Localizations
 
         public void Append(string v)
         {
-            var newArray = new string[Length + 1];
-            Array.Copy(levels, newArray, Length);
-            newArray[^1] = v;
-            levels = newArray;
+            // if last member of the array is not emtpy (no write to existing) or array not long enough, just create new array
+            if (levels.Length == 0 || valid == 0 || levels.Length == valid || !string.IsNullOrEmpty(levels[valid - 1]))
+            {
+                // min length of 4 when append
+                var newLength = Length * 2;
+                newLength = newLength > 4 ? newLength : 4;
+                
+                var newArray = new string[newLength];
+                Array.Copy(levels, newArray, Length);
+                levels = newArray;
+            }
+
+            levels[valid] = v;
             valid++;
             cachedKeyString = null;
         }
@@ -122,6 +127,11 @@ namespace Minerva.Localizations
             return new Key(key);
         }
 
+        public static implicit operator Key(string[] key)
+        {
+            return new Key(key);
+        }
+
 
         public override string ToString()
         {
@@ -139,6 +149,11 @@ namespace Minerva.Localizations
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        public void Append(object source)
+        {
+            throw new NotImplementedException();
         }
     }
 }

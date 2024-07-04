@@ -268,7 +268,7 @@ namespace Minerva.Localizations
             if (string.IsNullOrEmpty(key)) { return true; }
             if (string.IsNullOrWhiteSpace(key)) { return true; }
             if (key.EndsWith(".")) key = key.Remove(key.Length - 1);
-            return sources.Any(s => s && s.keys.Contains(key));
+            return sources.Any(s => s && s.Keys.Contains(key));
         }
 
         /// <summary>
@@ -459,18 +459,18 @@ namespace Minerva.Localizations
             {
                 localizationKeyCollection.UnionWith(item.Keys);
             }
-            sourceTrie = new Trie(sources.SelectMany(s => s.keys));
+            sourceTrie = new Trie(sources.Where(s => s).SelectMany(s => s.Keys));
             keyBuild = true;
         }
 
         public void UpdateSources()
         {
-            sourceTrie = new Trie(sources.SelectMany(s => s.keys));
+            sourceTrie = new Trie(sources.Where(s => s).SelectMany(s => s.Keys));
         }
 
         public void UpdateSources(List<string> keys)
         {
-            sourceTrie = new Trie(sources.SelectMany(s => s.keys));
+            sourceTrie = new Trie(sources.Where(s => s).SelectMany(s => s.Keys));
             sourceTrie.AddRange(keys);
         }
 
@@ -503,7 +503,7 @@ namespace Minerva.Localizations
             {
                 return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
             }
-            sourceTrie ??= new Trie(sources.SelectMany(s => s.keys));
+            sourceTrie ??= new Trie(sources.Where(s => s).SelectMany(s => s.Keys));
             if (!sourceTrie.TryGetSubTrie(pKey, out var sourceSubTrie))
                 return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
 

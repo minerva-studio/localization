@@ -21,6 +21,15 @@ namespace Minerva.Localizations
 
         }
 
+        public static string Export(Dictionary<string, string> keyValuePairs)
+        {
+            var lines = keyValuePairs
+                .Where(e => !string.IsNullOrEmpty(e.Key) && !string.IsNullOrWhiteSpace(e.Key))
+                .OrderBy(e => e.Key)
+                .Select(e => $"{e.Key}: \"{ToProperString(e.Value)}\"");
+            return string.Join("\n", lines);
+        }
+
         public static void Export<T>(List<T> keyValuePairs, Func<T, string> key, Func<T, string> value, string path)
         {
             File.WriteAllText(path, string.Empty);

@@ -7,7 +7,10 @@ namespace Minerva.Localizations
     public class LanguageFileSource : ScriptableObject
     {
         public string tag;
-        public List<string> keys = new();
+        [SerializeField]
+        private List<string> keys = new();
+
+        public List<string> Keys => keys;
 
         /// <summary>
         /// Create an (inspector) read only lang file
@@ -21,6 +24,8 @@ namespace Minerva.Localizations
 
         public void ImportFromYaml(string[] lines)
         {
+            keys ??= new();
+            keys.Clear();
             for (int i = 0; i < lines.Length; i++)
             {
                 if (string.IsNullOrWhiteSpace(lines[i])) continue;

@@ -15,7 +15,7 @@ namespace Minerva.Localizations
         /// <summary>
         /// Get the base localization key of the object
         /// </summary> 
-        public virtual string BaseKeyString { get => key; protected set { key = new Key(value); } }
+        public string BaseKeyString { get => key; protected set { key = new Key(value); } }
         public Key BaseKey { get => key; protected set { key = value; } }
         public object BaseValue { get => value; set => this.value = value; }
 
@@ -26,7 +26,7 @@ namespace Minerva.Localizations
 
         protected L10nContext(object value)
         {
-            Init(value, value is string str ? str : (value?.GetType().FullName ?? string.Empty));
+            Init(value);
         }
 
         protected L10nContext(object value, string key)
@@ -41,7 +41,6 @@ namespace Minerva.Localizations
 
         private void Init(object value) => Init(value, Key.Empty);
         private void Init(object value, string key) => Init(value, new Key(key));
-
         private void Init(object value, Key key)
         {
             this.value = value;
@@ -49,7 +48,14 @@ namespace Minerva.Localizations
             Parse(value);
         }
 
-        protected abstract void Parse(object value);
+        /// <summary>
+        /// Method of how to parse the given object value into desired way
+        /// </summary>
+        /// <param name="value"></param>
+        protected virtual void Parse(object value)
+        {
+            this.key = value is string str ? str : (value?.GetType().FullName ?? string.Empty);
+        }
 
 
 

@@ -47,7 +47,7 @@ namespace Minerva.Localizations
             if (settings.manager)
             {
                 settings.manager.RebuildKeyList();
-                settings.manager.UpdateSources(sourceFile.keys);
+                settings.manager.UpdateSources(sourceFile.Keys);
             }
         }
     }
