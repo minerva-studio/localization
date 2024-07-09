@@ -642,12 +642,16 @@ namespace Minerva.Localizations
 
 
 
-        private void ExportTo(string path, bool noBackup = false)
+        private void ExportTo(string path, bool noBackup = false, bool fullKey = false)
         {
             if (string.IsNullOrEmpty(path)) return;
             if (!noBackup && File.Exists(path + "_old")) File.Copy(path, path + "_old", true);
 
-            Yaml.Export(entries, e => e.Key, e => e.Value, path);
+            if (fullKey)
+            {
+                Yaml.ExportFullKey(entries, e => e.Key, e => e.Value, path);
+            }
+            else Yaml.Export(entries, e => e.Key, e => e.Value, path);
 
             AssetDatabase.Refresh();
         }
@@ -683,6 +687,17 @@ namespace Minerva.Localizations
 
             //Debug.Log(p);
             ExportTo(path);
+        }
+
+        [ContextMenu("Export to Yaml - Full key")]
+        public void ExportToYamlFullKey()
+        {
+            string fileName = name;
+            //string fileName = masterFile ? region : $"{name}-{region}";
+            string path = EditorUtility.SaveFilePanel("Save yaml file", AssetDatabase.GetAssetPath(this), fileName, "yml");
+
+            //Debug.Log(p);
+            ExportTo(path, fullKey: true);
         }
 
         [ContextMenu("Export to Yaml (Source)")]
@@ -749,20 +764,22 @@ namespace Minerva.Localizations
 
         public void ImportFromYaml(string[] lines)
         {
-            for (int i = 0; i < lines.Length; i++)
-            {
-                if (string.IsNullOrWhiteSpace(lines[i])) continue;
-                string item = lines[i].Trim();
-                if (string.IsNullOrEmpty(item) || item.StartsWith('#')) continue;
+            var dictionary = Yaml.Import(string.Join("\n", lines));
+            entries.AddRange(dictionary.Select(d => new Entry(d.Key, d.Value)));
+            //for (int i = 0; i < lines.Length; i++)
+            //{
+            //    if (string.IsNullOrWhiteSpace(lines[i])) continue;
+            //    string item = lines[i].Trim();
+            //    if (string.IsNullOrEmpty(item) || item.StartsWith('#')) continue;
 
-                int spliter = item.IndexOf(':');
-                // some reason it is not right, skip line
-                if (spliter == -1) continue;
+            //    int spliter = item.IndexOf(':');
+            //    // some reason it is not right, skip line
+            //    if (spliter == -1) continue;
 
-                string key = item[..spliter].Trim();
-                string value = ParseValue(item[(spliter + 1)..]);//.Trim()[1..^1];
-                entries.Add(new Entry(key, value));
-            }
+            //    string key = item[..spliter].Trim();
+            //    string value = ParseValue(item[(spliter + 1)..]);//.Trim()[1..^1];
+            //    entries.Add(new Entry(key, value));
+            //}
         }
 
         private string ParseValue(string raw)

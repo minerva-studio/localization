@@ -1,44 +1,128 @@
-﻿using System;
+﻿using Minerva.Module;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using UnityEngine;
 
 namespace Minerva.Localizations
 {
     /// <summary>
     /// simple yaml exporter (really simple one)
     /// </summary>
-    public static class Yaml
+    public static partial class Yaml
     {
-        public static void Export(Dictionary<string, string> keyValuePairs, string path)
+        /// <summary>
+        /// Export a full-key file (all keys will be full, not in a standard yaml format)
+        /// </summary>
+        /// <param name="keyValuePairs"></param>
+        /// <param name="path">path fo the file</param>
+        public static void ExportFullKey<T>(List<T> keyValuePairs, Func<T, string> key, Func<T, string> value, string path)
+        {
+            ExportFullKey(keyValuePairs.ToDictionary(key, value), path);
+        }
+
+        /// <summary>
+        /// Export a full-key file (all keys will be full, not in a standard yaml format)
+        /// </summary>
+        /// <param name="keyValuePairs"></param>
+        /// <param name="path">path fo the file</param>
+        public static void ExportFullKey(Dictionary<string, string> keyValuePairs, string path)
         {
             File.WriteAllText(path, string.Empty);
-            var lines = keyValuePairs
-                .Where(e => !string.IsNullOrEmpty(e.Key) && !string.IsNullOrWhiteSpace(e.Key))
-                .OrderBy(e => e.Key)
-                .Select(e => $"{e.Key}: \"{ToProperString(e.Value)}\"");
-            File.AppendAllLines(path, lines);
+            File.AppendAllText(path, ExportFullKey(keyValuePairs));
+        }
+
+        /// <summary>
+        /// Export a full-key file (all keys will be full, not in a standard yaml format)
+        /// </summary>
+        /// <param name="keyValuePairs"></param> 
+        /// <returns>Exported string</returns>
+        public static string ExportFullKey(Dictionary<string, string> keyValuePairs)
+        {
+            string v = string.Join('\n', keyValuePairs
+                            .Where(e => !string.IsNullOrEmpty(e.Key) && !string.IsNullOrWhiteSpace(e.Key))
+                            .OrderBy(e => e.Key)
+                            .Select(e => $"{e.Key}: \"{ToProperString(e.Value)}\""));
+            Debug.Log(v);
+            return v;
+        }
+
+        public static void Export(Dictionary<string, string> keyValuePairs, string path)
+        {
+            //var lines = keyValuePairs
+            //    .Where(e => !string.IsNullOrEmpty(e.Key) && !string.IsNullOrWhiteSpace(e.Key))
+            //    .OrderBy(e => e.Key)
+            //    .Select(e => $"{e.Key}: \"{ToProperString(e.Value)}\"");
+            File.WriteAllText(path, string.Empty);
+            File.AppendAllText(path, Export(keyValuePairs));
 
         }
 
         public static string Export(Dictionary<string, string> keyValuePairs)
         {
-            var lines = keyValuePairs
-                .Where(e => !string.IsNullOrEmpty(e.Key) && !string.IsNullOrWhiteSpace(e.Key))
-                .OrderBy(e => e.Key)
-                .Select(e => $"{e.Key}: \"{ToProperString(e.Value)}\"");
-            return string.Join("\n", lines);
+            StringBuilder stringBuilder = new StringBuilder();
+            Tries<string> trie = new Tries<string>(keyValuePairs);
+            WriteLevel(trie, 0);
+
+            void WriteLevel(Tries<string> trie, int indent = 0)
+            {
+                var keys = trie.GetFirstLevelKeys();
+                keys.Sort();
+                foreach (var key in keys)
+                {
+                    Debug.Log(key);
+                    stringBuilder.Append(' ', indent);
+                    stringBuilder.Append(key);
+                    stringBuilder.Append(":");
+                    if (trie.ContainsKey(key))
+                    {
+                        // something below
+                        if (trie.TryGetSubTrie(key, out var t) && t.Count > 1)
+                        {
+                            stringBuilder.AppendLine();
+                            stringBuilder.Append(' ', indent + 2);
+                            stringBuilder.Append(Reader.ObjectSelf);
+                            stringBuilder.Append(":");
+                        }
+                        stringBuilder.AppendLine($" \"{ToProperString(trie[key])}\"");
+                    }
+                    else
+                    {
+                        stringBuilder.AppendLine();
+                    }
+                    if (trie.TryGetSubTrie(key, out var subTrie))
+                    {
+                        WriteLevel(subTrie, indent + 2);
+                    }
+                }
+
+            }
+
+            return stringBuilder.ToString();
         }
 
         public static void Export<T>(List<T> keyValuePairs, Func<T, string> key, Func<T, string> value, string path)
         {
-            File.WriteAllText(path, string.Empty);
-            var lines = keyValuePairs
-                .Where(e => !string.IsNullOrEmpty(key(e)) && !string.IsNullOrWhiteSpace(value(e)))
-                .Select(e => (key: key(e), value: ToProperString(value(e))))
-                .OrderBy(e => e.key)
-                .Select(e => $"{e.key}: \"{e.value}\"");
-            File.AppendAllLines(path, lines);
+            Export(keyValuePairs.ToDictionary(key, value), path);
+        }
+
+        public static Dictionary<string, string> Import(string str)
+        {
+            var dictionary = new Dictionary<string, string>();
+            var reader = new Reader(str);
+            while (reader.CanRead())
+            {
+                try
+                {
+                    var (key, value) = reader.Read();
+                    dictionary[key] = value;
+                }
+                // empty
+                catch (InvalidOperationException) { break; }
+            }
+            return dictionary;
         }
 
         static string ToProperString(string str)

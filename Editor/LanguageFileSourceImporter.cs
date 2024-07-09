@@ -11,12 +11,24 @@ namespace Minerva.Localizations
     [ScriptedImporter(1, "yml")]
     public class LanguageFileSourceImporter : ScriptedImporter
     {
+        public bool skipFile;
         public string tag;
         LanguageFileSource sourceFile;
         LanguageFile file;
 
         public override void OnImportAsset(AssetImportContext ctx)
         {
+            string fileName = Path.GetFileNameWithoutExtension(ctx.assetPath);
+            string[] lines = File.ReadAllLines(ctx.assetPath);
+            var plainText = new TextAsset(string.Join('\n', lines));
+            plainText.name = fileName;
+            if (skipFile)
+            {
+                ctx.AddObjectToAsset("PlainText", plainText);
+                ctx.SetMainObject(plainText);
+                return;
+            }
+
             if (!sourceFile)
             {
                 sourceFile = LanguageFileSource.NewLangFile();
@@ -26,18 +38,13 @@ namespace Minerva.Localizations
                 file = LanguageFile.NewLangFile(ctx.assetPath);
             }
 
-            string fileName = Path.GetFileNameWithoutExtension(ctx.assetPath);
-
-            string[] lines = File.ReadAllLines(ctx.assetPath);
-            sourceFile.ImportFromYaml(lines);
+            sourceFile.ImportFromYaml(string.Join("\n", lines));
             sourceFile.tag = tag;
 
             file.ImportFromYaml(lines);
             file.Tag = tag;
             file.name = $"{fileName}_Default";
 
-            var plainText = new TextAsset(string.Join('\n', lines));
-            plainText.name = fileName;
             ctx.AddObjectToAsset("SourceFile", sourceFile);
             ctx.AddObjectToAsset("LangFile", file);
             ctx.AddObjectToAsset("PlainText", plainText);

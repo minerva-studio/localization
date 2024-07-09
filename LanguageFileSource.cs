@@ -22,23 +22,25 @@ namespace Minerva.Localizations
             return file;
         }
 
-        public void ImportFromYaml(string[] lines)
+        public void ImportFromYaml(string text)
         {
             keys ??= new();
             keys.Clear();
-            for (int i = 0; i < lines.Length; i++)
-            {
-                if (string.IsNullOrWhiteSpace(lines[i])) continue;
-                string item = lines[i].Trim();
-                if (string.IsNullOrEmpty(item) || item.StartsWith('#')) continue;
+            var dictionary = Yaml.Import(text);
+            keys.AddRange(dictionary.Keys);
+            //for (int i = 0; i < lines.Length; i++)
+            //{
+            //    if (string.IsNullOrWhiteSpace(lines[i])) continue;
+            //    string item = lines[i].Trim();
+            //    if (string.IsNullOrEmpty(item) || item.StartsWith('#')) continue;
 
-                int spliter = item.IndexOf(':');
-                // some reason it is not right, skip line
-                if (spliter == -1) continue;
+            //    int spliter = item.IndexOf(':');
+            //    // some reason it is not right, skip line
+            //    if (spliter == -1) continue;
 
-                string key = item[..spliter].Trim();
-                keys.Add(key);
-            }
+            //    string key = item[..spliter].Trim();
+            //    keys.Add(key);
+            //}
         }
     }
 }
