@@ -1,0 +1,23 @@
+{
+    "name": "com.minervastudio.localization",
+    "version": "0.1.0",
+    "displayName": "Localization",
+    "description": "A fully customized localization system written in C# for Unity project",
+    "unity": "2021.3",
+    "dependencies": {
+        "com.minervastudio.utilities": "1.0.2407"
+    },
+    "keywords": [
+        "external",
+        "utilities",
+        "localization",
+        "C#",
+        "minerva studio",
+        "minerva game studio"
+    ],
+    "author": {
+        "name": "Minerva Game Studio",
+        "email": "library.of.meialia@gmail.com",
+        "url": "https://github.com/minerva-studio/unity-utilities"
+    }
+}
