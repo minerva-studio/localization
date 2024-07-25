@@ -148,18 +148,21 @@ namespace Minerva.Localizations
                 return Cursor + selfCursor;
             }
 
+            /// <summary>
+            /// Skipping comment, but not the whitespace (indentation)
+            /// </summary>
             void SkipComments()
             {
                 while (CanRead())
                 {
                     int start = Cursor;
                     SkipWhitespace();
-                    // comment
-                    if (Peek() == '\n' || Peek() == '#')
+                    if (CanRead() && (Peek() == '\n' || Peek() == '#'))
                     {
                         // skip comment line
                         SkipLine();
                         continue;
+
                     }
                     else
                     {
@@ -179,8 +182,6 @@ namespace Minerva.Localizations
 
             string ReadKey()
             {
-                SkipComments();
-                SkipWhitespace();
                 int start = Cursor;
                 if (!CanRead())
                 {
@@ -301,12 +302,18 @@ namespace Minerva.Localizations
                 SkipComments();
                 int indentation = ReadIndentation();
                 // child class
-                if (indentation < currentIndentation)
+                if (indentation <= currentIndentation)
                 {
                     keyStack.Traceback(indentation);
                 }
                 currentIndentation = indentation;
 
+                SkipComments();
+                SkipWhitespace();
+                if (!CanRead())
+                {
+                    throw new InvalidOperationException("Empty Yaml");
+                }
                 var identifier = ReadKey();
                 keyStack.Add(indentation, identifier);
                 // trailing key, treated as empty object, then no more value
@@ -318,6 +325,11 @@ namespace Minerva.Localizations
                 if (String[PeekLineEndNonWhitespace()] == ':')
                 {
                     SkipLine();
+                    SkipComments();
+                    if (!CanRead())
+                    {
+                        throw new InvalidOperationException("Empty Yaml");
+                    }
                     return Read();
                 }
                 // read string value

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using static Minerva.Localizations.L10nSymbols;
 
@@ -19,7 +20,7 @@ namespace Minerva.Localizations
         public static readonly Key Empty = new Key() { levels = Array.Empty<string>() };
 
         public int valid { get; private set; }
-        private string[] levels { get; set; }
+        public string[] levels { get; private set; }
         private string cachedKeyString { get; set; }
 
         public readonly string this[int index] => levels[index];
@@ -67,7 +68,7 @@ namespace Minerva.Localizations
 
         public Key(params string[] path)
         {
-            cachedKeyString = string.Join(KEY_SEPARATOR, path);
+            cachedKeyString = JoinString(path);
             levels = cachedKeyString.Split('.');
             valid = levels.Length;
             if (!levels.All(k => VALID_KEY_MEMBER.IsMatch(k)))
@@ -84,7 +85,7 @@ namespace Minerva.Localizations
                 // min length of 4 when append
                 var newLength = Length * 2;
                 newLength = newLength > 4 ? newLength : 4;
-                
+
                 var newArray = new string[newLength];
                 Array.Copy(levels, newArray, Length);
                 levels = newArray;
@@ -151,9 +152,42 @@ namespace Minerva.Localizations
             return GetEnumerator();
         }
 
-        public void Append(object source)
+        public static string JoinString(params string[] s)
         {
-            throw new NotImplementedException();
+            StringBuilder stringBuilder = new StringBuilder();
+            Append(stringBuilder, s);
+            stringBuilder.Length--;
+            return stringBuilder.ToString();
+        }
+
+        public static string JoinString(string[] s, params string[] s2)
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            Append(stringBuilder, s);
+            Append(stringBuilder, s2);
+            stringBuilder.Length--;
+            return stringBuilder.ToString();
+        }
+
+        public static string JoinString(Key key, params string[] s2)
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            Append(stringBuilder, key.levels);
+            Append(stringBuilder, s2);
+            stringBuilder.Length--;
+            return stringBuilder.ToString();
+        }
+
+        private static void Append(StringBuilder stringBuilder, string[] s)
+        {
+            foreach (var item in s)
+            {
+                stringBuilder.Append(item);
+                if (stringBuilder[^1] != KEY_SEPARATOR)
+                {
+                    stringBuilder.Append(KEY_SEPARATOR);
+                }
+            }
         }
     }
 }
