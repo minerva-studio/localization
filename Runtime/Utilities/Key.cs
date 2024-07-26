@@ -80,7 +80,7 @@ namespace Minerva.Localizations
         public void Append(string v)
         {
             // if last member of the array is not emtpy (no write to existing) or array not long enough, just create new array
-            if (levels.Length == 0 || valid == 0 || levels.Length == valid || !string.IsNullOrEmpty(levels[valid - 1]))
+            if (levels.Length == 0 || valid == 0 || levels.Length == valid || !string.IsNullOrEmpty(levels[valid]))
             {
                 // min length of 4 when append
                 var newLength = Length * 2;
@@ -98,6 +98,11 @@ namespace Minerva.Localizations
 
 
 
+
+        public static Key operator +(Key a, Key b)
+        {
+            return Join(a, b);
+        }
 
         public static Key operator +(Key key, string next)
         {
@@ -176,6 +181,16 @@ namespace Minerva.Localizations
             Append(stringBuilder, s2);
             stringBuilder.Length--;
             return stringBuilder.ToString();
+        }
+
+        public static Key Join(Key key1, Key key2)
+        {
+            Key result = key1;
+            for (int i = 0; i < key2.valid; i++)
+            {
+                result += key2[i];
+            }
+            return result;
         }
 
         private static void Append(StringBuilder stringBuilder, string[] s)

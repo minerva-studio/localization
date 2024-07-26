@@ -64,43 +64,42 @@ namespace Minerva.Localizations
         {
             StringBuilder stringBuilder = new StringBuilder();
             Tries<string> trie = new Tries<string>(keyValuePairs);
-            WriteLevel(trie, 0);
-
-            void WriteLevel(Tries<string> trie, int indent = 0)
-            {
-                var keys = trie.GetFirstLevelKeys();
-                keys.Sort();
-                foreach (var key in keys)
-                {
-                    Debug.Log(key);
-                    stringBuilder.Append(' ', indent);
-                    stringBuilder.Append(key);
-                    stringBuilder.Append(":");
-                    if (trie.ContainsKey(key))
-                    {
-                        // something below
-                        if (trie.TryGetSubTrie(key, out var t) && t.Count > 1)
-                        {
-                            stringBuilder.AppendLine();
-                            stringBuilder.Append(' ', indent + 2);
-                            stringBuilder.Append(Reader.ObjectSelf);
-                            stringBuilder.Append(":");
-                        }
-                        stringBuilder.AppendLine($" \"{ToProperString(trie[key])}\"");
-                    }
-                    else
-                    {
-                        stringBuilder.AppendLine();
-                    }
-                    if (trie.TryGetSubTrie(key, out var subTrie))
-                    {
-                        WriteLevel(subTrie, indent + 2);
-                    }
-                }
-
-            }
+            WriteLevel(trie, 0, stringBuilder);
 
             return stringBuilder.ToString();
+        }
+
+        private static void WriteLevel(Tries<string> trie, int indent = 0, StringBuilder stringBuilder = null)
+        {
+            var keys = trie.GetFirstLevelKeys();
+            keys.Sort();
+            foreach (var key in keys)
+            {
+                stringBuilder.Append(' ', indent);
+                stringBuilder.Append(key);
+                stringBuilder.Append(":");
+                if (trie.ContainsKey(key))
+                {
+                    // something below
+                    if (trie.TryGetSubTrie(key, out var t) && t.Count > 1)
+                    {
+                        stringBuilder.AppendLine();
+                        stringBuilder.Append(' ', indent + 2);
+                        stringBuilder.Append(Reader.ObjectSelf);
+                        stringBuilder.Append(":");
+                    }
+                    stringBuilder.AppendLine($" \"{ToProperString(trie[key])}\"");
+                }
+                else
+                {
+                    stringBuilder.AppendLine();
+                }
+                if (trie.TryGetSubTrie(key, out var subTrie))
+                {
+                    WriteLevel(subTrie, indent + 2, stringBuilder);
+                }
+            }
+
         }
 
         public static void Export<T>(List<T> keyValuePairs, Func<T, string> key, Func<T, string> value, string path)
