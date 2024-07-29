@@ -13,7 +13,7 @@ namespace Minerva.Localizations
         public Trie keyTrie;
         string[] indexed;
 
-        public ICollection<string> FirstLevelKeys => keyTrie.FirstLevelKeys;
+        public ICollection<string> FirstLevelKeys => keyTrie.FirstLayerKeys;
         public int Count => indexed?.Length ?? 0;
         public bool IsReadOnly => ((ICollection<string>)indexed).IsReadOnly;
 
@@ -65,9 +65,9 @@ namespace Minerva.Localizations
             indexed = null;
         }
 
-        public bool TryGetSubTrie(string pKey, out Trie subTrie)
+        public bool TryGetSegment(string pKey, out TrieSegment subTrie)
         {
-            return keyTrie.TryGetSubTrie(pKey, out subTrie);
+            return keyTrie.TryGetSegment(pKey, out subTrie);
         }
 
         public IEnumerator<string> GetEnumerator()

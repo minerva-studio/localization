@@ -3,6 +3,7 @@ using Minerva.Module;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace Minerva.Localizations
@@ -159,19 +160,48 @@ namespace Minerva.Localizations
             instance.Instance_Load(instance.region);
         }
 
+
+
+
         /// <summary>
         /// Get the matched display language from dictionary by key
         /// </summary>
         /// <param name="key"></param> 
         /// <returns></returns>
-        private string Instance_GetRawContent(string key)
+        private string Instance_GetRawContent(string key, MissingKeySolution? solution)
         {
+            MissingKeySolution finalSolution = solution ?? this.missingKeySolution;
             if (!initialized)
             {
                 Debug.LogWarning($"L10n not initialize");
-                goto missing;
+                return Instance_ResolveMissing(key, finalSolution);
             }
-            if (string.IsNullOrEmpty(key) || !dictionary.TryGetValue(key, out var value) || value == null)
+
+            bool hasValue = dictionary.TryGetValue(key, out var value);
+            return Instance_ValidateValue(key, value, hasValue, finalSolution);
+        }
+
+        /// <summary>
+        /// Get the matched display language from dictionary by key
+        /// </summary>
+        /// <param name="key"></param> 
+        /// <returns></returns>
+        private string Instance_GetRawContent(Key key, MissingKeySolution? solution)
+        {
+            MissingKeySolution finalSolution = solution ?? this.missingKeySolution;
+            if (!initialized)
+            {
+                Debug.LogWarning($"L10n not initialize");
+                return Instance_ResolveMissing(key, finalSolution);
+            }
+
+            bool hasValue = trie.TryGetValue(key.Section, out var value);
+            return Instance_ValidateValue(key, value, hasValue, finalSolution);
+        }
+
+        private string Instance_ValidateValue(string key, string value, bool hasValue, MissingKeySolution missingKeySolution)
+        {
+            if (string.IsNullOrEmpty(key) || !hasValue || value == null)
             {
 #if UNITY_EDITOR
                 if (missing.Add(key))
@@ -180,17 +210,21 @@ namespace Minerva.Localizations
                 }
                 OnKeyMissing?.Invoke(key);
 #endif
-                goto missing;
+                return Instance_ResolveMissing(key, missingKeySolution);
             }
             if (disableEmptyEntries && string.IsNullOrEmpty(value))
             {
                 Debug.LogWarning($"Key {key} has empty entry!");
-                goto missing;
+                return Instance_ResolveMissing(key, missingKeySolution);
             }
 
             return value;
+        }
 
-        missing:
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private string Instance_ResolveMissing(string key, MissingKeySolution missingKeySolution)
+        {
+            string value;
             switch (missingKeySolution)
             {
                 default:
@@ -206,15 +240,18 @@ namespace Minerva.Localizations
                     value = value.ToTitleCase();
                     break;
             }
+
             return value;
         }
+
+
 
         /// <summary>
         /// Direclty get the value by key
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        internal static string GetRawContent(string key)
+        internal static string GetRawContent(Key key, MissingKeySolution? solution = null)
         {
             // localization not loaded
             if (instance == null)
@@ -227,8 +264,32 @@ namespace Minerva.Localizations
                 return key;
             }
 
-            return instance.Instance_GetRawContent(key);
+            return instance.Instance_GetRawContent(key, solution);
         }
+
+        /// <summary>
+        /// Direclty get the value by key
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        internal static string GetRawContent(string key, MissingKeySolution? solution = null)
+        {
+            // localization not loaded
+            if (instance == null)
+            {
+                return key;
+            }
+            // localization not initialized, no language pack loaded
+            if (!instance.initialized)
+            {
+                return key;
+            }
+
+            return instance.Instance_GetRawContent(key, solution);
+        }
+
+
+
 
         /// <summary>
         /// Check whether given key is present in current localization file
@@ -240,10 +301,24 @@ namespace Minerva.Localizations
             return Instance?.Instance_Contains(key) == true;
         }
 
+        public static bool Contains(Key key)
+        {
+            return Instance?.Instance_Contains(key) == true;
+        }
+
         private bool Instance_Contains(string key)
         {
             return dictionary.ContainsKey(key);
         }
+
+        private bool Instance_Contains(Key key)
+        {
+            return trie.ContainsKey(key.Section);
+        }
+
+
+
+
 
         /// <summary>
         /// Override given key's entry to value
@@ -253,6 +328,18 @@ namespace Minerva.Localizations
         internal static void Override(string key, string value)
         {
             instance.dictionary[key] = value;
+            instance.trie[key] = value;
+        }
+
+        /// <summary>
+        /// Override given key's entry to value
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        internal static void Override(Key key, string value)
+        {
+            instance.dictionary[key] = value;
+            instance.trie.Set(key.Section, value);
         }
 
         /// <summary>
@@ -316,12 +403,12 @@ namespace Minerva.Localizations
         private bool Instance_OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!initialized) { return false; }
-            if (!trie.TryGetSubTrie(partialKey, out var subTrie))
+            if (!trie.TryGetSegment(partialKey, out TriesSegment<string> subTrie))
                 return false;
             if (firstLevelOnly)
-                subTrie.CopyFirstLevelKeys(strings);
+                subTrie.FirstLayerKeys.CopyTo(strings);
             else
-                subTrie.CopyKeys(strings);
+                subTrie.Keys.CopyTo(strings);
             return true;
         }
 
@@ -334,12 +421,12 @@ namespace Minerva.Localizations
         private bool Instance_OptionOf(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!initialized) { return false; }
-            if (!trie.TryGetSubTrie((IEnumerable<string>)partialKey, out var subTrie))
+            if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<string> subTrie))
                 return false;
             if (firstLevelOnly)
-                subTrie.CopyFirstLevelKeys(strings);
+                subTrie.FirstLayerKeys.CopyTo(strings);
             else
-                subTrie.CopyKeys(strings);
+                subTrie.Keys.CopyTo(strings);
             return true;
         }
 
@@ -354,10 +441,12 @@ namespace Minerva.Localizations
         /// <param name="key"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string Tr(string key, params string[] param)
+        public static string Tr(string key, params string[] param) => Tr(key, instance?.missingKeySolution ?? 0, param);
+
+        public static string Tr(string key, MissingKeySolution solution, params string[] param)
         {
             var fullKey = Localizable.AppendKey(key, param);
-            var rawString = GetRawContent(fullKey);
+            var rawString = GetRawContent(fullKey, solution);
             rawString = EscapePattern.Escape(rawString, null, param);
             return rawString;
         }

@@ -68,25 +68,26 @@ namespace Minerva.Localizations
             return options;
         }
 
-        public bool Move(string childLevel)
+        public LevelContext Move(string childLevel)
         {
             options ??= UpdateOptions();
             if (options == null)
             {
-                return false;
+                return new LevelContext(false, this);
             }
+
             return Move(options.IndexOf(childLevel));
         }
 
-        public bool Move(int optionIndex)
+        public LevelContext Move(int optionIndex)
         {
             options ??= UpdateOptions();
-            if (options == null) return false;
-            if (optionIndex < 0 || optionIndex >= options.Count) return false;
+            if (options == null) return new LevelContext(false, this);
+            if (optionIndex < 0 || optionIndex >= options.Count) return new LevelContext(false, this);
 
             key.Append(options[optionIndex]);
             options = null;
-            return true;
+            return new LevelContext(true, this);
         }
 
         public bool Back()
@@ -94,6 +95,28 @@ namespace Minerva.Localizations
             key -= 1;
             options = null;
             return true;
+        }
+
+        public struct LevelContext : IDisposable
+        {
+
+            public bool HasValue { get; }
+            public L10nTraverse traverse { get; }
+            public bool disposed { get; private set; }
+            public LevelContext(bool hasValue, L10nTraverse traverse) : this()
+            {
+                HasValue = hasValue;
+                this.traverse = traverse;
+            }
+
+            public void Dispose()
+            {
+                if (disposed) return;
+                traverse.Back();
+                disposed = true;
+            }
+
+            public static implicit operator bool(LevelContext context) { return context.HasValue; }
         }
 
         struct OptionEnumerator : IEnumerator<string>, IEnumerable<string>

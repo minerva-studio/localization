@@ -249,6 +249,17 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
+        /// Direct localization from key
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
+        protected static string Tr(Key key, params string[] param)
+        {
+            return L10n.Tr(key, param);
+        }
+
+        /// <summary>
         /// Create a L10n context
         /// </summary>
         /// <param name="value"></param>

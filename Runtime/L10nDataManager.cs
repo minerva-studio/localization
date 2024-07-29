@@ -498,19 +498,19 @@ namespace Minerva.Localizations
             {
                 return localizationKeyCollection.FirstLevelKeys.ToList();
             }
-            bool hasKey = localizationKeyCollection.TryGetSubTrie(pKey, out Trie subTrie);
+            bool hasKey = localizationKeyCollection.TryGetSegment(pKey, out TrieSegment subTrie);
             if (!allowSource)
             {
-                return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
+                return hasKey ? subTrie.FirstLayerKeys.ToList() : new List<string>();
             }
             sourceTrie ??= new Trie(sources.Where(s => s).SelectMany(s => s.Keys));
-            if (!sourceTrie.TryGetSubTrie(pKey, out var sourceSubTrie))
-                return hasKey ? subTrie.GetChildrenKeys() : new List<string>();
+            if (!sourceTrie.TryGetSegment(pKey, out var sourceSubTrie))
+                return hasKey ? subTrie.FirstLayerKeys.ToList() : new List<string>();
 
-            if (subTrie != null) subTrie.AddRange(sourceSubTrie);
+            if (hasKey) subTrie.AddRange(sourceSubTrie);
             else subTrie = sourceSubTrie;
 
-            return subTrie.GetChildrenKeys();
+            return subTrie.FirstLayerKeys.ToList();
         }
 
 
