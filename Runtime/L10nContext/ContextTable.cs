@@ -27,8 +27,7 @@ namespace Minerva.Localizations
         private static void Init()
         {
             table = new();
-            Register<GenericL10nContext, object>();
-            Register<EnumL10nContext, Enum>();
+            Register<EnumL10nContext, Enum>(true);
             Register<KeyL10nContext, string>();
         }
 
