@@ -1,9 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using UnityEngine;
 
 namespace Minerva.Localizations
 {
@@ -11,21 +11,22 @@ namespace Minerva.Localizations
     {
         public class Reader
         {
-            private static readonly char SyntaxEscape = '\\';
-            private static readonly char SyntaxDoubleQuote = '"';
-            private static readonly char SyntaxSingleQuote = '\'';
+            private const char SyntaxListElement = '-';
+            private const char SyntaxEscape = '\\';
+            private const char SyntaxDoubleQuote = '"';
+            private const char SyntaxSingleQuote = '\'';
             public static readonly string ObjectSelf = "$self";
 
 
             class KeyStack
             {
-                List<(int indent, string identifier)> values = new();
+                List<(int indent, string identifier, int? index)> values = new();
 
                 public int Count => values.Count;
 
                 public void Add(int indent, string identifier)
                 {
-                    values.Add((indent, identifier));
+                    values.Add((indent, identifier, null));
                 }
 
                 public void Traceback(int indent)
@@ -56,13 +57,29 @@ namespace Minerva.Localizations
                     values.RemoveAt(Count - 1);
                 }
 
+                public void NextElement()
+                {
+                    var entry = values[^1];
+                    if (entry.index.HasValue)
+                    {
+                        entry.index++;
+                    }
+                    else entry.index = 0;
+                    values[^1] = entry;
+                }
+
                 public override string ToString()
                 {
                     if (values[^1].identifier == ObjectSelf)
                     {
-                        return string.Join('.', values.Take(values.Count - 1).Select(c => c.identifier));
+                        return string.Join('.', values.Take(values.Count - 1).Select(c => c.index.HasValue ? $"{c.identifier}.{c.index.Value}" : c.identifier));
                     }
-                    return string.Join('.', values.Select(c => c.identifier));
+                    return string.Join('.', values.Select(c => c.index.HasValue ? $"{c.identifier}.{c.index.Value}" : c.identifier));
+                }
+
+                public void Clear()
+                {
+                    values.Clear();
                 }
             }
 
@@ -149,7 +166,7 @@ namespace Minerva.Localizations
             }
 
             /// <summary>
-            /// Skipping comment, but not the whitespace (indentation)
+            /// Skipping comment, but not the indentation whitespace
             /// </summary>
             void SkipComments()
             {
@@ -177,24 +194,36 @@ namespace Minerva.Localizations
                 SkipComments();
                 int start = Cursor;
                 while (CanRead() && Peek() == ' ') { Next(); }
-                return Cursor - start;
+                int length = Cursor - start;
+                // treat list element with more index
+                if (CanRead(2) && Peek() == SyntaxListElement && char.IsWhiteSpace(Peek(1))) return length + 2;
+                return length;
             }
 
             string ReadKey()
             {
-                int start = Cursor;
                 if (!CanRead())
                 {
                     throw Throw();
                 }
 
                 char c = Peek();
+                // list element
+                while (c == SyntaxListElement && CanRead(2) && char.IsWhiteSpace(Peek(1)))
+                {
+                    Next();
+                    keyStack.NextElement();
+                    SkipComments();
+                    SkipWhitespace();
+                    c = Peek();
+                }
                 // quoted key
                 if (c == SyntaxDoubleQuote || c == SyntaxSingleQuote)
                 {
                     return ReadQuotedKey();
                 }
 
+                int start = Cursor;
                 int lastNonspace = start;
                 while (CanRead())
                 {
@@ -293,11 +322,30 @@ namespace Minerva.Localizations
             }
 
             /// <summary>
+            /// Try read next key value pair
+            /// </summary>
+            /// <param name="keyValuePair"></param>
+            /// <returns></returns>
+            public bool TryRead(out KeyValuePair<string, string> keyValuePair)
+            {
+                keyValuePair = default;
+                try
+                {
+                    keyValuePair = Read();
+                    return true;
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
+            }
+
+            /// <summary>
             /// Read next key value
             /// </summary>
             /// <returns></returns>
             /// <exception cref="InvalidOperationException"></exception>
-            public (string key, string value) Read()
+            public KeyValuePair<string, string> Read()
             {
                 SkipComments();
                 int indentation = ReadIndentation();
@@ -336,7 +384,7 @@ namespace Minerva.Localizations
                 var value = ReadValue();
                 var key = CurrentKey;
                 keyStack.Pop();
-                return (key, value);
+                return new(key, value);
             }
 
             private static bool IsQuotedStringStart(char c)
@@ -489,6 +537,67 @@ namespace Minerva.Localizations
                 string context = content[cursor..ending];
                 context = ToProperString(context);
                 return context;
+            }
+
+            public void Reset()
+            {
+                this.keyStack.Clear();
+                this.line = 0;
+                this.charCount = 0;
+                this.cursor = 0;
+                this.currentIndentation = 0;
+            }
+
+            public IEnumerable<KeyValuePair<string, string>> ReadAll()
+            {
+                return new Enumerator(this);
+            }
+
+            struct Enumerator : IEnumerable<KeyValuePair<string, string>>, IEnumerator<KeyValuePair<string, string>>
+            {
+                private Reader reader;
+                private KeyValuePair<string, string> current;
+
+                public Enumerator(Reader reader)
+                {
+                    this.reader = reader;
+                    current = default;
+                }
+
+                public KeyValuePair<string, string> Current => current;
+
+                object IEnumerator.Current => this.Current;
+
+                public void Dispose() { }
+
+                public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
+                {
+                    return this;
+                }
+
+                public bool MoveNext()
+                {
+                    try
+                    {
+                        var (key, value) = reader.Read();
+                        current = new KeyValuePair<string, string>(key, value);
+                        return true;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return false;
+                    }
+                }
+
+                public void Reset()
+                {
+                    reader.Reset();
+                }
+
+                IEnumerator IEnumerable.GetEnumerator()
+                {
+                    throw new NotImplementedException();
+                }
             }
         }
     }

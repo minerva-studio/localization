@@ -111,15 +111,9 @@ namespace Minerva.Localizations
         {
             var dictionary = new Dictionary<string, string>();
             var reader = new Reader(str);
-            while (reader.CanRead())
+            foreach (var (key, value) in reader.ReadAll())
             {
-                try
-                {
-                    var (key, value) = reader.Read();
-                    dictionary[key] = value;
-                }
-                // empty
-                catch (InvalidOperationException) { break; }
+                dictionary[key] = value;
             }
             return dictionary;
         }
