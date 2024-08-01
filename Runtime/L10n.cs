@@ -406,9 +406,9 @@ namespace Minerva.Localizations
             if (!trie.TryGetSegment(partialKey, out TriesSegment<string> subTrie))
                 return false;
             if (firstLevelOnly)
-                subTrie.FirstLayerKeys.CopyTo(strings);
+                strings.AddRange(subTrie.FirstLayerKeys);
             else
-                subTrie.Keys.CopyTo(strings);
+                strings.AddRange(subTrie.Keys);
             return true;
         }
 
@@ -424,9 +424,9 @@ namespace Minerva.Localizations
             if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<string> subTrie))
                 return false;
             if (firstLevelOnly)
-                subTrie.FirstLayerKeys.CopyTo(strings);
+                strings.AddRange(subTrie.FirstLayerKeys);
             else
-                subTrie.Keys.CopyTo(strings);
+                strings.AddRange(subTrie.Keys);
             return true;
         }
 

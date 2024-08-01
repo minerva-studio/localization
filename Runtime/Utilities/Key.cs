@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using UnityEngine;
 using static Minerva.Localizations.L10nSymbols;
 
 namespace Minerva.Localizations
@@ -168,7 +169,6 @@ namespace Minerva.Localizations
         {
             StringBuilder stringBuilder = new StringBuilder();
             Append(stringBuilder, s);
-            stringBuilder.Length--;
             return stringBuilder.ToString();
         }
 
@@ -177,7 +177,6 @@ namespace Minerva.Localizations
             StringBuilder stringBuilder = new StringBuilder();
             Append(stringBuilder, s);
             Append(stringBuilder, s2);
-            stringBuilder.Length--;
             return stringBuilder.ToString();
         }
 
@@ -186,7 +185,6 @@ namespace Minerva.Localizations
             StringBuilder stringBuilder = new StringBuilder();
             Append(stringBuilder, key.SectionArray);
             Append(stringBuilder, s2);
-            stringBuilder.Length--;
             return stringBuilder.ToString();
         }
 
@@ -202,14 +200,19 @@ namespace Minerva.Localizations
 
         private static void Append(StringBuilder stringBuilder, string[] s)
         {
+            if (stringBuilder.Length != 0 && stringBuilder[^1] != KEY_SEPARATOR) stringBuilder.Append(KEY_SEPARATOR);
             foreach (var item in s)
             {
+                if (string.IsNullOrEmpty(item)) continue;
+                if (item.EndsWith(KEY_SEPARATOR)) stringBuilder.Length--;
                 stringBuilder.Append(item);
                 if (stringBuilder[^1] != KEY_SEPARATOR)
                 {
                     stringBuilder.Append(KEY_SEPARATOR);
                 }
             }
+            // remove last
+            stringBuilder.Length--;
         }
     }
 }
