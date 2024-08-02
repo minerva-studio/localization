@@ -214,7 +214,7 @@ namespace Minerva.Localizations
             // L10n is loading current region
             if (L10n.isInitialized && L10n.Region == region)
             {
-                L10n.Override(key, value);
+                L10n.Write(key, value);
             }
 
             if (immediateSave)

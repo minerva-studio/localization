@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
+using UnityEngine.SocialPlatforms;
 
 namespace Minerva.Localizations
 {
@@ -321,25 +322,37 @@ namespace Minerva.Localizations
 
 
         /// <summary>
-        /// Override given key's entry to value
+        /// Override given key's entry to value, written value will be lost if localization reloaded
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
-        internal static void Override(string key, string value)
+        public static bool Write(string key, string value)
         {
+            if (instance == null || !instance.initialized)
+            {
+                return false;
+            }
+
             instance.dictionary[key] = value;
             instance.trie[key] = value;
+            return true;
         }
 
         /// <summary>
-        /// Override given key's entry to value
+        /// Override given key's entry to value, written value will be lost if localization reloaded
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
-        internal static void Override(Key key, string value)
+        public static bool Write(Key key, string value)
         {
+            if (instance == null || !instance.initialized)
+            {
+                return false;
+            }
+
             instance.dictionary[key] = value;
-            instance.trie.Set(key.Section, value);
+            instance.trie[key.Section] = value;
+            return true;
         }
 
         /// <summary>
