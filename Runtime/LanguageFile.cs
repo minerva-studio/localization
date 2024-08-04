@@ -54,14 +54,56 @@ namespace Minerva.Localizations
         /// get the dictionary of the language file
         /// </summary>
         /// <returns></returns>
-        public Dictionary<string, string> GetDictionary()
+        internal Dictionary<string, string> GetDictionary()
         {
             var dictionary = new Dictionary<string, string>();
             GetDictionary(dictionary);
             return dictionary;
         }
 
+        /// <summary>
+        /// get the dictionary of the language file
+        /// </summary>
+        /// <returns></returns>
+        internal Dictionary<string, TranslationEntry> GetTranslationDictionary()
+        {
+            var dictionary = new Dictionary<string, TranslationEntry>();
+            GetDictionary(dictionary);
+            return dictionary;
+        }
+
         void GetDictionary(IDictionary<string, string> dictionary)
+        {
+            int duplicate = 0;
+
+            Import(entries);
+            foreach (var item in ChildFiles)
+            {
+                if (!item) continue;
+                Import(item.entries);
+            }
+
+            if (duplicate > 0)
+            {
+                Debug.LogErrorFormat("{0} duplicate keys found in the language file", duplicate);
+            }
+
+            void Import(List<Entry> entries)
+            {
+                if (entries == null) return;
+                foreach (var entry in entries)
+                {
+                    if (dictionary.ContainsKey(entry.Key))
+                    {
+                        Debug.LogWarningFormat("Duplicate key found: {0}, override with {1}", entry.Key, entry.Value);
+                        duplicate++;
+                    }
+                    dictionary[entry.Key] = entry.Value;
+                }
+            }
+        }
+
+        void GetDictionary(IDictionary<string, TranslationEntry> dictionary)
         {
             int duplicate = 0;
 
@@ -145,8 +187,13 @@ namespace Minerva.Localizations
         /// <param name="key"></param>
         /// <param name="value"></param>
         /// <returns>Whether file contains the key/value</returns>
-        public bool TryGet(string key, out string value)
+        public bool TryGet(string key, out string value) => TryGet(key, out value, new());
+
+        bool TryGet(string key, out string value, HashSet<LanguageFile> files = null)
         {
+            if (files.Contains(this)) throw new NotSupportedException("Child files cannot be self or its own master: " + name);
+            files.Add(this);
+
             entries ??= new();
             value = entries.Find(e => e.Key == key)?.Value;
 
@@ -156,8 +203,9 @@ namespace Minerva.Localizations
             foreach (var item in ChildFiles)
             {
                 if (!item) continue;
-                if (item.TryGet(key, out value)) return true;
+                if (item.TryGet(key, out value, files)) return true;
             }
+
             value = null;
             return false;
         }

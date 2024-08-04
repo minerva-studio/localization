@@ -63,7 +63,6 @@ namespace Minerva.Localizations.Editor
         void OnGUI()
         {
             Initialize();
-
             scrollPos = GUILayout.BeginScrollView(scrollPos);
             GUILayout.BeginVertical();
             GUILayout.BeginVertical();
@@ -121,7 +120,6 @@ namespace Minerva.Localizations.Editor
 
         private void OnLostFocus()
         {
-            L10n.ReloadIfInitialized();
             SaveChanges();
         }
 
@@ -394,7 +392,7 @@ namespace Minerva.Localizations.Editor
             // shoud display at least 1 element
             int entryCount = (int)((position.height - HEIGHT_OFFSET) / setting.tableEntryHeight);
             entryCount = Mathf.Max(1, entryCount);
-            int upperTableIndex = Mathf.Min(table.Count, tableBaseIndex + entryCount);
+            int upperTableIndex = Mathf.Min(table.Count, tableBaseIndex + entryCount, fileManager.LocalizationKeyCollection.Count);
             EditorGUILayout.LabelField($"{tableBaseIndex + 1}~{upperTableIndex} of {table.Count}");
             var keyEntrykeyWidth = GUILayout.Width(300);
             var keyEntryWidth = GUILayout.Width(setting.tableEntryWidth);
@@ -413,6 +411,7 @@ namespace Minerva.Localizations.Editor
                 GUILayout.EndHorizontal();
             }
             GUILayout.BeginVertical(GUILayout.Height(position.height - HEIGHT_OFFSET));
+            if (tableBaseIndex < 0) tableBaseIndex = 0;
             for (int i = tableBaseIndex; i < upperTableIndex; i++)
             {
                 string key = fileManager.LocalizationKeyCollection[i];

@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-using UnityEngine.SocialPlatforms;
 
 namespace Minerva.Localizations
 {
@@ -27,9 +26,9 @@ namespace Minerva.Localizations
         public L10nDataManager manager;
 
         // dictionary is for fast-lookup
-        private Dictionary<string, string> dictionary;
+        private Dictionary<string, TranslationEntry> dictionary;
         // trie is for hierachy search
-        private Tries<string> trie;
+        private Tries<TranslationEntry> trie;
 #if UNITY_EDITOR
         private HashSet<string> missing = new();
 #endif
@@ -129,12 +128,10 @@ namespace Minerva.Localizations
 
             listDelimiter = languageFile.listDelimiter;
             wordSpace = languageFile.wordSpace;
-            dictionary = languageFile.GetDictionary();
+            dictionary = languageFile.GetTranslationDictionary();
             string[] items = dictionary.Keys.ToArray();
-            // directly convert color escape and key escape because they don't change
-            foreach (var item in items) dictionary[item] = EscapePattern.ReplaceColorEscape(dictionary[item]);
             //foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
-            trie = new Tries<string>(dictionary);
+            trie = new Tries<TranslationEntry>(dictionary);
             initialized = true;
 
             // safely invoke all method in delegate
@@ -178,8 +175,8 @@ namespace Minerva.Localizations
                 return Instance_ResolveMissing(key, finalSolution);
             }
 
-            bool hasValue = dictionary.TryGetValue(key, out var value);
-            return Instance_ValidateValue(key, value, hasValue, finalSolution);
+            bool hasValue = dictionary.TryGetValue(key, out var entry);
+            return Instance_ValidateValue(key, entry, hasValue, finalSolution);
         }
 
         /// <summary>
@@ -196,13 +193,13 @@ namespace Minerva.Localizations
                 return Instance_ResolveMissing(key, finalSolution);
             }
 
-            bool hasValue = trie.TryGetValue(key.Section, out var value);
-            return Instance_ValidateValue(key, value, hasValue, finalSolution);
+            bool hasValue = trie.TryGetValue(key.Section, out var entry);
+            return Instance_ValidateValue(key, entry, hasValue, finalSolution);
         }
 
-        private string Instance_ValidateValue(string key, string value, bool hasValue, MissingKeySolution missingKeySolution)
+        private string Instance_ValidateValue(string key, TranslationEntry entry, bool hasValue, MissingKeySolution missingKeySolution)
         {
-            if (string.IsNullOrEmpty(key) || !hasValue || value == null)
+            if (string.IsNullOrEmpty(key) || !hasValue || entry.value == null)
             {
 #if UNITY_EDITOR
                 if (missing.Add(key))
@@ -213,13 +210,21 @@ namespace Minerva.Localizations
 #endif
                 return Instance_ResolveMissing(key, missingKeySolution);
             }
-            if (disableEmptyEntries && string.IsNullOrEmpty(value))
+            if (disableEmptyEntries && string.IsNullOrEmpty(entry.value))
             {
                 Debug.LogWarning($"Key {key} has empty entry!");
                 return Instance_ResolveMissing(key, missingKeySolution);
             }
 
-            return value;
+            // late replace
+            if (!entry.colorReplaced)
+            {
+                entry.value = EscapePattern.ReplaceColorEscape(entry.value);
+                entry.colorReplaced = true;
+                dictionary[key] = entry;
+                trie[key] = entry;
+            }
+            return entry.value;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -416,7 +421,7 @@ namespace Minerva.Localizations
         private bool Instance_OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!initialized) { return false; }
-            if (!trie.TryGetSegment(partialKey, out TriesSegment<string> subTrie))
+            if (!trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
                 strings.AddRange(subTrie.FirstLayerKeys);
@@ -434,7 +439,7 @@ namespace Minerva.Localizations
         private bool Instance_OptionOf(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!initialized) { return false; }
-            if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<string> subTrie))
+            if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
                 strings.AddRange(subTrie.FirstLayerKeys);

@@ -1,4 +1,5 @@
 ﻿using Minerva.Module;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -242,8 +243,9 @@ namespace Minerva.Localizations
         {
             var localizationTable = new PropertyTable();
             if (rebuildKeys) RebuildKeyList();
-            foreach (var key in localizationKeyCollection)
+            for (int i = 0; i < localizationKeyCollection.Count; i++)
             {
+                var key = localizationKeyCollection[i];
                 Dictionary<string, SerializedProperty> table = new();
                 localizationTable.Add(key, table);
                 foreach (var file in files)
@@ -275,6 +277,11 @@ namespace Minerva.Localizations
         /// Given key in the key list
         /// </summary>
         /// <param name="key"></param>
+        /// <remarks>
+        /// This method is extremely slow, because it traverse through all the entries in all the files,
+        /// it is highly recommended to use <see cref="LanguageFile.GetDictionary()"/> to check
+        /// and use <see cref="IsInSource(string)"/> to check whether string is already in source
+        /// </remarks>
         /// <returns></returns>
         public bool HasKey(string key)
         {
@@ -288,15 +295,22 @@ namespace Minerva.Localizations
             }
             return localizationKeyCollection.Contains(key);
         }
+
         /// <summary>
         /// Check given key is in the key list
         /// </summary>
         /// <param name="key"></param>
-        /// <param name="allowInSource"></param>
-        /// <returns></returns>
+        /// <param name="allowInSource">Whether also check string is in source</param>
+        /// <remarks>
+        /// This method is extremely slow, because it traverse through all the entries in all the files,
+        /// it is highly recommended to use <see cref="LanguageFile.GetDictionary()"/> to check
+        /// and use <see cref="IsInSource(string)"/> to check whether string is already in source
+        /// </remarks>
+        /// <returns></returns> 
         public bool HasKey(string key, bool allowInSource)
         {
-            return HasKey(key) || (allowInSource && IsInSource(key));
+            // assuming key should more likely in source
+            return (allowInSource && IsInSource(key)) || HasKey(key);
         }
 
         /// <summary>

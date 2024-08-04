@@ -73,8 +73,7 @@ namespace Minerva.Localizations
         public IEnumerator<string> GetEnumerator()
         {
             indexed ??= keyTrie.ToArray();
-            foreach (var item in indexed)
-                yield return item;
+            return ((IEnumerable<string>)indexed).GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
