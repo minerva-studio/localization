@@ -2,6 +2,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEngine;
 using ArrayUtility = Minerva.Module.ArrayUtility;
 
 namespace Minerva.Localizations
@@ -14,13 +16,14 @@ namespace Minerva.Localizations
         string[] indexed;
 
         public ICollection<string> FirstLevelKeys => keyTrie.FirstLayerKeys;
-        public int Count => indexed?.Length ?? 0;
+        public int Count => keyTrie.Count;
         public bool IsReadOnly => ((ICollection<string>)indexed).IsReadOnly;
 
         public string this[int index]
         {
             get
             {
+                if (indexed?.Length != keyTrie.Count) indexed = null;
                 indexed ??= keyTrie.ToArray();
                 return indexed[index];
             }
@@ -65,6 +68,15 @@ namespace Minerva.Localizations
             indexed = null;
         }
 
+        public async Task UnionWithAsync(IEnumerable<string> keys)
+        {
+            await Task.Run(() =>
+            {
+                UnionWith(keys);
+                indexed = keyTrie.ToArray();
+            });
+        }
+
         public bool TryGetSegment(string pKey, out TrieSegment subTrie)
         {
             return keyTrie.TryGetSegment(pKey, out subTrie);
@@ -84,8 +96,8 @@ namespace Minerva.Localizations
 
         public void Clear()
         {
-            ((ICollection<string>)indexed).Clear();
-            keyTrie.Clear();
+            indexed = null;
+            keyTrie.Clear(true);
         }
 
         public void CopyTo(string[] array, int arrayIndex)

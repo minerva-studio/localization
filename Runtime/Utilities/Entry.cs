@@ -43,5 +43,11 @@ namespace Minerva.Localizations
         {
             return key.GetHashCode();
         }
+
+        public void Deconstruct(out string key, out string value)
+        {
+            key = this.key;
+            value = this.value;
+        }
     }
 }

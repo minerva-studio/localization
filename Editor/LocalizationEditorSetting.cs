@@ -41,8 +41,6 @@ namespace Minerva.Localizations.Editor
         public float tableEntryWidth = 200;
         [Range(TABLE_ENTRY_MIN_HEIGHT, TABLE_ENTRY_MAX_HEIGHT)]
         public float tableEntryHeight = 20;
-        [Tooltip("Use old table style, which will potentially decrease editor performance")]
-        public bool useOldTableStyle;
 
         public bool sudo;
 

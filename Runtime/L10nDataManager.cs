@@ -1,9 +1,9 @@
 ﻿using Minerva.Module;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 #if UNITY_EDITOR
@@ -110,7 +110,10 @@ namespace Minerva.Localizations
                 this.key = key;
             }
 
-            public string this[string col] { get => table[col]; set => table[col] = value; }
+            public string this[string col] { get => GetValue(col); set => table[col] = value; }
+
+            private string GetValue(string col) => table.TryGetValue(col, out var value) ? value : table[col] = string.Empty;
+
             public string Name => key;
             public int Count => table.Count;
 
@@ -180,8 +183,6 @@ namespace Minerva.Localizations
         private Trie sourceTrie;
 
 
-        /// <summary> Table of [key][region] </summary>
-        private Table localizationTable;
         /// <summary> Serialized properties </summary>
         private PropertyTable propertyTable;
         private SerializedObject sobj;
@@ -189,9 +190,9 @@ namespace Minerva.Localizations
         /// <summary> Self as Serializable Object </summary>
         public SerializedObject serializedObject { get => sobj ??= new(this); }
         public LocalizationKeyCollection LocalizationKeyCollection => localizationKeyCollection;
-        public Table LocalizationTable { get => localizationTable ??= GenerateTable(); set => localizationTable = value; }
+        //public Table LocalizationTable { get => localizationTable ??= GenerateTable(localizationKeyCollection == null || localizationKeyCollection.Count == 0); set => localizationTable = value; }
         /// <summary> Self as Serializable Object </summary>
-        public PropertyTable PropertyTable { get => propertyTable ??= GeneratePropertyTable(); set => propertyTable = value; }
+        public PropertyTable PropertyTable { get => propertyTable ??= GeneratePropertyTable(localizationKeyCollection == null || localizationKeyCollection.Count == 0); set => propertyTable = value; }
         //public HashSet<string> Keys { get => keyBuild ? keys ??= RebuildKeyList() : keys = RebuildKeyList(); }
         //public List<string> KeyList { get => keyList ??= new(keys); }
         public string[] FileTags
@@ -218,42 +219,54 @@ namespace Minerva.Localizations
         public void RefreshTable()
         {
             serializedObject.Update();
-            localizationTable = GenerateTable();
             propertyTable = GeneratePropertyTable(false);
             L10n.ReloadIfInitialized();
         }
 
-        private Table GenerateTable(bool rebuildKeys = true)
+        public Table GenerateTable(bool rebuildKeys = true)
         {
             var localizationTable = new Table(regions.ToArray());
             if (rebuildKeys) RebuildKeyList();
-            foreach (var key in localizationKeyCollection)
+            foreach (var file in files)
             {
-                KeyEntry entry = new KeyEntry(key);
-                localizationTable.Add(key, entry);
-                foreach (var file in files)
+                foreach (var (key, value) in file.Entries)
                 {
-                    entry.table.Add(file.Region, file.Get(key));
+                    if (!localizationTable.TryGetValue(key, out var entry))
+                    {
+                        entry = new KeyEntry(key);
+                        localizationTable[key] = entry;
+                    }
+                    entry[file.Region] = value;
                 }
             }
             return localizationTable;
+        }
+
+        public async Task<Table> GenerateTableAsync(bool rebuildKeys = true)
+        {
+            if (rebuildKeys) await RebuildKeysAsync();
+            var table = await Task.Run(() => GenerateTable(false));
+            return table;
         }
 
         private PropertyTable GeneratePropertyTable(bool rebuildKeys = true)
         {
             var localizationTable = new PropertyTable();
             if (rebuildKeys) RebuildKeyList();
-            for (int i = 0; i < localizationKeyCollection.Count; i++)
+            foreach (var file in files)
             {
-                var key = localizationKeyCollection[i];
-                Dictionary<string, SerializedProperty> table = new();
-                localizationTable.Add(key, table);
-                foreach (var file in files)
+                var regionProperties = file.GetProperties();
+                foreach (var (key, p) in regionProperties)
                 {
-                    SerializedProperty value = file.GetProperty(key);
-                    if (value != null) table.Add(file.Region, value);
+                    if (!localizationTable.TryGetValue(key, out var dictionary))
+                    {
+                        dictionary = new Dictionary<string, SerializedProperty>();
+                        localizationTable.Add(key, dictionary);
+                    }
+                    dictionary[file.Region] = p;
                 }
             }
+            Debug.Log(localizationTable.Count);
             return localizationTable;
         }
 
@@ -294,6 +307,16 @@ namespace Minerva.Localizations
                 RebuildKeyList();
             }
             return localizationKeyCollection.Contains(key);
+        }
+
+        public async Task<bool> HasKeyAysc(string key)
+        {
+            if (localizationKeyCollection == null || localizationKeyCollection.Count == 0)
+            {
+                await RebuildKeysAsync();
+            }
+            var result = await Task.Run(() => HasKey(key));
+            return result;
         }
 
         /// <summary>
@@ -362,18 +385,6 @@ namespace Minerva.Localizations
         /// <returns></returns>
         private void AddKeyToTable(string key, string defaultValue = "")
         {
-            if (LocalizationTable != null)
-            {
-                if (!LocalizationTable.TryGetValue(key, out var strTable))
-                {
-                    LocalizationTable[key] = strTable = new KeyEntry(key);
-                }
-                foreach (var region in regions)
-                {
-                    strTable.table[region] = defaultValue;
-                }
-            }
-
             if (propertyTable != null)
             {
                 if (!propertyTable.TryGetValue(key, out var properties))
@@ -419,8 +430,7 @@ namespace Minerva.Localizations
                 file.RemoveKey(key);
             }
 
-            //remove key from localization table
-            LocalizationTable.Remove(key);
+            //remove key from localization table 
             PropertyTable.Remove(key);
             localizationKeyCollection.Remove(key);
             EditorUtility.SetDirty(this);
@@ -449,11 +459,7 @@ namespace Minerva.Localizations
             localizationKeyCollection.Add(newKey);
             EditorUtility.SetDirty(this);
 
-            //table move key
-            var singleWordPair = LocalizationTable[oldKey] ?? throw new KeyNotFoundException();
-            LocalizationTable.Remove(oldKey);
-            LocalizationTable.Add(newKey, singleWordPair);
-
+            //table move key  
             var property = PropertyTable[oldKey] ?? throw new KeyNotFoundException();
             PropertyTable.Remove(oldKey);
             PropertyTable.Add(newKey, property);
@@ -468,13 +474,33 @@ namespace Minerva.Localizations
         [ContextMenu("Rebuild key list")]
         public void RebuildKeyList()
         {
-            localizationKeyCollection = new();
+            keyBuild = false;
+            localizationKeyCollection ??= new();
+            localizationKeyCollection.Clear();
             foreach (var item in files)
             {
                 localizationKeyCollection.UnionWith(item.Keys);
             }
             sourceTrie = new Trie(sources.Where(s => s).SelectMany(s => s.Keys));
             keyBuild = true;
+        }
+
+        public async Task RebuildKeysAsync()
+        {
+            keyBuild = false;
+            localizationKeyCollection ??= new();
+            IEnumerable<LanguageFileSource> enumerable = sources.Where(s => s);
+            await Task.Run(() => Rebuild());
+            keyBuild = true;
+            async Task Rebuild()
+            {
+                localizationKeyCollection.Clear();
+                foreach (var item in files)
+                {
+                    await localizationKeyCollection.UnionWithAsync(item.Keys);
+                }
+                sourceTrie = new Trie(enumerable.SelectMany(s => s.Keys));
+            }
         }
 
         public void UpdateSources()
@@ -536,12 +562,11 @@ namespace Minerva.Localizations
         [ContextMenu("Export to CSV")]
         public void Export()
         {
-            RefreshTable();
-            string output = CSV.ConvertToCSV("Language pack", localizationTable);
+            string output = CSV.ConvertToCSV("Language pack", GenerateTable());
             string p = EditorUtility.SaveFilePanel("Save Localization csv file", AssetDatabase.GetAssetPath(this), "Keys", "csv");
             //Debug.Log(p);
             if (string.IsNullOrEmpty(p)) return;
-            if (!File.Exists(p)) File.Create(p);
+            if (!File.Exists(p)) File.Create(p).Dispose();
             if (File.Exists(p + "_old")) File.Copy(p, p + "_old", true);
             File.WriteAllText(p, output, System.Text.Encoding.UTF8);
         }
@@ -553,16 +578,10 @@ namespace Minerva.Localizations
             var path = EditorUtility.OpenFilePanel("Select Localization csv file", AssetDatabase.GetAssetPath(this), "csv");
             if (string.IsNullOrEmpty(path)) return;
 
-            var file = CSV.Import(path);
-            regions = new List<string>(file.cols);
-            localizationKeyCollection = new LocalizationKeyCollection(file.rows);
-            localizationTable = new(file.cols);
-            ITable.Convert(file, localizationTable);
-        }
+            var csvFile = CSV.Import(path);
+            regions = new List<string>(csvFile.cols);
+            localizationKeyCollection = new LocalizationKeyCollection(csvFile.rows);
 
-        [ContextMenu("Save to all small file")]
-        public void SaveToFiles()
-        {
             foreach (var item in files)
             {
                 EditorUtility.SetDirty(item);
@@ -570,18 +589,21 @@ namespace Minerva.Localizations
 
             foreach (var textFile in files)
             {
-                textFile.Clear();
+                textFile.Clear(true);
             }
 
-            foreach (var table in LocalizationTable)
+            foreach (var table in csvFile.table)
             {
                 foreach (var file in files)
                 {
-                    if (table.Value.table.TryGetValue(file.Region, out string value))
+                    if (table.Value.TryGetValue(file.Region, out string value))
                         file.Write(table.Key, value, false);
                     else Debug.LogError($"Key {table.Key} in language {file.Region} not found");
                 }
             }
+
+            // update representation
+            serializedObject.Update();
             AssetDatabase.SaveAssets();
         }
         #endregion

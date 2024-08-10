@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using static Minerva.Localizations.EscapePatterns.Regexes;
 
 namespace Minerva.Localizations.EscapePatterns
 {
@@ -11,13 +12,6 @@ namespace Minerva.Localizations.EscapePatterns
     /// </summary>
     internal static class EscapePattern
     {
-        public static readonly Regex DYNAMIC_VALUE_ARG_PATTERN = new(@"(?<!\\)(?:\\{2})*(\{([\w.]*?)(?::(?:([\w.~=]+),?)*)?\})");
-        public static readonly Regex CONTENT_REFERENCE_PATTERN = new(@"(?<!\\)(?:\\{2})*(\$([\w.]*?)(?::(?:([\w.~=]+),?)*)?\$)");
-        public static readonly Regex COLOR_SIMPLE_PATTERN = new(@"(?<!\\)(?:\\{2})*§(.)([\s\S]*?)§");
-        public static readonly Regex COLOR_CODE_PATTERN = new(@"(?<!\\)(?:\\{2})*§(#[0-9A-Fa-f]{6})([\s\S]*?)§");
-        public static readonly Regex BACKSLASH_PATTERN = new(@"\\(.)");
-
-
         /// <summary>
         /// Resolve all escape characters
         /// </summary>
@@ -27,6 +21,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// <returns></returns>
         public static string Escape(string rawString, ILocalizable context, params string[] param)
         {
+            if (rawString == null) return string.Empty;
             rawString = ReplaceKeyEscape(rawString, context, param);
             rawString = ReplaceDynamicValueEscape(rawString, context, param);
             rawString = ReplaceColorEscape(rawString);
@@ -43,6 +38,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// <returns></returns>
         public static string ReplaceBackSlash(string rawString)
         {
+            if (rawString == null) return string.Empty;
             return BACKSLASH_PATTERN.Replace(rawString, "$1");
         }
 
@@ -53,6 +49,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// <returns></returns>
         public static string ReplaceColorEscape(string rawString)
         {
+            if (rawString == null) return string.Empty;
             rawString = COLOR_CODE_PATTERN.Replace(rawString, (m) =>
             {
                 var colorCode = m.Groups[1].Value;//.Result("$1");
@@ -76,6 +73,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// <returns></returns>
         public static string ReplaceKeyEscape(string rawString, ILocalizable context, params string[] param)
         {
+            if (rawString == null) return string.Empty;
             var n = CONTENT_REFERENCE_PATTERN.Replace(rawString, (m) =>
             {
                 string replacing = m.Groups[1].Value;
@@ -103,6 +101,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// <returns></returns>  
         public static string ReplaceDynamicValueEscape(string rawString, ILocalizable context, params string[] param)
         {
+            if (rawString == null) return string.Empty;
             rawString = DYNAMIC_VALUE_ARG_PATTERN.Replace(rawString, (m) =>
             {
                 // we can't really guarantee context can correctly provide replacements

@@ -1,4 +1,5 @@
 ﻿using Minerva.Localizations.EscapePatterns;
+using System;
 using System.Collections.Generic;
 
 namespace Minerva.Localizations
@@ -6,10 +7,11 @@ namespace Minerva.Localizations
     /// <summary>
     /// A Context type allowing changing dynamic value
     /// </summary> 
+    [Serializable]
     public class DynamicContext : L10nContext
     {
-        Dictionary<string, string> dynamicValues = new();
-        L10nContext parentContext;
+        public Dictionary<string, string> dynamicValues = new();
+        public L10nContext parentContext;
 
         public string this[string index]
         {
@@ -47,6 +49,12 @@ namespace Minerva.Localizations
         public void Parse(params string[] param)
         {
             EscapePattern.ParseDynamicValue(dynamicValues, true, param);
+        }
+
+        public override string GetRawContent(params string[] param)
+        {
+            if (parentContext != null) return parentContext.GetRawContent(param);
+            return base.GetRawContent(param);
         }
 
         public override string GetEscapeValue(string escapeKey, params string[] param)

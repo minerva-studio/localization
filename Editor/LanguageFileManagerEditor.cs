@@ -65,16 +65,7 @@ namespace Minerva.Localizations.Editor
             {
                 file.Import();
             }
-            if (GUILayout.Button("Save to all Text File", height))
-            {
-                file.SaveToFiles();
-            }
             GUILayout.EndHorizontal();
-            if (GUILayout.Button("Import and save", height))
-            {
-                file.Import();
-                file.SaveToFiles();
-            }
             GUILayout.Space(10);
             GUILayout.BeginHorizontal(height);
             if (GUILayout.Button("Export to .csv", height))

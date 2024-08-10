@@ -21,6 +21,7 @@ namespace Minerva.Localizations.Editor
         {
             Classic,
             Table,
+            Editor,
             MissingEntries,
             Options,
             Setting,
@@ -48,6 +49,17 @@ namespace Minerva.Localizations.Editor
         private PageList primaryPageList;
         private PageList pageList;
         private int tableBaseIndex;
+
+        [SerializeField]
+        private string tempEditorText;
+        [SerializeField]
+        private List<LocalizationContext> tempEditorContexts;
+        [SerializeField]
+        private LocalizationTextEditor localizatonTextEditor;
+        [SerializeField]
+        private bool useEnvironment;
+        [SerializeField]
+        private int tempEditorRegionIndex;
 
 
 
@@ -82,7 +94,7 @@ namespace Minerva.Localizations.Editor
             key = EditorGUILayout.TextField("Class Path", key);
             if (GUILayout.Button("Return")) ReturnClass();
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
-            window = (Window)GUILayout.Toolbar((int)window, new string[] { "Reference Sheet", "Table", "Missing Entries", "Options", "Settings" }, GUILayout.Height(30));
+            window = (Window)GUILayout.Toolbar((int)window, new string[] { "Reference Sheet", "Table", "Editor", "Missing Entries", "Options", "Settings" }, GUILayout.Height(30));
             if (window == Window.Classic && !setting.autoSwitch) selectClass = (EntryDrawMode)GUILayout.Toolbar((int)selectClass, new string[] { "Entry", "Class" }, GUILayout.Height(25));
             GUILayout.EndVertical();
 
@@ -94,6 +106,9 @@ namespace Minerva.Localizations.Editor
                     break;
                 case Window.Table:
                     DrawTable();
+                    break;
+                case Window.Editor:
+                    DrawEditor();
                     break;
                 case Window.MissingEntries:
                     DrawMissingPage();
@@ -118,9 +133,67 @@ namespace Minerva.Localizations.Editor
             GUILayout.EndScrollView();
         }
 
-        private void OnLostFocus()
+        /// <summary>
+        /// A preview window
+        /// </summary>
+        private void DrawEditor()
         {
-            SaveChanges();
+            using var scope = new EditorGUILayout.VerticalScope();
+            this.localizatonTextEditor ??= new LocalizationTextEditor("tempEditor");
+            this.tempEditorText = localizatonTextEditor.DrawTextEditor(this.tempEditorText);
+            useEnvironment = EditorGUILayout.Toggle("Use current environment", useEnvironment);
+            if (useEnvironment)
+            {
+                tempEditorRegionIndex = EditorGUILayout.Popup("Region", tempEditorRegionIndex, fileManager.regions.ToArray());
+                tempEditorRegionIndex = Mathf.Max(tempEditorRegionIndex, 0);
+                tempEditorRegionIndex = Mathf.Min(fileManager.regions.Count, tempEditorRegionIndex);
+            }
+
+            string region = fileManager.regions[tempEditorRegionIndex];
+            if (useEnvironment && (L10n.Region != region || !L10n.IsInitialized || !L10n.IsLoaded || L10n.Instance.manager != this.fileManager))
+            {
+                if (L10n.IsInitialized && L10n.Instance.manager != this.fileManager)
+                {
+                    L10n.DeInitialize();
+                }
+                if (!L10n.IsInitialized)
+                {
+                    L10n.InitAndLoad(this.fileManager, region);
+                }
+                else if (!L10n.IsLoaded)
+                {
+                    L10n.Load(region);
+                }
+                else if (L10n.Region != region)
+                {
+                    L10n.Load(region);
+                }
+            }
+            if (!useEnvironment && L10n.IsLoaded)
+            {
+                L10n.DeInitialize();
+            }
+
+            var rawContext = new RawContentL10nContext();
+            rawContext.RawContent = this.tempEditorText;
+            var dynamicContext = new DynamicContext(rawContext);
+            foreach (var item in tempEditorContexts)
+            {
+                dynamicContext[item.key] = item.value;
+            }
+            EditorGUILayout.Space(20);
+            EditorGUILayout.LabelField("Result");
+            EditorGUILayout.SelectableLabel(L10n.Tr(dynamicContext));
+            EditorGUILayout.Space(20);
+
+            SerializedObject obj = new SerializedObject(this);
+            var property = obj.FindProperty(nameof(tempEditorContexts));
+            EditorGUILayout.PropertyField(property);
+            if (obj.hasModifiedProperties)
+            {
+                obj.ApplyModifiedProperties();
+                obj.Update();
+            }
         }
 
         public override void SaveChanges()
@@ -281,91 +354,91 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.EndScrollView();
         }
 
-        private void DrawTable_Old()
-        {
-            var table = fileManager.LocalizationTable;
-            var keyEntrykeyWidth = GUILayout.Width(300);
+        //private void DrawTable_Old()
+        //{
+        //    var table = fileManager.LocalizationTable;
+        //    var keyEntrykeyWidth = GUILayout.Width(300);
 
-            GUILayout.BeginHorizontal();
-            SerializedObject sobj = setting.serializedObject;
-            EditorGUILayout.PropertyField(sobj.FindProperty(nameof(setting.tableEntryWidth)));
-            EditorGUILayout.PropertyField(sobj.FindProperty(nameof(setting.tableEntryHeight)));
-            if (sobj.hasModifiedProperties)
-            {
-                sobj.ApplyModifiedProperties();
-                sobj.Update();
-                EditorUtility.SetDirty(setting);
-            }
-            GUILayout.EndHorizontal();
+        //    GUILayout.BeginHorizontal();
+        //    SerializedObject sobj = setting.serializedObject;
+        //    EditorGUILayout.PropertyField(sobj.FindProperty(nameof(setting.tableEntryWidth)));
+        //    EditorGUILayout.PropertyField(sobj.FindProperty(nameof(setting.tableEntryHeight)));
+        //    if (sobj.hasModifiedProperties)
+        //    {
+        //        sobj.ApplyModifiedProperties();
+        //        sobj.Update();
+        //        EditorUtility.SetDirty(setting);
+        //    }
+        //    GUILayout.EndHorizontal();
 
-            var keyEntryWidth = GUILayout.MaxWidth(setting.tableEntryWidth);
-            //var keyEntryWidthDouble = GUILayout.MaxWidth(setting.tableEntryWidth * 2);
-            var keyEntryHeight = GUILayout.MaxHeight(setting.tableEntryHeight);
-            GUILayout.Space(20);
-            GUILayout.BeginHorizontal();
-            GUILayout.Button("...", GUILayout.Width(EditorGUIUtility.singleLineHeight));
-            GUILayout.Label("Files", keyEntrykeyWidth);
-            foreach (var file in fileManager.files)
-            {
-                GUILayout.Label(file.Region, keyEntryWidth);
-            }
-            GUILayout.EndHorizontal();
+        //    var keyEntryWidth = GUILayout.MaxWidth(setting.tableEntryWidth);
+        //    //var keyEntryWidthDouble = GUILayout.MaxWidth(setting.tableEntryWidth * 2);
+        //    var keyEntryHeight = GUILayout.MaxHeight(setting.tableEntryHeight);
+        //    GUILayout.Space(20);
+        //    GUILayout.BeginHorizontal();
+        //    GUILayout.Button("...", GUILayout.Width(EditorGUIUtility.singleLineHeight));
+        //    GUILayout.Label("Files", keyEntrykeyWidth);
+        //    foreach (var file in fileManager.files)
+        //    {
+        //        GUILayout.Label(file.Region, keyEntryWidth);
+        //    }
+        //    GUILayout.EndHorizontal();
 
 
-            var changedVal = string.Empty;
-            var changedRegion = string.Empty;
-            var deleteKey = string.Empty;
-            tableScrollView = GUILayout.BeginScrollView(tableScrollView);
-            foreach (var keyValPair in table)
-            {
-                GUILayout.BeginHorizontal();
-                if (GUILayout.Button("x", GUILayout.Width(EditorGUIUtility.singleLineHeight)))
-                {
-                    deleteKey = keyValPair.Key;
-                }
+        //    var changedVal = string.Empty;
+        //    var changedRegion = string.Empty;
+        //    var deleteKey = string.Empty;
+        //    tableScrollView = GUILayout.BeginScrollView(tableScrollView);
+        //    foreach (var keyValPair in table)
+        //    {
+        //        GUILayout.BeginHorizontal();
+        //        if (GUILayout.Button("x", GUILayout.Width(EditorGUIUtility.singleLineHeight)))
+        //        {
+        //            deleteKey = keyValPair.Key;
+        //        }
 
-                EditorGUILayout.SelectableLabel(keyValPair.Key, keyEntrykeyWidth, keyEntryHeight);
-                foreach (var region in keyValPair.Value.table.Keys)
-                {
-                    string newText;
-                    string oldText = keyValPair.Value.table[region];
-                    newText = GUILayout.TextField(oldText, keyEntryWidth, keyEntryHeight);
-                    if (newText != oldText)
-                    {
-                        changedVal = newText;
-                        changedRegion = region;
-                    }
-                }
-                if (changedRegion != string.Empty)
-                {
-                    keyValPair.Value.table[changedRegion] = changedVal;
-                    LanguageFile languageFile = fileManager.GetLanguageFile(changedRegion);
-                    var oldVal = languageFile.Write(keyValPair.Key, changedVal);
-                    changedVal = string.Empty;
-                    changedRegion = string.Empty;
-                }
-                GUILayout.EndHorizontal();
-            }
+        //        EditorGUILayout.SelectableLabel(keyValPair.Key, keyEntrykeyWidth, keyEntryHeight);
+        //        foreach (var region in keyValPair.Value.table.Keys)
+        //        {
+        //            string newText;
+        //            string oldText = keyValPair.Value.table[region];
+        //            newText = GUILayout.TextField(oldText, keyEntryWidth, keyEntryHeight);
+        //            if (newText != oldText)
+        //            {
+        //                changedVal = newText;
+        //                changedRegion = region;
+        //            }
+        //        }
+        //        if (changedRegion != string.Empty)
+        //        {
+        //            keyValPair.Value.table[changedRegion] = changedVal;
+        //            LanguageFile languageFile = fileManager.GetLanguageFile(changedRegion);
+        //            var oldVal = languageFile.Write(keyValPair.Key, changedVal);
+        //            changedVal = string.Empty;
+        //            changedRegion = string.Empty;
+        //        }
+        //        GUILayout.EndHorizontal();
+        //    }
 
-            if (deleteKey.Length != 0)
-            {
-                if (setting.sudo || EditorUtility.DisplayDialog("Delete key " + deleteKey, $"Delete key {deleteKey} from all files?", "OK", "Cancel"))
-                {
-                    fileManager.RemoveKey(deleteKey);
-                }
-            }
+        //    if (deleteKey.Length != 0)
+        //    {
+        //        if (setting.sudo || EditorUtility.DisplayDialog("Delete key " + deleteKey, $"Delete key {deleteKey} from all files?", "OK", "Cancel"))
+        //        {
+        //            fileManager.RemoveKey(deleteKey);
+        //        }
+        //    }
 
-            GUILayout.EndScrollView();
-        }
+        //    GUILayout.EndScrollView();
+        //}
 
         private void DrawTable()
         {
             const int HEIGHT_OFFSET = 290;
-            if (setting.useOldTableStyle)
-            {
-                DrawTable_Old();
-                return;
-            }
+            //if (setting.useOldTableStyle)
+            //{
+            //    DrawTable_Old();
+            //    return;
+            //}
             if (Event.current.type == EventType.ScrollWheel)
             {
                 tableBaseIndex += Event.current.delta.y > 0 ? 1 : -1;
@@ -392,7 +465,7 @@ namespace Minerva.Localizations.Editor
             // shoud display at least 1 element
             int entryCount = (int)((position.height - HEIGHT_OFFSET) / setting.tableEntryHeight);
             entryCount = Mathf.Max(1, entryCount);
-            int upperTableIndex = Mathf.Min(table.Count, tableBaseIndex + entryCount, fileManager.LocalizationKeyCollection.Count);
+            int upperTableIndex = Mathf.Min(table.Count, tableBaseIndex + entryCount);
             EditorGUILayout.LabelField($"{tableBaseIndex + 1}~{upperTableIndex} of {table.Count}");
             var keyEntrykeyWidth = GUILayout.Width(300);
             var keyEntryWidth = GUILayout.Width(setting.tableEntryWidth);
@@ -416,7 +489,7 @@ namespace Minerva.Localizations.Editor
             {
                 string key = fileManager.LocalizationKeyCollection[i];
                 GUILayout.BeginHorizontal(keyEntryHeight);
-                Dictionary<string, SerializedProperty> dictionary = table[key];
+                var dictionary = table[key];
                 using (GUIEnable.By(dictionary.Values.All(e => e != null && e.editable)))
                     // try remove
                     if (GUILayout.Button("x", GUILayout.Width(EditorGUIUtility.singleLineHeight)))
@@ -434,16 +507,7 @@ namespace Minerva.Localizations.Editor
                 var regionsValue = table[key];
                 foreach (var region in fileManager.files)
                 {
-                    SerializedProperty so;
-
-                    try
-                    {
-                        so = regionsValue[region.Region];
-                    }
-                    catch
-                    {
-                        so = null;
-                    }
+                    if (!regionsValue.TryGetValue(region.Region, out SerializedProperty so)) so = null;
                     DrawTableEntry(GUIContent.none, so, keyEntryWidth, keyEntryHeight);
                 }
                 GUILayout.EndHorizontal();
@@ -495,7 +559,7 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.LabelField("Table", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.tableEntryWidth)));
             EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.tableEntryHeight)));
-            EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.useOldTableStyle)));
+            //EditorGUILayout.PropertyField(obj.FindProperty(nameof(setting.useOldTableStyle)));
             GUILayout.Space(EditorGUIUtility.singleLineHeight);
 
             EditorGUILayout.LabelField("Editor", EditorStyles.boldLabel);
@@ -777,6 +841,13 @@ namespace Minerva.Localizations.Editor
                     }
                 }
             }
+        }
+
+        [Serializable]
+        class LocalizationContext
+        {
+            public string key;
+            public string value;
         }
     }
 }

@@ -16,7 +16,7 @@ namespace Minerva.Localizations
     {
         public const string DEFAULT_REGION = "EN_US";
 
-        public bool initialized = false;
+        public bool loaded = false;
         public bool disableEmptyEntries;
         public string region;
         public string wordSpace;
@@ -42,7 +42,10 @@ namespace Minerva.Localizations
 
         /// <summary> instance of localization model </summary>
         public static L10n Instance => instance ??= new();
-        public static bool isInitialized => instance?.initialized == true;
+        /// <summary> whether any localization is loaded </summary>
+        public static bool IsLoaded => instance?.loaded == true;
+        /// <summary> whether a manager is provided </summary>
+        public static bool IsInitialized => instance?.manager != null;
         public static string Region => instance?.region ?? string.Empty;
         public static List<string> Regions => instance?.manager != null ? instance.manager.regions : new List<string>();
         public static string ListDelimiter => instance?.listDelimiter ?? string.Empty;
@@ -59,7 +62,6 @@ namespace Minerva.Localizations
             region = languageType;
             instance = this;
         }
-
 
         /// <summary>
         /// Init L10n
@@ -132,7 +134,7 @@ namespace Minerva.Localizations
             string[] items = dictionary.Keys.ToArray();
             //foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
             trie = new Tries<TranslationEntry>(dictionary);
-            initialized = true;
+            loaded = true;
 
             // safely invoke all method in delegate
             foreach (var item in OnLocalizationLoaded.GetInvocationList())
@@ -146,7 +148,7 @@ namespace Minerva.Localizations
 
         public static void ReloadIfInitialized()
         {
-            if (instance == null || !instance.initialized) return;
+            if (instance == null || !instance.loaded) return;
             Reload();
         }
 
@@ -160,6 +162,21 @@ namespace Minerva.Localizations
 
 
 
+        /// <summary>
+        /// Deinitialize current loaded localization
+        /// </summary>
+        public static void DeInitialize()
+        {
+            Debug.Log("deinit");
+            // very fast
+            instance = null;
+        }
+
+
+
+
+
+
 
         /// <summary>
         /// Get the matched display language from dictionary by key
@@ -169,7 +186,7 @@ namespace Minerva.Localizations
         private string Instance_GetRawContent(string key, MissingKeySolution? solution)
         {
             MissingKeySolution finalSolution = solution ?? this.missingKeySolution;
-            if (!initialized)
+            if (!loaded)
             {
                 Debug.LogWarning($"L10n not initialize");
                 return Instance_ResolveMissing(key, finalSolution);
@@ -187,7 +204,7 @@ namespace Minerva.Localizations
         private string Instance_GetRawContent(Key key, MissingKeySolution? solution)
         {
             MissingKeySolution finalSolution = solution ?? this.missingKeySolution;
-            if (!initialized)
+            if (!loaded)
             {
                 Debug.LogWarning($"L10n not initialize");
                 return Instance_ResolveMissing(key, finalSolution);
@@ -265,7 +282,7 @@ namespace Minerva.Localizations
                 return key;
             }
             // localization not initialized, no language pack loaded
-            if (!instance.initialized)
+            if (!instance.loaded)
             {
                 return key;
             }
@@ -286,7 +303,7 @@ namespace Minerva.Localizations
                 return key;
             }
             // localization not initialized, no language pack loaded
-            if (!instance.initialized)
+            if (!instance.loaded)
             {
                 return key;
             }
@@ -333,7 +350,7 @@ namespace Minerva.Localizations
         /// <param name="value"></param>
         public static bool Write(string key, string value)
         {
-            if (instance == null || !instance.initialized)
+            if (instance == null || !instance.loaded)
             {
                 return false;
             }
@@ -350,7 +367,7 @@ namespace Minerva.Localizations
         /// <param name="value"></param>
         public static bool Write(Key key, string value)
         {
-            if (instance == null || !instance.initialized)
+            if (instance == null || !instance.loaded)
             {
                 return false;
             }
@@ -369,7 +386,7 @@ namespace Minerva.Localizations
         public static List<string> OptionOf(string partialKey, bool firstLevelOnly = false)
         {
             List<string> strings = new List<string>();
-            if (instance == null || !instance.initialized) { return strings; }
+            if (instance == null || !instance.loaded) { return strings; }
             instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
             return strings;
         }
@@ -383,7 +400,7 @@ namespace Minerva.Localizations
         public static List<string> OptionOf(Key partialKey, bool firstLevelOnly = false)
         {
             List<string> strings = new List<string>();
-            if (instance == null || !instance.initialized) { return strings; }
+            if (instance == null || !instance.loaded) { return strings; }
             instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
             return strings;
         }
@@ -396,7 +413,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static bool OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (instance == null || !instance.initialized) { return false; }
+            if (instance == null || !instance.loaded) { return false; }
             return instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
         }
 
@@ -408,7 +425,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static bool OptionOf(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (instance == null || !instance.initialized) { return false; }
+            if (instance == null || !instance.loaded) { return false; }
             return instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
         }
 
@@ -420,7 +437,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         private bool Instance_OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (!initialized) { return false; }
+            if (!loaded) { return false; }
             if (!trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
@@ -438,7 +455,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         private bool Instance_OptionOf(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (!initialized) { return false; }
+            if (!loaded) { return false; }
             if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)

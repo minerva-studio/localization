@@ -140,23 +140,44 @@ namespace Minerva.Localizations
         private bool isFileDirty;
 
         public SerializedObject serializedObject { get => sobj ??= new(this); }
-        public IEnumerable<string> Keys => GetKeys();
-
-
-        private IEnumerable<string> GetKeys()
+        internal IEnumerable<Entry> Entries
         {
-            foreach (var item in entries)
+            get
             {
-                yield return item.Key;
-            }
-            if (isMasterFile)
-            {
-                foreach (var file in ChildFiles)
+                foreach (var item in entries)
                 {
-                    if (!file) continue;
-                    foreach (var item in file.entries)
+                    yield return item;
+                }
+                if (isMasterFile)
+                {
+                    foreach (var file in ChildFiles)
                     {
-                        yield return item.Key;
+                        if (!file) continue;
+                        foreach (var item in file.entries)
+                        {
+                            yield return item;
+                        }
+                    }
+                }
+            }
+        }
+        public IEnumerable<string> Keys
+        {
+            get
+            {
+                foreach (var item in entries)
+                {
+                    yield return item.Key;
+                }
+                if (isMasterFile)
+                {
+                    foreach (var file in ChildFiles)
+                    {
+                        if (!file) continue;
+                        foreach (var item in file.entries)
+                        {
+                            yield return item.Key;
+                        }
                     }
                 }
             }
@@ -260,7 +281,7 @@ namespace Minerva.Localizations
                 entries.Add(entry);
             }
             // L10n is loading current region
-            if (L10n.isInitialized && L10n.Region == region)
+            if (L10n.IsLoaded && L10n.Region == region)
             {
                 L10n.Write(key, value);
             }
@@ -470,6 +491,25 @@ namespace Minerva.Localizations
             return TryGetProperty(key, out var value) ? value : null;
         }
 
+        public IEnumerable<(string, SerializedProperty)> GetProperties()
+        {
+            SerializedProperty entriesProperty = serializedObject.FindProperty(nameof(entries));
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Entry item = entries[i];
+                var value = entriesProperty.GetArrayElementAtIndex(i).FindPropertyRelative("value");
+                yield return (item.Key, value);
+            }
+            if (!isMasterFile) yield break;
+            foreach (var item in childFiles)
+            {
+                foreach (var entry in item.GetProperties())
+                {
+                    yield return entry;
+                }
+            }
+        }
+
         /// <summary>
         /// Try get the value from localization file
         /// <para>
@@ -484,22 +524,62 @@ namespace Minerva.Localizations
             serializedObject.Update();
             value = null;
             var index = entries.FindIndex(e => e.Key == key);
-            if (index != -1)
+            if (GetProperty(index, out var tuple))
             {
-                SerializedProperty entriesProperty = serializedObject.FindProperty(nameof(entries));
-                if (entriesProperty.arraySize != 0 && entriesProperty.arraySize > index)
-                {
-                    value = entriesProperty.GetArrayElementAtIndex(index).FindPropertyRelative("value");
-                    return true;
-                }
+                value = tuple.Item2;
+                return true;
+            }
+            return false;
+        }
 
+        /// <summary>
+        /// Try get the value from localization file
+        /// <para>
+        /// if localiztion file is a master file and key is not present in the file, it will search from the child files
+        /// </para> 
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns>Whether file contains the key/value</returns>
+        public bool TryGetPropertyWithIndex(string key, out (int, SerializedProperty) value)
+        {
+            serializedObject.Update();
+            value = default;
+            var index = entries.FindIndex(e => e.Key == key);
+            if (GetProperty(index, out var tuple))
+            {
+                value = (index, tuple.Item2);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Try get the value from localization file
+        /// <para>
+        /// if localiztion file is a master file and key is not present in the file, it will search from the child files
+        /// </para> 
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns>Whether file contains the key/value</returns>
+        public bool GetProperty(int index, out (string, SerializedProperty) value)
+        {
+            serializedObject.Update();
+            value = default;
+
+            SerializedProperty entriesProperty = serializedObject.FindProperty(nameof(entries));
+            if (entriesProperty.arraySize != 0 && entriesProperty.arraySize > index)
+            {
+                value = (entries[index].Key, entriesProperty.GetArrayElementAtIndex(index).FindPropertyRelative("value"));
+                return true;
             }
             if (!isMasterFile) return false;
 
             foreach (var child in ChildFiles)
             {
                 if (!child) continue;
-                if (child.TryGetProperty(key, out value)) return true;
+                if (child.GetProperty(index, out value)) return true;
             }
             return false;
         }
@@ -685,6 +765,22 @@ namespace Minerva.Localizations
         public void Clear()
         {
             entries.Clear();
+        }
+
+        /// <summary>
+        /// Clear entries in the file
+        /// </summary>
+        public void Clear(bool recursive)
+        {
+            entries.Clear();
+            if (recursive && isMasterFile)
+            {
+                foreach (var item in childFiles)
+                {
+                    if (item)
+                        item.Clear(recursive);
+                }
+            }
         }
 
 
