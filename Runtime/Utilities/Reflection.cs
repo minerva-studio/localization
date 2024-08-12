@@ -94,21 +94,14 @@ namespace Minerva.Localizations
         /// <param name="obj"></param>
         /// <param name="path"></param>
         /// <returns></returns>
-        /// <exception cref="ArgumentNullException"></exception>
         public static object GetObjectNullPropagation(object obj, string path)
         {
-            if (obj == null) throw new ArgumentNullException(nameof(obj));
-
             try
             {
                 NameEntry[] path1 = ParsePath(obj, path);
                 return GetObjectNullPropagation(obj, path1);
             }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
-                return null;
-            }
+            catch { return null; }
         }
 
         /// <summary>
