@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using static Minerva.Localizations.EscapePatterns.EscapePattern;
 
 namespace Minerva.Localizations
@@ -55,6 +58,18 @@ namespace Minerva.Localizations
             {
                 return value.ToString();
             }
+            // list of items, return list with list delimiter
+            if (value is IList list)
+            {
+                return string.Join(L10n.ListDelimiter, Iterate());
+                IEnumerable<string> Iterate()
+                {
+                    foreach (var item in list)
+                    {
+                        yield return Tr(item, param);
+                    }
+                }
+            }
 
             // is localizer 
             if (value is ILocalizer localizer)
@@ -69,7 +84,8 @@ namespace Minerva.Localizations
             // custom content defined
             if (IsL10nContextDefined(value, out var contentType))
             {
-                return ((L10nContext)Activator.CreateInstance(contentType, value)).Tr(param);
+                var context = L10nContext.Of(value);
+                return Tr(context, param);
             }
 
             // return unlocalized contents

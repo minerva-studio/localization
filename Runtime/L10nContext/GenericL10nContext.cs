@@ -13,7 +13,7 @@ namespace Minerva.Localizations
             if (value != null)
             {
                 System.Type type = value.GetType();
-                BaseKey = type.FullName;
+                BaseKey = L10nAlias.GetTypeName(type);
                 //_ = TryFindField(value, type, "name")
                 //    || TryFindField(value, type, "Name")
                 //    || TryFindProperty(value, type, "name")

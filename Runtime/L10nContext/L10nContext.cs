@@ -1,6 +1,7 @@
 ﻿using Minerva.Localizations.EscapePatterns;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Minerva.Localizations
 {
@@ -9,6 +10,8 @@ namespace Minerva.Localizations
     /// </summary>
     public abstract class L10nContext : ILocalizable, ILocalizer
     {
+        private static Dictionary<string, DynamicValueProvider> globalEscapeValues = new();
+        private Dictionary<string, DynamicValueProvider> localEscapeValues;
         private object value;
         private Key key;
 
@@ -18,6 +21,9 @@ namespace Minerva.Localizations
         public string BaseKeyString { get => key; protected set { key = new Key(value); } }
         public Key BaseKey { get => key; protected set { key = value; } }
         public object BaseValue { get => value; set => this.value = value; }
+        public Dictionary<string, DynamicValueProvider> LocalEscapeValue => localEscapeValues ??= new();
+        public static Dictionary<string, DynamicValueProvider> GlobalEscapeValue => globalEscapeValues ??= new();
+
 
         /// <summary>
         /// The default constructor, might called from L10nContext.Of()
@@ -72,6 +78,11 @@ namespace Minerva.Localizations
             return Localizable.AppendKey(key, param);
         }
 
+        public static Key AppendKey(Key key, params string[] param)
+        {
+            return Localizable.AppendKey(key, param);
+        }
+
         /// <summary>
         /// Get the raw content, override this for creating custom format of localized content
         /// </summary>
@@ -91,6 +102,8 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public virtual string GetEscapeValue(string escapeKey, params string[] param)
         {
+            if (HasLocalEscapeValue(escapeKey, out var v)) return v(escapeKey, param);
+            if (HasGlobalEscapeValue(escapeKey, out var global)) return global(escapeKey, param);
             var value = GetObjectNullPropagation(this.value, escapeKey);
             if (value == null) return escapeKey;
             return LocalizationOf(value, param);
@@ -175,6 +188,21 @@ namespace Minerva.Localizations
 
 
 
+        public bool HasLocalEscapeValue(string escapeKey, out DynamicValueProvider v)
+        {
+            v = null;
+            return localEscapeValues != null && LocalEscapeValue.TryGetValue(escapeKey, out v);
+        }
+
+        public static bool HasGlobalEscapeValue(string escapeKey, out DynamicValueProvider v)
+        {
+            v = null;
+            return globalEscapeValues != null && GlobalEscapeValue.TryGetValue(escapeKey, out v);
+        }
+
+
+
+
 
         public static string AsKeyEscape(string baseKey, params string[] args)
         {
@@ -219,11 +247,15 @@ namespace Minerva.Localizations
         /// <param name="obj"></param>
         /// <param name="path"></param>
         /// <returns></returns>
-        /// <exception cref="ArgumentNullException"></exception>
-        protected static object GetObjectNullPropagation(object obj, string path)
-        {
-            return Reflection.GetObjectNullPropagation(obj, path);
-        }
+        protected static object GetObjectNullPropagation(object obj, string path) => Reflection.GetObjectNullPropagation(obj, path.AsMemory());
+
+        /// <summary>
+        /// Get the last object in the path that is not null
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        protected static object GetObjectNullPropagation(object obj, ReadOnlyMemory<char> path) => Reflection.GetObjectNullPropagation(obj, path);
 
         /// <summary>
         /// Get the last object in the path that is not null
@@ -232,10 +264,7 @@ namespace Minerva.Localizations
         /// <param name="path"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException"></exception>
-        protected static object GetObject(object obj, string path)
-        {
-            return Reflection.GetObject(obj, path);
-        }
+        protected static object GetObject(object obj, string path) => Reflection.GetObject(obj, path.AsMemory());
 
         /// <summary>
         /// Direct localization from key
