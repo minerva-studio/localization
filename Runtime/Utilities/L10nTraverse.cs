@@ -61,7 +61,7 @@ namespace Minerva.Localizations
         private List<string> UpdateOptions()
         {
             options = new();
-            if (!L10n.OptionOf(key, options, true))
+            if (!L10n.CopyOptions(key, options, true))
             {
                 options = null;
             }

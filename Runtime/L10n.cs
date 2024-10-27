@@ -377,18 +377,21 @@ namespace Minerva.Localizations
             return true;
         }
 
+
+
+
+
         /// <summary>
         /// Get all options (possible complete key) of the partial key
         /// </summary>
         /// <param name="partialKey"></param>
         /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
         /// <returns></returns>
-        public static List<string> OptionOf(string partialKey, bool firstLevelOnly = false)
+        public static string[] OptionOf(string partialKey, bool firstLevelOnly = false)
         {
-            List<string> strings = new List<string>();
-            if (instance == null || !instance.loaded) { return strings; }
-            instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
-            return strings;
+            if (instance == null || !instance.loaded) { return Array.Empty<string>(); }
+            instance.Instance_OptionOf(partialKey, out var result, firstLevelOnly);
+            return result;
         }
 
         /// <summary>
@@ -397,12 +400,11 @@ namespace Minerva.Localizations
         /// <param name="partialKey"></param>
         /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
         /// <returns></returns>
-        public static List<string> OptionOf(Key partialKey, bool firstLevelOnly = false)
+        public static string[] OptionOf(Key partialKey, bool firstLevelOnly = false)
         {
-            List<string> strings = new List<string>();
-            if (instance == null || !instance.loaded) { return strings; }
-            instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
-            return strings;
+            if (instance == null || !instance.loaded) { return Array.Empty<string>(); }
+            instance.Instance_OptionOf(partialKey, out var result, firstLevelOnly);
+            return result;
         }
 
         /// <summary>
@@ -411,10 +413,56 @@ namespace Minerva.Localizations
         /// <param name="partialKey"></param>
         /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
         /// <returns></returns>
-        public static bool OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
+        private bool Instance_OptionOf(string partialKey, out string[] result, bool firstLevelOnly = false)
+        {
+            result = Array.Empty<string>();
+            if (!loaded) { return false; }
+            if (!trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
+                return false;
+            if (firstLevelOnly)
+                result = subTrie.FirstLayerKeys.ToArray();
+            else
+            {
+                result = new string[subTrie.Count];
+                subTrie.Keys.CopyTo(result, 0);
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        private bool Instance_OptionOf(Key partialKey, out string[] result, bool firstLevelOnly = false)
+        {
+            result = Array.Empty<string>();
+            if (!loaded) { return false; }
+            if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
+                return false;
+            if (firstLevelOnly)
+                result = subTrie.FirstLayerKeys.ToArray();
+            else
+            {
+                result = new string[subTrie.Count];
+                subTrie.Keys.CopyTo(result, 0);
+            }
+            return true;
+        }
+
+
+
+        /// <summary>
+        /// Get all options (possible complete key) of the partial key
+        /// </summary>
+        /// <param name="partialKey"></param>
+        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
+        /// <returns></returns>
+        public static bool CopyOptions(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (instance == null || !instance.loaded) { return false; }
-            return instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
+            return instance.Instance_CopyOptions(partialKey, strings, firstLevelOnly);
         }
 
         /// <summary>
@@ -423,10 +471,10 @@ namespace Minerva.Localizations
         /// <param name="partialKey"></param>
         /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
         /// <returns></returns>
-        public static bool OptionOf(Key partialKey, List<string> strings, bool firstLevelOnly = false)
+        public static bool CopyOptions(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (instance == null || !instance.loaded) { return false; }
-            return instance.Instance_OptionOf(partialKey, strings, firstLevelOnly);
+            return instance.Instance_CopyOptions(partialKey, strings, firstLevelOnly);
         }
 
         /// <summary>
@@ -435,7 +483,7 @@ namespace Minerva.Localizations
         /// <param name="partialKey"></param>
         /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
         /// <returns></returns>
-        private bool Instance_OptionOf(string partialKey, List<string> strings, bool firstLevelOnly = false)
+        private bool Instance_CopyOptions(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!loaded) { return false; }
             if (!trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
@@ -453,7 +501,7 @@ namespace Minerva.Localizations
         /// <param name="partialKey"></param>
         /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
         /// <returns></returns>
-        private bool Instance_OptionOf(Key partialKey, List<string> strings, bool firstLevelOnly = false)
+        private bool Instance_CopyOptions(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!loaded) { return false; }
             if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))

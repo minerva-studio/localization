@@ -11,9 +11,11 @@ namespace Minerva.Localizations
     public abstract class L10nContext : ILocalizable, ILocalizer
     {
         private static Dictionary<string, DynamicValueProvider> globalEscapeValues = new();
-        private Dictionary<string, DynamicValueProvider> localEscapeValues;
-        private object value;
+
         private Key key;
+        private object value;
+        private Dictionary<string, DynamicValueProvider> localEscapeValues;
+
 
         /// <summary>
         /// Get the base localization key of the object
@@ -142,9 +144,14 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="firstLevelOnly"></param>
         /// <returns></returns>
-        public List<string> GetOptions(bool firstLevelOnly = false)
+        public string[] GetOptions(bool firstLevelOnly = false, params string[] options)
         {
-            return L10n.OptionOf(BaseKey, firstLevelOnly);
+            var key = BaseKey;
+            foreach (var item in options ?? Array.Empty<string>())
+            {
+                key.Append(item);
+            }
+            return L10n.OptionOf(key, firstLevelOnly);
         }
 
         /// <summary>
