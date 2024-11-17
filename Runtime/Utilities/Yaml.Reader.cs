@@ -189,14 +189,14 @@ namespace Minerva.Localizations
                 }
             }
 
-            int ReadIndentation()
+            int ReadIndentation(bool isMultiline = false)
             {
                 SkipComments();
                 int start = Cursor;
                 while (CanRead() && Peek() == ' ') { Next(); }
                 int length = Cursor - start;
                 // treat list element with more index
-                if (CanRead(2) && Peek() == SyntaxListElement && char.IsWhiteSpace(Peek(1))) return length + 2;
+                if (CanRead(2) && !isMultiline && Peek() == SyntaxListElement && char.IsWhiteSpace(Peek(1))) return length + 2;
                 return length;
             }
 
@@ -314,7 +314,7 @@ namespace Minerva.Localizations
                     // skip \n to next line
                     SkipLine();
                 }
-                while ((nextIndentation = ReadIndentation()) == blockIndentation);
+                while ((nextIndentation = ReadIndentation(true)) == blockIndentation);
                 Cursor -= nextIndentation;
                 // remove last \n
                 sb.Length--;
