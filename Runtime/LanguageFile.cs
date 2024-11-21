@@ -565,6 +565,12 @@ namespace Minerva.Localizations
         /// <returns>Whether file contains the key/value</returns>
         public bool GetProperty(int index, out (string, SerializedProperty) value)
         {
+            if (index < 0)
+            {
+                value = default;
+                return false;
+            }
+
             serializedObject.Update();
             value = default;
 
