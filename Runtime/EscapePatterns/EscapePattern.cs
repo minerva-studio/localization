@@ -1,8 +1,12 @@
 ﻿using Minerva.Module;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using UnityEngine.Windows;
+using static Minerva.Localizations.EscapePatterns.ExpressionParser;
 using static Minerva.Localizations.EscapePatterns.Regexes;
 
 namespace Minerva.Localizations.EscapePatterns
@@ -86,6 +90,7 @@ namespace Minerva.Localizations.EscapePatterns
                 // has custom param 
                 if (m.Groups[3].Success) (localParam, _) = GetLocalParam(m.Groups[3], param);
                 else localParam = param;
+                // result value could contains dynamic value
                 rawContent = ReplaceDynamicValueEscape(rawContent, context, localParam);
                 return m.Value.Replace(replacing, rawContent);
             });
@@ -99,7 +104,8 @@ namespace Minerva.Localizations.EscapePatterns
         /// <param name="rawString"></param>
         /// <param name="param"></param>
         /// <returns></returns>  
-        public static string ReplaceDynamicValueEscape(string rawString, ILocalizable context, params string[] param)
+        [Obsolete]
+        public static string ReplaceDynamicValueEscape_Default(string rawString, ILocalizable context, params string[] param)
         {
             if (rawString == null) return string.Empty;
             rawString = DYNAMIC_VALUE_ARG_PATTERN.Replace(rawString, (m) =>
@@ -109,6 +115,7 @@ namespace Minerva.Localizations.EscapePatterns
                 {
                     string key = m.Groups[2].Value;
                     string[] localParam;
+                    string result;
                     Dictionary<string, string> localOptions;
 
                     // has custom param
@@ -117,14 +124,13 @@ namespace Minerva.Localizations.EscapePatterns
 
                     // if defined, then use it, otherwise ask context
                     if (!localOptions.TryGetValue(key, out string replacement) && context != null)
-                        replacement = context.GetEscapeValue(key, localParam);
+                        replacement = context.GetEscapeValue(key, localParam).ToString();
 
                     // no replacement if not found
-                    if (replacement == key)
-                        return m.Value;
+                    if (replacement == key) result = m.Value;
+                    else result = m.Value.Replace(m.Groups[1].Value, ReplaceKeyEscape(replacement, context, localParam));
 
-                    replacement = ReplaceKeyEscape(replacement, context, localParam);
-                    return m.Value.Replace(m.Groups[1].Value, replacement);
+                    return result;
                 }
                 catch (System.Exception e)
                 {
@@ -136,28 +142,113 @@ namespace Minerva.Localizations.EscapePatterns
         }
 
 
-        private static (string[] localParam, Dictionary<string, string> localVariable) GetLocalParam(Group group, string[] globalParam)
+        /// <summary>
+        /// Replace dynamic value escape strings
+        /// </summary>
+        /// <param name="rawString"></param>
+        /// <param name="context"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>  
+        public static string ReplaceDynamicValueEscape(string rawString, ILocalizable context, params string[] param)
+        {
+            if (rawString == null) return string.Empty;
+
+            Dictionary<string, string> globalValue = null;
+            rawString = DYNAMIC_EXPR_BRACKET_ARG_PATTERN.Replace(rawString, (m) =>
+            {
+                // we can't really guarantee context can correctly provide replacements
+                try
+                {
+                    string expr = m.Groups[2].Value;
+                    var parser = new Parser(expr);
+                    Node ast = parser.ParseExpression();
+                    var result = ast.Run(VariableParser);
+
+                    switch (result)
+                    {
+                        case string s:
+                            // string result could be key escape
+                            return ReplaceKeyEscape(s, context, param);
+                        case float f:
+                            // float result uses format
+                            string format = m.Groups[3].Value;
+                            return NumberToString(f, format);
+                        default:
+                            return result?.ToString() ?? "null";
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
+                    return m.Value;
+                }
+            });
+            return rawString;
+
+            /// Getting the variable value from the context
+            object VariableParser(ReadOnlyMemory<char> expr)
+            {
+                string input = expr.ToString();
+                var m = DYNAMIC_ARG_PATTERN.Match(input);
+                // we can't really guarantee context can correctly provide replacements
+                try
+                {
+                    string key = m.Groups[1].Value;
+                    string[] localParam;
+                    Dictionary<string, string> localValue;
+
+                    // has custom param
+                    if (m.Groups[2].Success) (localParam, localValue) = GetLocalParam(m.Groups[2], param, GetGlobalValue());
+                    else (localParam, localValue) = (param, GetGlobalValue());
+                    //Debug.Log($"parsed form:\t{input}<{string.Join(",", localParam)}>");
+
+                    // if defined, then use it, otherwise ask context
+                    if (!localValue.TryGetValue(key, out string replacement) && context != null)
+                    // no replacement if not found
+                    {
+                        return context.GetEscapeValue(key, localParam);
+                    }
+                    var value = ReplaceKeyEscape(replacement, context, localParam);
+                    //Debug.Log($"{{{key}: {replacement}}} replaced to {value}");
+                    return value;
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
+                    return m.Value;
+                }
+            }
+            Dictionary<string, string> GetGlobalValue()
+            {
+                return globalValue ??= ParseDynamicValue(new(), false, param);
+            }
+        }
+
+
+        private static (string[] localParam, Dictionary<string, string> localVariable) GetLocalParam(Group group, string[] globalParam, Dictionary<string, string> globalValue = null)
         {
             Dictionary<string, string> localVariables = new();
-            Dictionary<string, string> globalVariables = ParseDynamicValue(new(), false, globalParam);
             string[] localParams;
             HashSet<string> strings = new();
-
             for (int k = 0; k < group.Captures.Count; k++)
             {
                 string value = group.Captures[k].Value.Trim();
+                Debug.Log(value);
                 if (string.IsNullOrEmpty(value)) continue;
                 if (value == L10nSymbols.PARAM_REF_SYMBOL)
                 {
+                    globalValue ??= ParseDynamicValue(new(), false, globalParam);
                     strings.UnionWith(globalParam);
+                    continue;
                 }
                 else if (value[0] == L10nSymbols.VARIABLE_SYMBOL)
                 {
                     // exact match
                     if (value.Length == 1)
                     {
-                        strings.UnionWith(globalVariables.Select(p => $"{p.Key}={p.Value}"));
-                        foreach (var item in globalVariables)
+                        globalValue ??= ParseDynamicValue(new(), false, globalParam);
+                        strings.UnionWith(globalValue.Select(p => $"{p.Key}={p.Value}"));
+                        foreach (var item in globalValue)
                         {
                             localVariables[item.Key] = item.Value;
                         };
@@ -166,7 +257,8 @@ namespace Minerva.Localizations.EscapePatterns
                     else
                     {
                         var key = value[1..];
-                        if (globalVariables.TryGetValue(key, out var result))
+                        globalValue ??= ParseDynamicValue(new(), false, globalParam);
+                        if (globalValue.TryGetValue(key, out var result))
                         {
                             strings.Add($"{key}={result}");
                             localVariables[key] = result;
@@ -176,6 +268,11 @@ namespace Minerva.Localizations.EscapePatterns
                 else
                 {
                     strings.Add(value);
+                    int idx = value.IndexOf('=');
+                    if (idx > 0)
+                    {
+                        localVariables[value[..idx]] = value[(idx + 1)..];
+                    }
                 }
             }
             localParams = strings.ToArray();
@@ -199,6 +296,70 @@ namespace Minerva.Localizations.EscapePatterns
                 dictionary.Add(key, value);
             }
             return dictionary;
+        }
+
+        /// <summary>
+        /// Check whether the value is raw value to l10n dynamic value
+        /// </summary>
+        /// <remarks> The raw values are all primitives and <see cref="decimal"/> <br/>
+        /// Examples: <br/>
+        /// - <see cref="string"/> <br/>
+        /// - <see cref="int"/> <br/>
+        /// - <see cref="long"/> <br/>
+        /// </remarks>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static bool IsRawValue(object value)
+        {
+            return value is string || value is decimal || value.GetType().IsPrimitive && value is not bool and not char and not IntPtr and not UIntPtr;
+        }
+
+        /// <summary>
+        /// use format section to format number to string
+        /// </summary>
+        /// <param name="numberLike"></param>
+        /// <param name="format"></param>
+        /// <returns></returns>
+        public static string NumberToString(object numberLike, string format)
+        {
+            var number = AsNumber(numberLike);
+            if (!string.IsNullOrEmpty(format))
+                return number.ToString(format);
+
+            return numberLike switch
+            {
+                int or long or short => numberLike.ToString(),
+                _ => number.ToString("F1"),
+            };
+        }
+
+        /// <summary>
+        /// try cast objec to number
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static double AsNumber(object value)
+        {
+            switch (value)
+            {
+                case byte b:
+                    return b;
+                case int i:
+                    return i;
+                case float f:
+                    return f;
+                case long l:
+                    return l;
+                case short s:
+                    return s;
+                case decimal c:
+                    return (double)c;
+                case double d:
+                    return d;
+                default:
+                    break;
+            }
+            return 0;
         }
 
         /// <summary>

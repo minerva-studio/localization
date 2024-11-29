@@ -92,33 +92,17 @@ namespace Minerva.Localizations
             return AsKeyEscape(value.GetType().FullName);
         }
 
-        private static bool IsNumber(object value)
+        public static bool IsNumber(object value)
         {
             return value is int or float or double or decimal or long or short;
         }
 
-        private static double AsNumber(object value)
-        {
-            switch (value)
-            {
-                case int i:
-                    return i;
-                case float f:
-                    return f;
-                case long l:
-                    return l;
-                case short s:
-                    return s;
-                case decimal c:
-                    return (double)c;
-                case double d:
-                    return d;
-                default:
-                    break;
-            }
-            return 0;
-        }
-
+        /// <summary>
+        /// use variable argument to format numbers to string
+        /// </summary>
+        /// <param name="numberLike"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
         public static string NumberToString(object numberLike, params string[] param)
         {
             var number = AsNumber(numberLike);
@@ -138,22 +122,6 @@ namespace Minerva.Localizations
                 default:
                     return number.ToString("F1");
             }
-        }
-
-        /// <summary>
-        /// Check whether the value is raw value to l10n
-        /// </summary>
-        /// <remarks> The raw values are all primitives and <see cref="decimal"/> <br/>
-        /// Examples: <br/>
-        /// - <see cref="string"/> <br/>
-        /// - <see cref="int"/> <br/>
-        /// - <see cref="long"/> <br/>
-        /// </remarks>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        private static bool IsRawValue(object value)
-        {
-            return value is string || value is decimal || value.GetType().IsPrimitive && value is not bool and not char and not IntPtr and not UIntPtr;
         }
 
         /// <summary>

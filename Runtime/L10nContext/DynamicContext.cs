@@ -57,7 +57,7 @@ namespace Minerva.Localizations
             return base.GetRawContent(param);
         }
 
-        public override string GetEscapeValue(string escapeKey, params string[] param)
+        public override object GetEscapeValue(string escapeKey, params string[] param)
         {
             if (IsDefined(escapeKey)) return this[escapeKey];
             if (parentContext != null) return parentContext.GetEscapeValue(escapeKey, param);

@@ -53,11 +53,11 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="escapeKey"></param>
         /// <returns></returns>
-        virtual string GetEscapeValue(string escapeKey, params string[] param)
+        virtual object GetEscapeValue(string escapeKey, params string[] param)
         {
             var value = Reflection.GetObjectNullPropagation(this, escapeKey.AsMemory());
             if (value == null) return escapeKey;
-            return Localizable.Tr(value, param);
+            return value;// Localizable.Tr(value, param);
         }
     }
 }

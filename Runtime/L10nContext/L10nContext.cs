@@ -1,6 +1,9 @@
 ﻿using Minerva.Localizations.EscapePatterns;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using static Minerva.Localizations.Localizable;
+using static Minerva.Localizations.EscapePatterns.EscapePattern;
 using UnityEngine;
 
 namespace Minerva.Localizations
@@ -102,13 +105,13 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="escapeKey"></param>
         /// <returns></returns>
-        public virtual string GetEscapeValue(string escapeKey, params string[] param)
+        public virtual object GetEscapeValue(string escapeKey, params string[] param)
         {
             if (HasLocalEscapeValue(escapeKey, out var v)) return v(escapeKey, param);
             if (HasGlobalEscapeValue(escapeKey, out var global)) return global(escapeKey, param);
             var value = GetObjectNullPropagation(this.value, escapeKey);
             if (value == null) return escapeKey;
-            return LocalizationOf(value, param);
+            return DynamicValueOf(value, param);
         }
 
         /// <summary>
@@ -227,20 +230,44 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
+        /// Try get the localization of given value
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static object DynamicValueOf(object value, params string[] param)
+        {
+            // null value, return emtpy string
+            if (value == null)
+            {
+                return string.Empty;
+            }
+            if (IsNumber(value))
+            {
+                return value;
+            }
+            // raw value, return value directly
+            if (IsRawValue(value))
+            {
+                return value;
+            }
+            return Localizable.Tr(value, param);
+        }
+
+        /// <summary>
         /// Split action parameter
         /// </summary>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static IEnumerable<string[]> GetOpt(params string[] param)
+        public static IEnumerable<KeyValuePair<ReadOnlyMemory<char>, ReadOnlyMemory<char>>> GetOpt(params string[] param)
         {
             foreach (var item in param)
             {
                 int index = item.IndexOf("=");
                 if (index != -1)
                 {
-                    yield return new string[] { item[..index], item[(index + 1)..] };
+                    yield return new KeyValuePair<ReadOnlyMemory<char>, ReadOnlyMemory<char>>(item.AsMemory(..index), item.AsMemory((index + 1)..));
                 }
-                else yield return new string[] { item, null };
+                else yield return new KeyValuePair<ReadOnlyMemory<char>, ReadOnlyMemory<char>>(item.AsMemory(), null);
             }
         }
 

@@ -31,16 +31,6 @@ namespace Minerva.Localizations
             else return base.GetRawContent(param);
         }
 
-        /// <summary>
-        /// Only returns the escape key because escape value cannot be retrieve from enum
-        /// </summary>
-        /// <param name="escapeKey"></param>
-        /// <returns></returns>
-        public override string GetEscapeValue(string escapeKey, params string[] param)
-        {
-            return escapeKey;
-        }
-
         public IEnumerable<Enum> FlagEnumSplit(Type type, Enum e)
         {
             int value = 1;

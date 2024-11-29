@@ -21,7 +21,7 @@
         /// </summary>
         /// <param name="escapeKey"></param>
         /// <returns></returns>
-        public override string GetEscapeValue(string escapeKey, params string[] param)
+        public override object GetEscapeValue(string escapeKey, params string[] param)
         {
             return escapeKey;
         }
