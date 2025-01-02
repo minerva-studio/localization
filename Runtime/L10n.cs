@@ -16,19 +16,32 @@ namespace Minerva.Localizations
     {
         public const string DEFAULT_REGION = "EN_US";
 
-        public bool loaded = false;
-        public bool disableEmptyEntries;
-        public string region;
-        public string wordSpace;
-        public string listDelimiter;
+        [SerializeField]
+        private bool loaded = false;
 
-        public MissingKeySolution missingKeySolution;
-        public L10nDataManager manager;
+        [SerializeField]
+        private L10nDataManager manager;
+        [SerializeField]
+        private string region;
+        [SerializeField]
+        private bool disableEmptyEntries;
+        [SerializeField]
+        private MissingKeySolution missingKeySolution;
+
+        [SerializeField]
+        private string wordSpace;
+        [SerializeField]
+        private string listDelimiter;
+
+
+
 
         // dictionary is for fast-lookup
         private Dictionary<string, TranslationEntry> dictionary;
+        private Dictionary<string, TranslationEntry> fallback;
         // trie is for hierachy search
         private Tries<TranslationEntry> trie;
+
 #if UNITY_EDITOR
         private HashSet<string> missing = new();
 #endif
@@ -42,14 +55,28 @@ namespace Minerva.Localizations
 
         /// <summary> instance of localization model </summary>
         public static L10n Instance => instance ??= new();
+        /// <summary> manager </summary>
+        public static L10nDataManager Manager => instance?.manager;
         /// <summary> whether any localization is loaded </summary>
         public static bool IsLoaded => instance?.loaded == true;
         /// <summary> whether a manager is provided </summary>
         public static bool IsInitialized => instance?.manager != null;
+        /// <summary> Region </summary>
         public static string Region => instance?.region ?? string.Empty;
-        public static List<string> Regions => instance?.manager != null ? instance.manager.regions : new List<string>();
+        /// <summary> Regions </summary>
+        public static string[] Regions => instance?.manager != null ? instance.manager.regions.ToArray() : Array.Empty<string>();
+        /// <summary> Should discard empty entries? </summary>
+        public static bool DisableEmptyEntries { get { return instance?.disableEmptyEntries ?? false; } set { instance.disableEmptyEntries = value; } }
+        /// <summary> Missing key solution </summary>
+        public static MissingKeySolution MissingKeySolution { get { return instance?.missingKeySolution ?? 0; } set { instance.missingKeySolution = value; } }
+
         public static string ListDelimiter => instance?.listDelimiter ?? string.Empty;
         public static string WordSpace => instance?.wordSpace ?? string.Empty;
+
+        Dictionary<string, TranslationEntry> Dictionary { get => dictionary; }
+        Tries<TranslationEntry> Trie { get => trie ??= new Tries<TranslationEntry>(Dictionary); }
+
+
 
 
 
@@ -81,6 +108,14 @@ namespace Minerva.Localizations
             this.manager = manager;
             this.missingKeySolution = manager.missingKeySolution;
             this.disableEmptyEntries = manager.disableEmptyEntry;
+
+            string defaultRegion = string.IsNullOrEmpty(manager.defaultRegion) ? DEFAULT_REGION : manager.defaultRegion;
+            LanguageFile languageFile = manager.GetLanguageFile(defaultRegion);
+            if (!languageFile)
+            {
+                Debug.LogException(new NullReferenceException("Default region not found"));
+            }
+            else this.fallback = languageFile.GetTranslationDictionary();
         }
 
         /// <summary>
@@ -131,9 +166,14 @@ namespace Minerva.Localizations
             listDelimiter = languageFile.listDelimiter;
             wordSpace = languageFile.wordSpace;
             dictionary = languageFile.GetTranslationDictionary();
-            string[] items = dictionary.Keys.ToArray();
+            // fallback
+            foreach (var item in fallback)
+            {
+                if (dictionary.ContainsKey(item.Key)) continue;
+                dictionary.Add(item.Key, item.Value);
+            }
+            //string[] items = Dictionary.Keys.ToArray();
             //foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
-            trie = new Tries<TranslationEntry>(dictionary);
             loaded = true;
 
             // safely invoke all method in delegate
@@ -143,7 +183,7 @@ namespace Minerva.Localizations
                 catch (Exception e) { Debug.LogException(e); }
             }
 
-            Debug.Log($"Localization Loaded. (Region: {region}, Entry Count: {dictionary.Count})");
+            Debug.Log($"Localization Loaded. (Region: {region}, Entry Count: {Dictionary.Count})");
         }
 
         public static void ReloadIfInitialized()
@@ -192,7 +232,7 @@ namespace Minerva.Localizations
                 return Instance_ResolveMissing(key, finalSolution);
             }
 
-            bool hasValue = dictionary.TryGetValue(key, out var entry);
+            bool hasValue = Dictionary.TryGetValue(key, out var entry);
             return Instance_ValidateValue(key, entry, hasValue, finalSolution);
         }
 
@@ -210,9 +250,11 @@ namespace Minerva.Localizations
                 return Instance_ResolveMissing(key, finalSolution);
             }
 
-            bool hasValue = trie.TryGetValue(key.Section, out var entry);
+            bool hasValue = Trie.TryGetValue(key.Section, out var entry);
             return Instance_ValidateValue(key, entry, hasValue, finalSolution);
         }
+
+
 
         private string Instance_ValidateValue(string key, TranslationEntry entry, bool hasValue, MissingKeySolution missingKeySolution)
         {
@@ -238,8 +280,8 @@ namespace Minerva.Localizations
             {
                 entry.value = EscapePattern.ReplaceColorEscape(entry.value);
                 entry.colorReplaced = true;
-                dictionary[key] = entry;
-                trie[key] = entry;
+                Dictionary[key] = entry;
+                Trie[key] = entry;
             }
             return entry.value;
         }
@@ -261,6 +303,9 @@ namespace Minerva.Localizations
                     int index = key.LastIndexOf('.');
                     value = index > -1 ? key[index..] : key;
                     value = value.ToTitleCase();
+                    break;
+                case MissingKeySolution.Fallback:
+                    value = key;
                     break;
             }
 
@@ -331,12 +376,12 @@ namespace Minerva.Localizations
 
         private bool Instance_Contains(string key)
         {
-            return dictionary.ContainsKey(key);
+            return Dictionary.ContainsKey(key);
         }
 
         private bool Instance_Contains(Key key)
         {
-            return trie.ContainsKey(key.Section);
+            return Trie.ContainsKey(key.Section);
         }
 
 
@@ -355,8 +400,8 @@ namespace Minerva.Localizations
                 return false;
             }
 
-            instance.dictionary[key] = value;
-            instance.trie[key] = value;
+            instance.Dictionary[key] = value;
+            instance.Trie[key] = value;
             return true;
         }
 
@@ -372,8 +417,8 @@ namespace Minerva.Localizations
                 return false;
             }
 
-            instance.dictionary[key] = value;
-            instance.trie[key.Section] = value;
+            instance.Dictionary[key] = value;
+            instance.Trie[key.Section] = value;
             return true;
         }
 
@@ -417,7 +462,7 @@ namespace Minerva.Localizations
         {
             result = Array.Empty<string>();
             if (!loaded) { return false; }
-            if (!trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
+            if (!Trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
                 result = subTrie.FirstLayerKeys.ToArray();
@@ -439,7 +484,7 @@ namespace Minerva.Localizations
         {
             result = Array.Empty<string>();
             if (!loaded) { return false; }
-            if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
+            if (!Trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
                 result = subTrie.FirstLayerKeys.ToArray();
@@ -486,7 +531,7 @@ namespace Minerva.Localizations
         private bool Instance_CopyOptions(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!loaded) { return false; }
-            if (!trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
+            if (!Trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
                 strings.AddRange(subTrie.FirstLayerKeys);
@@ -504,7 +549,7 @@ namespace Minerva.Localizations
         private bool Instance_CopyOptions(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!loaded) { return false; }
-            if (!trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
+            if (!Trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
                 strings.AddRange(subTrie.FirstLayerKeys);
@@ -579,6 +624,7 @@ namespace Minerva.Localizations
         {
             return Localizable.TrKey(key, context, param);
         }
-    }
 
+
+    }
 }

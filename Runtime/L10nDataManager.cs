@@ -128,6 +128,7 @@ namespace Minerva.Localizations
             }
         }
 
+        public string defaultRegion;
         public string topLevelDomain;
         public bool disableEmptyEntry;
         public MissingKeySolution missingKeySolution;

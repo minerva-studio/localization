@@ -13,5 +13,7 @@ namespace Minerva.Localizations
         Empty,
         [Tooltip("Force a content being display on the screen, usually the last part of the key")]
         ForceDisplay,
+        [Tooltip("Fallback to other language")]
+        Fallback,
     }
 }

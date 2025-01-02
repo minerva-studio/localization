@@ -150,9 +150,9 @@ namespace Minerva.Localizations.Editor
             }
 
             string region = fileManager.regions[tempEditorRegionIndex];
-            if (useEnvironment && (L10n.Region != region || !L10n.IsInitialized || !L10n.IsLoaded || L10n.Instance.manager != this.fileManager))
+            if (useEnvironment && (L10n.Region != region || !L10n.IsInitialized || !L10n.IsLoaded || L10n.Manager != this.fileManager))
             {
-                if (L10n.IsInitialized && L10n.Instance.manager != this.fileManager)
+                if (L10n.IsInitialized && L10n.Manager != this.fileManager)
                 {
                     L10n.DeInitialize();
                 }

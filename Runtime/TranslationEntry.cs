@@ -1,6 +1,6 @@
 ﻿namespace Minerva.Localizations
 {
-    internal class TranslationEntry
+    internal struct TranslationEntry
     {
         public string value;
         public bool colorReplaced;

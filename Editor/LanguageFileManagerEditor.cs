@@ -21,6 +21,7 @@ namespace Minerva.Localizations.Editor
             GUI.enabled = state;
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.topLevelDomain)));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.defaultRegion)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.disableEmptyEntry)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.missingKeySolution)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.files)));
