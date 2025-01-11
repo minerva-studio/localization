@@ -166,11 +166,12 @@ namespace Minerva.Localizations
             listDelimiter = languageFile.listDelimiter;
             wordSpace = languageFile.wordSpace;
             dictionary = languageFile.GetTranslationDictionary();
+            trie = null;
             // fallback
             foreach (var item in fallback)
             {
                 if (dictionary.ContainsKey(item.Key)) continue;
-                dictionary.Add(item.Key, item.Value);
+                dictionary.Add(item.Key, fallback[item.Key]);
             }
             //string[] items = Dictionary.Keys.ToArray();
             //foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
