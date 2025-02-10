@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Windows;
+using static Codice.Client.Common.Locks.ServerLocks.ForWorkingBranchOnRepoByItem;
 using static Minerva.Localizations.EscapePatterns.ExpressionParser;
 using static Minerva.Localizations.EscapePatterns.Regexes;
 
@@ -164,23 +165,35 @@ namespace Minerva.Localizations.EscapePatterns
                     Node ast = parser.ParseExpression();
                     var result = ast.Run(VariableParser);
 
-                    switch (result)
+                    // float result uses format
+                    string format;
+                    try { format = m.Groups[3].Value; }
+                    catch (Exception e) { format = ""; }
+                    if (IsNumeric(result))
                     {
-                        case string s:
-                            // string result could be key escape
-                            return ReplaceKeyEscape(s, context, param);
-                        case float f:
-                            // float result uses format
-                            string format = m.Groups[3].Value;
-                            return NumberToString(f, format);
-                        default:
-                            return result?.ToString() ?? "null";
+                        return NumericToString(result, format);
                     }
+                    else if (double.TryParse(result.ToString(), out double r))
+                    {
+                        return NumericToString(r, format);
+                    }
+                    else if (result is not string)
+                    {
+                        Debug.Log(result.GetType());
+                        result = result?.ToString() ?? "null";
+                    }
+                    // string result could be key escape
+                    return ReplaceKeyEscape(result.ToString(), context, param);
                 }
                 catch (System.Exception e)
                 {
                     Debug.LogException(e);
                     return m.Value;
+                }
+
+                static string NumericToString(object value, string format)
+                {
+                    return NumberToString(value, format);
                 }
             });
             return rawString;
@@ -196,7 +209,6 @@ namespace Minerva.Localizations.EscapePatterns
                     string key = m.Groups[1].Value;
                     string[] localParam;
                     Dictionary<string, string> localValue;
-
                     // has custom param
                     if (m.Groups[2].Success) (localParam, localValue) = GetLocalParam(m.Groups[2], param, GetGlobalValue());
                     else (localParam, localValue) = (param, GetGlobalValue());
@@ -312,6 +324,22 @@ namespace Minerva.Localizations.EscapePatterns
         public static bool IsRawValue(object value)
         {
             return value is string || value is decimal || value.GetType().IsPrimitive && value is not bool and not char and not IntPtr and not UIntPtr;
+        }
+
+        public static bool IsNumeric(object value)
+        {
+            switch (value)
+            {
+                case int:
+                case long:
+                case float:
+                case double:
+                case short:
+                case decimal:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /// <summary>
