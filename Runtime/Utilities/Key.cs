@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using UnityEngine;
 using static Minerva.Localizations.L10nSymbols;
 
 namespace Minerva.Localizations

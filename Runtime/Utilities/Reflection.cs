@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections;
-using System.Linq;
 using System.Reflection;
-using Unity.Collections;
 using UnityEngine;
 
 namespace Minerva.Localizations

@@ -1,10 +1,8 @@
 ﻿using Minerva.Localizations.EscapePatterns;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using static Minerva.Localizations.Localizable;
 using static Minerva.Localizations.EscapePatterns.EscapePattern;
-using UnityEngine;
+using static Minerva.Localizations.Localizable;
 
 namespace Minerva.Localizations
 {

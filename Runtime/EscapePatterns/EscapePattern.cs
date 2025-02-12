@@ -2,11 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using UnityEngine;
-using UnityEngine.Windows;
-using static Codice.Client.Common.Locks.ServerLocks.ForWorkingBranchOnRepoByItem;
 using static Minerva.Localizations.EscapePatterns.ExpressionParser;
 using static Minerva.Localizations.EscapePatterns.Regexes;
 
