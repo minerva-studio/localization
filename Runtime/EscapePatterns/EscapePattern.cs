@@ -170,6 +170,10 @@ namespace Minerva.Localizations.EscapePatterns
                     {
                         return NumericToString(result, format);
                     }
+                    else if (long.TryParse(result.ToString(), out long l))
+                    {
+                        return NumericToString(l, format);
+                    }
                     else if (double.TryParse(result.ToString(), out double r))
                     {
                         return NumericToString(r, format);
