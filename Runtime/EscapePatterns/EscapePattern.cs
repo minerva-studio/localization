@@ -168,20 +168,19 @@ namespace Minerva.Localizations.EscapePatterns
                     catch (Exception e) { format = ""; }
                     if (IsNumeric(result))
                     {
-                        return NumericToString(result, format);
+                        return NumberToString(result, format);
                     }
                     else if (long.TryParse(result.ToString(), out long l))
                     {
-                        return NumericToString(l, format);
+                        return NumberToString(l, format);
                     }
                     else if (double.TryParse(result.ToString(), out double r))
                     {
-                        return NumericToString(r, format);
+                        return NumberToString(r, format);
                     }
                     else if (result is not string)
                     {
-                        Debug.Log(result.GetType());
-                        result = result?.ToString() ?? "null";
+                        result = Localizable.Tr(result, param) ?? "null";
                     }
                     // string result could be key escape
                     return ReplaceKeyEscape(result.ToString(), context, param);
@@ -190,11 +189,6 @@ namespace Minerva.Localizations.EscapePatterns
                 {
                     Debug.LogException(e);
                     return m.Value;
-                }
-
-                static string NumericToString(object value, string format)
-                {
-                    return NumberToString(value, format);
                 }
             });
             return rawString;
@@ -353,7 +347,9 @@ namespace Minerva.Localizations.EscapePatterns
         {
             var number = AsNumber(numberLike);
             if (!string.IsNullOrEmpty(format))
+            {
                 return number.ToString(format);
+            }
 
             return numberLike switch
             {

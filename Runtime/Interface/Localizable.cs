@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using static Minerva.Localizations.EscapePatterns.EscapePattern;
 
 namespace Minerva.Localizations
@@ -81,14 +82,15 @@ namespace Minerva.Localizations
                 return Tr(localizable, param);
             }
             // custom content defined
-            if (IsL10nContextDefined(value, out var contentType))
+            if (IsL10nContextDefined(value))
             {
                 var context = L10nContext.Of(value);
                 return Tr(context, param);
             }
-
             // return unlocalized contents
-            return AsKeyEscape(value.GetType().FullName);
+            string fullName = value?.GetType().FullName;
+            Debug.LogWarning("Unhandled object type in localization: " + fullName);
+            return value?.ToString();
         }
 
         public static bool IsNumber(object value)
@@ -151,9 +153,9 @@ namespace Minerva.Localizations
             return baseKey;
         }
 
-        public static bool IsL10nContextDefined(object value, out Type contextType)
+        public static bool IsL10nContextDefined(object value)
         {
-            return ContextTable.HasContextTypeDefined(value?.GetType(), out contextType);
+            return ContextTable.HasContextTypeDefined(value?.GetType());
         }
     }
 }

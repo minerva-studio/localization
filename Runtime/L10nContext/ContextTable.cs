@@ -109,18 +109,28 @@ namespace Minerva.Localizations
         /// </remarks>
         /// <param name="valueType"></param>
         /// <returns></returns>
-        public static bool HasContextTypeDefined(Type valueType, out Type contextType)
+        public static bool HasContextTypeDefined(Type valueType)
         {
-            contextType = null;
             var currType = valueType;
+            // try get from class inheritance
             while (currType != null)
             {
                 if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
                 {
-                    contextType = result.type;
+                    // result is in 
                     return true;
                 }
                 currType = currType.BaseType;
+            }
+            // try get from interface implement 
+            foreach (var interfaceInfo in valueType.GetInterfaces())
+            {
+                currType = interfaceInfo;
+                if (table.TryGetValue(currType, out var result) && (result.allowInheritance || currType == valueType))
+                {
+                    // result is in 
+                    return true;
+                }
             }
             return false;
         }
