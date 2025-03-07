@@ -9,7 +9,7 @@ namespace Minerva.Localizations
     /// <summary>
     /// Base class of the context of localization
     /// </summary>
-    public abstract class L10nContext : ILocalizable, ILocalizer
+    public abstract class L10nContext : ILocalizableContext, ILocalizer
     {
         private static Dictionary<string, DynamicValueProvider> globalEscapeValues = new();
 
@@ -115,7 +115,7 @@ namespace Minerva.Localizations
         /// <summary>
         /// <inheritdoc/> 
         /// <br/>
-        /// Short hand for <see cref="L10n.Tr(ILocalizable, string[])"/>
+        /// Short hand for <see cref="L10n.Tr(ILocalizableContext, string[])"/>
         /// </summary>
         /// <returns>
         /// <inheritdoc/>
@@ -128,7 +128,7 @@ namespace Minerva.Localizations
         /// <summary>
         /// <inheritdoc/>
         /// <br/>
-        /// Short hand for <see cref="L10n.TrKey(string, ILocalizable, string[])"/>
+        /// Short hand for <see cref="L10n.TrKey(string, ILocalizableContext, string[])"/>
         /// </summary>
         /// <returns>
         /// <inheritdoc/>

@@ -18,7 +18,7 @@ namespace Minerva.Localizations
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string Tr(ILocalizable context, params string[] param)
+        public static string Tr(ILocalizableContext context, params string[] param)
         {
             var rawString = context.GetRawContent(param);
             return Escape(rawString, context, param);
@@ -30,7 +30,7 @@ namespace Minerva.Localizations
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string TrKey(string key, ILocalizable context, params string[] param)
+        public static string TrKey(string key, ILocalizableContext context, params string[] param)
         {
             var rawString = context.GetRawContentWithKey(key, param);
             return Escape(rawString, context, param);
@@ -77,7 +77,7 @@ namespace Minerva.Localizations
                 return localizer.Tr(param);
             }
             // is localizable 
-            if (value is ILocalizable localizable)
+            if (value is ILocalizableContext localizable)
             {
                 return Tr(localizable, param);
             }

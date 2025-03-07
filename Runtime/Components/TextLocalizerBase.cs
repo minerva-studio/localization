@@ -14,7 +14,7 @@ namespace Minerva.Localizations.Components
 
         [Header("Key")]
         public string key;
-        public ILocalizable context;
+        public ILocalizableContext context;
         public L10nDataManager languageFileManager;
 
 

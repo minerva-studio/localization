@@ -598,7 +598,7 @@ namespace Minerva.Localizations
             return context switch
             {
                 string str => Tr(str, param),
-                ILocalizable localizable => Tr(localizable, param),
+                ILocalizableContext localizable => Tr(localizable, param),
                 _ => Tr(L10nContext.Of(context), param),
             };
         }
@@ -609,7 +609,7 @@ namespace Minerva.Localizations
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string Tr(ILocalizable context, params string[] param)
+        public static string Tr(ILocalizableContext context, params string[] param)
         {
             return Localizable.Tr(context, param);
         }
@@ -620,7 +620,7 @@ namespace Minerva.Localizations
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string TrKey(string key, ILocalizable context, params string[] param)
+        public static string TrKey(string key, ILocalizableContext context, params string[] param)
         {
             return Localizable.TrKey(key, context, param);
         }

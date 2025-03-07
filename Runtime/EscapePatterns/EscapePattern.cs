@@ -21,7 +21,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string Escape(string rawString, ILocalizable context, params string[] param)
+        public static string Escape(string rawString, ILocalizableContext context, params string[] param)
         {
             if (rawString == null) return string.Empty;
             rawString = ReplaceKeyEscape(rawString, context, param);
@@ -73,7 +73,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// </summary>
         /// <param name="rawString"></param>
         /// <returns></returns>
-        public static string ReplaceKeyEscape(string rawString, ILocalizable context, params string[] param)
+        public static string ReplaceKeyEscape(string rawString, ILocalizableContext context, params string[] param)
         {
             if (rawString == null) return string.Empty;
             var n = CONTENT_REFERENCE_PATTERN.Replace(rawString, (m) =>
@@ -103,7 +103,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// <param name="param"></param>
         /// <returns></returns>  
         [Obsolete]
-        public static string ReplaceDynamicValueEscape_Default(string rawString, ILocalizable context, params string[] param)
+        public static string ReplaceDynamicValueEscape_Default(string rawString, ILocalizableContext context, params string[] param)
         {
             if (rawString == null) return string.Empty;
             rawString = DYNAMIC_VALUE_ARG_PATTERN.Replace(rawString, (m) =>
@@ -147,7 +147,7 @@ namespace Minerva.Localizations.EscapePatterns
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>  
-        public static string ReplaceDynamicValueEscape(string rawString, ILocalizable context, params string[] param)
+        public static string ReplaceDynamicValueEscape(string rawString, ILocalizableContext context, params string[] param)
         {
             if (rawString == null) return string.Empty;
 

@@ -5,7 +5,7 @@ namespace Minerva.Localizations
     /// <summary>
     /// Common interface use to get the localization information from an object
     /// </summary>
-    public interface ILocalizable
+    public interface ILocalizableContext
     {
         /// <summary>
         /// Get the base localization key of the object
