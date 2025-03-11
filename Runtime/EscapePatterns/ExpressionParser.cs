@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using static Minerva.Localizations.EscapePatterns.Regexes;
@@ -282,7 +283,7 @@ namespace Minerva.Localizations.EscapePatterns
 
             public override object Run(VariableValueProvider variableValueProvider)
             {
-                return float.Parse(Value);
+                return float.Parse(Value, provider: CultureInfo.InvariantCulture);
             }
         }
 
@@ -375,7 +376,7 @@ namespace Minerva.Localizations.EscapePatterns
                         f = (long)l;
                         return true;
                     case string s:
-                        return float.TryParse(s, out f);
+                        return float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out f);
                     default:
                         break;
                 }
