@@ -25,6 +25,8 @@ namespace Minerva.Localizations
         [SerializeField]
         private bool disableEmptyEntries;
         [SerializeField]
+        private ReferenceImportOption tooltipImportOption;
+        [SerializeField]
         private ReferenceImportOption referenceImportOption;
         [SerializeField]
         private MissingKeySolution missingKeySolution;
@@ -70,6 +72,8 @@ namespace Minerva.Localizations
         public static bool DisableEmptyEntries { get { return instance?.disableEmptyEntries ?? false; } set { instance.disableEmptyEntries = value; } }
         /// <summary> Missing key solution </summary>
         public static MissingKeySolution MissingKeySolution { get { return instance?.missingKeySolution ?? 0; } set { instance.missingKeySolution = value; } }
+        /// <summary> Tooltip Import Option </summary>
+        public static ReferenceImportOption TooltipImportOption { get { return instance?.tooltipImportOption ?? 0; } set { instance.tooltipImportOption = value; } }
         /// <summary> Reference Import Option </summary>
         public static ReferenceImportOption ReferenceImportOption { get { return instance?.referenceImportOption ?? 0; } set { instance.referenceImportOption = value; } }
 
@@ -111,6 +115,7 @@ namespace Minerva.Localizations
             this.manager = manager;
             this.missingKeySolution = manager.missingKeySolution;
             this.disableEmptyEntries = manager.disableEmptyEntry;
+            this.tooltipImportOption = manager.tooltipImportOption;
             this.referenceImportOption = manager.referenceImportOption;
 
             string defaultRegion = string.IsNullOrEmpty(manager.defaultRegion) ? DEFAULT_REGION : manager.defaultRegion;

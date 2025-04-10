@@ -1,6 +1,7 @@
 ﻿using Minerva.Localizations.EscapePatterns;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using static Minerva.Localizations.EscapePatterns.EscapePattern;
 using static Minerva.Localizations.Localizable;
 
@@ -211,11 +212,11 @@ namespace Minerva.Localizations
 
 
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static string AsKeyEscape(string baseKey, params string[] args) => EscapePattern.AsKeyEscape(baseKey, args);
 
-        public static string AsKeyEscape(string baseKey, params string[] args)
-        {
-            return EscapePattern.AsKeyEscape(baseKey, args);
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static string AsTooltipKeyEscape(string baseKey, params string[] args) => EscapePattern.AsTooltipKeyEscape(baseKey, args);
 
         /// <summary>
         /// Try get the localization of given value

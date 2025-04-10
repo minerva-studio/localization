@@ -81,6 +81,8 @@ namespace Minerva.Localizations.EscapePatterns
                 string replacing = m.Groups[1].Value;
                 string key = m.Groups[2].Value;
 
+                bool isTooltip = replacing.StartsWith("$@");
+
                 string rawContent = L10n.GetRawContent(key);
 
                 string[] localParam;
@@ -88,12 +90,27 @@ namespace Minerva.Localizations.EscapePatterns
                 // has custom param 
                 if (m.Groups[3].Success) (localParam, _) = GetLocalParam(m.Groups[3], param);
                 else localParam = param;
+                // result value could contains new reference
+                rawContent = ReplaceKeyEscape(rawContent, context, param);
                 // result value could contains dynamic value
                 rawContent = ReplaceDynamicValueEscape(rawContent, context, localParam);
-                string newValue = L10n.ReferenceImportOption == ReferenceImportOption.WithLinkTag ? $"<link={key}>{rawContent}</link>" : rawContent;
+                // get actual value
+                string newValue = ReplaceTooltip(key, rawContent, isTooltip ? L10n.TooltipImportOption : L10n.ReferenceImportOption);
                 return m.Value.Replace(replacing, newValue);
             });
             return n;
+        }
+
+        private static string ReplaceTooltip(string key, string rawContent, ReferenceImportOption referenceImportOption)
+        {
+            return referenceImportOption.HasFlag(ReferenceImportOption.WithLinkTag) && referenceImportOption.HasFlag(ReferenceImportOption.WithUnderline)
+                ? $"<link={key}><u>{rawContent}</u></link>"
+                : referenceImportOption switch
+                {
+                    ReferenceImportOption.WithLinkTag => $"<link={key}>{rawContent}</link>",
+                    ReferenceImportOption.WithUnderline => $"<u>{rawContent}</u>",
+                    _ => rawContent,
+                };
         }
 
 
@@ -397,5 +414,16 @@ namespace Minerva.Localizations.EscapePatterns
         {
             return $"${Localizable.AppendKey(baseKey, args)}$";
         }
+
+        /// <summary>
+        /// Make given string as an content of given key as escape
+        /// </summary>
+        /// <param name="baseKey"></param>
+        /// <returns></returns>
+        public static string AsTooltipKeyEscape(string baseKey, params string[] args)
+        {
+            return $"$@{Localizable.AppendKey(baseKey, args)}$";
+        }
+
     }
 }

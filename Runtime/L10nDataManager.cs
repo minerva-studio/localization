@@ -134,6 +134,7 @@ namespace Minerva.Localizations
         public bool importReferenceWithLinkTag;
         public MissingKeySolution missingKeySolution;
         public ReferenceImportOption referenceImportOption;
+        public ReferenceImportOption tooltipImportOption;
         [Header("Data")]
         public List<LanguageFile> files;
         public List<LanguageFileSource> sources;
