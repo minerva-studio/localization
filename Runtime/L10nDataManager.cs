@@ -131,7 +131,9 @@ namespace Minerva.Localizations
         public string defaultRegion;
         public string topLevelDomain;
         public bool disableEmptyEntry;
+        public bool importReferenceWithLinkTag;
         public MissingKeySolution missingKeySolution;
+        public ReferenceImportOption referenceImportOption;
         [Header("Data")]
         public List<LanguageFile> files;
         public List<LanguageFileSource> sources;

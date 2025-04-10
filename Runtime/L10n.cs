@@ -25,6 +25,8 @@ namespace Minerva.Localizations
         [SerializeField]
         private bool disableEmptyEntries;
         [SerializeField]
+        private ReferenceImportOption referenceImportOption;
+        [SerializeField]
         private MissingKeySolution missingKeySolution;
 
         [SerializeField]
@@ -68,6 +70,8 @@ namespace Minerva.Localizations
         public static bool DisableEmptyEntries { get { return instance?.disableEmptyEntries ?? false; } set { instance.disableEmptyEntries = value; } }
         /// <summary> Missing key solution </summary>
         public static MissingKeySolution MissingKeySolution { get { return instance?.missingKeySolution ?? 0; } set { instance.missingKeySolution = value; } }
+        /// <summary> Reference Import Option </summary>
+        public static ReferenceImportOption ReferenceImportOption { get { return instance?.referenceImportOption ?? 0; } set { instance.referenceImportOption = value; } }
 
         public static string ListDelimiter => instance?.listDelimiter ?? string.Empty;
         public static string WordSpace => instance?.wordSpace ?? string.Empty;
@@ -107,6 +111,7 @@ namespace Minerva.Localizations
             this.manager = manager;
             this.missingKeySolution = manager.missingKeySolution;
             this.disableEmptyEntries = manager.disableEmptyEntry;
+            this.referenceImportOption = manager.referenceImportOption;
 
             string defaultRegion = string.IsNullOrEmpty(manager.defaultRegion) ? DEFAULT_REGION : manager.defaultRegion;
             LanguageFile languageFile = manager.GetLanguageFile(defaultRegion);

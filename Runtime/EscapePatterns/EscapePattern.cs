@@ -90,7 +90,8 @@ namespace Minerva.Localizations.EscapePatterns
                 else localParam = param;
                 // result value could contains dynamic value
                 rawContent = ReplaceDynamicValueEscape(rawContent, context, localParam);
-                return m.Value.Replace(replacing, rawContent);
+                string newValue = L10n.ReferenceImportOption == ReferenceImportOption.WithLinkTag ? $"<link={key}>{rawContent}</link>" : rawContent;
+                return m.Value.Replace(replacing, newValue);
             });
             return n;
         }
