@@ -26,6 +26,7 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.missingKeySolution)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.referenceImportOption)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.tooltipImportOption)));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.useUnderlineResolver)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.files)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.sources)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.regions)));

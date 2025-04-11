@@ -4,6 +4,8 @@ namespace Minerva.Localizations.EscapePatterns
 {
     public static class Regexes
     {
+        public static readonly Regex UNDERLINE_TAG = new(@"<u>(.*?)</u>");
+        public static readonly Regex COLOR_TAG = new(@"(<color\s*?=\s*?.*?>)(.*?)(</color>)");
         public static readonly Regex DYNAMIC_VALUE_ARG_PATTERN = new(@"(?<!\\)(?:\\{2})*(\{([\w.]*?)(?:<(?:([\w.~=]+),?)*)>?\})");
         public static readonly Regex DYNAMIC_EXPR_BRACKET_ARG_PATTERN = new(@"(?<!\\)(?:\\{2})*(\{(.+?)(?::(.+?))?\})");
         public static readonly Regex DYNAMIC_ARG_PATTERN = new(@"([a-zA-Z\._0-9]+)(?:<(?:([\w.~=]+),?)*>)?");

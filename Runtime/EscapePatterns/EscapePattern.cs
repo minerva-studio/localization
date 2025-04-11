@@ -28,6 +28,7 @@ namespace Minerva.Localizations.EscapePatterns
             rawString = ReplaceDynamicValueEscape(rawString, context, param);
             rawString = ReplaceColorEscape(rawString);
             rawString = ReplaceBackSlash(rawString);
+            if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always) return SplitUnderlineByColor(rawString);
             return rawString;
         }
 
@@ -94,24 +95,45 @@ namespace Minerva.Localizations.EscapePatterns
                 rawContent = ReplaceKeyEscape(rawContent, context, param);
                 // result value could contains dynamic value
                 rawContent = ReplaceDynamicValueEscape(rawContent, context, localParam);
+                // result value could contains color tag
+                rawContent = ReplaceColorEscape(rawContent);
                 // get actual value
-                string newValue = ReplaceTooltip(key, rawContent, isTooltip ? L10n.TooltipImportOption : L10n.ReferenceImportOption);
+                string newValue = ReplaceReference(key, rawContent, isTooltip ? L10n.TooltipImportOption : L10n.ReferenceImportOption);
                 return m.Value.Replace(replacing, newValue);
             });
             return n;
         }
 
-        private static string ReplaceTooltip(string key, string rawContent, ReferenceImportOption referenceImportOption)
+        private static string ReplaceReference(string key, string rawContent, ReferenceImportOption referenceImportOption)
         {
-            return referenceImportOption.HasFlag(ReferenceImportOption.WithLinkTag) && referenceImportOption.HasFlag(ReferenceImportOption.WithUnderline)
-                ? $"<link={key}><u>{rawContent}</u></link>"
-                : referenceImportOption switch
-                {
-                    ReferenceImportOption.WithLinkTag => $"<link={key}>{rawContent}</link>",
-                    ReferenceImportOption.WithUnderline => $"<u>{rawContent}</u>",
-                    _ => rawContent,
-                };
+            bool withLink = referenceImportOption.HasFlag(ReferenceImportOption.WithLinkTag);
+            bool withUnderline = referenceImportOption.HasFlag(ReferenceImportOption.WithUnderline);
+            bool splitUnderline = withUnderline && L10n.UseUnderlineResolver == UnderlineResolverOption.WhileLinking;
+
+            // Fast path: no modification needed
+            if (!withLink && !withUnderline)
+                return rawContent;
+
+            string content = rawContent;
+
+            if (splitUnderline)
+            {
+                Debug.Log("Split");
+                content = SplitUnderlineDirect(content);
+            }
+            else if (withUnderline)
+            {
+                content = $"<u>{content}</u>";
+            }
+
+            if (withLink)
+            {
+                content = $"<link={key}>{content}</link>";
+            }
+
+            return content;
         }
+
 
 
         /// <summary>
@@ -248,6 +270,44 @@ namespace Minerva.Localizations.EscapePatterns
                 return globalValue ??= ParseDynamicValue(new(), false, param);
             }
         }
+
+        public static string SplitUnderlineByColor(string input)
+        {
+            // Match: <u>(...multiple <color> tags...)</u>
+            return UNDERLINE_TAG.Replace(
+                input,
+                match =>
+                {
+                    string inside = match.Groups[1].Value;
+                    // Wrap each <color=...>...</color> with underline
+                    string fixedContent = COLOR_TAG.Replace(
+                        inside,
+                        m => $"{m.Groups[1].Value}<u>{m.Groups[2].Value}</u>{m.Groups[3].Value}"
+                    );
+
+                    return fixedContent;
+                }
+            );
+        }
+
+        public static string SplitUnderlineDirect(string input)
+        {
+            // If no color tags, apply one underline to the entire input
+            if (!input.Contains("<color"))
+                return $"<u>{input}</u>";
+
+            // Inner underlines only for <color> blocks
+            return COLOR_TAG.Replace(input, m =>
+                $"{m.Groups[1].Value}<u>{m.Groups[2].Value}</u>{m.Groups[3].Value}");
+        }
+
+
+
+
+
+
+
+
 
 
         private static (string[] localParam, Dictionary<string, string> localVariable) GetLocalParam(Group group, string[] globalParam, Dictionary<string, string> globalValue = null)
@@ -424,6 +484,5 @@ namespace Minerva.Localizations.EscapePatterns
         {
             return $"$@{Localizable.AppendKey(baseKey, args)}$";
         }
-
     }
 }

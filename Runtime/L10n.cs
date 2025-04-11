@@ -29,6 +29,8 @@ namespace Minerva.Localizations
         [SerializeField]
         private ReferenceImportOption referenceImportOption;
         [SerializeField]
+        private UnderlineResolverOption useUnderlineResolver;
+        [SerializeField]
         private MissingKeySolution missingKeySolution;
 
         [SerializeField]
@@ -76,6 +78,8 @@ namespace Minerva.Localizations
         public static ReferenceImportOption TooltipImportOption { get { return instance?.tooltipImportOption ?? 0; } set { instance.tooltipImportOption = value; } }
         /// <summary> Reference Import Option </summary>
         public static ReferenceImportOption ReferenceImportOption { get { return instance?.referenceImportOption ?? 0; } set { instance.referenceImportOption = value; } }
+        /// <summary> Underline resolver to fix the tag conflict between content </summary>
+        public static UnderlineResolverOption UseUnderlineResolver { get { return instance?.useUnderlineResolver ?? 0; } set { instance.useUnderlineResolver = value; } }
 
         public static string ListDelimiter => instance?.listDelimiter ?? string.Empty;
         public static string WordSpace => instance?.wordSpace ?? string.Empty;
@@ -117,6 +121,7 @@ namespace Minerva.Localizations
             this.disableEmptyEntries = manager.disableEmptyEntry;
             this.tooltipImportOption = manager.tooltipImportOption;
             this.referenceImportOption = manager.referenceImportOption;
+            this.useUnderlineResolver = manager.useUnderlineResolver;
 
             string defaultRegion = string.IsNullOrEmpty(manager.defaultRegion) ? DEFAULT_REGION : manager.defaultRegion;
             LanguageFile languageFile = manager.GetLanguageFile(defaultRegion);

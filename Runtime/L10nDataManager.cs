@@ -132,6 +132,7 @@ namespace Minerva.Localizations
         public string topLevelDomain;
         public bool disableEmptyEntry;
         public bool importReferenceWithLinkTag;
+        public UnderlineResolverOption useUnderlineResolver;
         public MissingKeySolution missingKeySolution;
         public ReferenceImportOption referenceImportOption;
         public ReferenceImportOption tooltipImportOption;
