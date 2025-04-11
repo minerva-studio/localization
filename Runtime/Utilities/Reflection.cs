@@ -140,7 +140,15 @@ namespace Minerva.Localizations
                 var splitPath = ParsePath(obj, path);
                 return GetObjectNullPropagation(obj, splitPath);
             }
-            catch { return null; }
+            catch (NullReferenceException)
+            {
+                return null;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                return null;
+            }
         }
 
         /// <summary>
@@ -158,9 +166,14 @@ namespace Minerva.Localizations
             {
                 return GetObjectInternalNull(obj, path, 0);
             }
-            catch (Exception)
+            catch (NullReferenceException)
             {
-                return obj;
+                return null;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                return null;
             }
         }
 

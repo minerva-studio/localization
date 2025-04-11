@@ -21,11 +21,11 @@ namespace Minerva.Localizations.EscapePatterns
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string Escape(string rawString, ILocalizableContext context, params string[] param)
+        public static string Escape(string rawString, ILocalizableContext context, int depth = 0, params string[] param)
         {
             if (rawString == null) return string.Empty;
-            rawString = ReplaceKeyEscape(rawString, context, param);
-            rawString = ReplaceDynamicValueEscape(rawString, context, param);
+            rawString = ReplaceKeyEscape(rawString, context, depth, param);
+            rawString = ReplaceDynamicValueEscape(rawString, context, depth, param);
             rawString = ReplaceColorEscape(rawString);
             rawString = ReplaceBackSlash(rawString);
             if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always) return SplitUnderlineByColor(rawString);
@@ -74,8 +74,9 @@ namespace Minerva.Localizations.EscapePatterns
         /// </summary>
         /// <param name="rawString"></param>
         /// <returns></returns>
-        public static string ReplaceKeyEscape(string rawString, ILocalizableContext context, params string[] param)
+        public static string ReplaceKeyEscape(string rawString, ILocalizableContext context, int depth = 0, params string[] param)
         {
+            if (!LoopCheck(depth, rawString)) return rawString;
             if (rawString == null) return string.Empty;
             var n = CONTENT_REFERENCE_PATTERN.Replace(rawString, (m) =>
             {
@@ -92,9 +93,9 @@ namespace Minerva.Localizations.EscapePatterns
                 if (m.Groups[3].Success) (localParam, _) = GetLocalParam(m.Groups[3], param);
                 else localParam = param;
                 // result value could contains new reference
-                rawContent = ReplaceKeyEscape(rawContent, context, param);
+                rawContent = ReplaceKeyEscape(rawContent, context, depth + 1, param);
                 // result value could contains dynamic value
-                rawContent = ReplaceDynamicValueEscape(rawContent, context, localParam);
+                rawContent = ReplaceDynamicValueEscape(rawContent, context, depth + 1, localParam);
                 // result value could contains color tag
                 rawContent = ReplaceColorEscape(rawContent);
                 // get actual value
@@ -118,7 +119,6 @@ namespace Minerva.Localizations.EscapePatterns
 
             if (splitUnderline)
             {
-                Debug.Log("Split");
                 content = SplitUnderlineDirect(content);
             }
             else if (withUnderline)
@@ -142,42 +142,42 @@ namespace Minerva.Localizations.EscapePatterns
         /// <param name="rawString"></param>
         /// <param name="param"></param>
         /// <returns></returns>  
-        [Obsolete]
-        public static string ReplaceDynamicValueEscape_Default(string rawString, ILocalizableContext context, params string[] param)
-        {
-            if (rawString == null) return string.Empty;
-            rawString = DYNAMIC_VALUE_ARG_PATTERN.Replace(rawString, (m) =>
-            {
-                // we can't really guarantee context can correctly provide replacements
-                try
-                {
-                    string key = m.Groups[2].Value;
-                    string[] localParam;
-                    string result;
-                    Dictionary<string, string> localOptions;
+        //[Obsolete]
+        //public static string ReplaceDynamicValueEscape_Default(string rawString, ILocalizableContext context, params string[] param)
+        //{
+        //    if (rawString == null) return string.Empty;
+        //    rawString = DYNAMIC_VALUE_ARG_PATTERN.Replace(rawString, (m) =>
+        //    {
+        //        // we can't really guarantee context can correctly provide replacements
+        //        try
+        //        {
+        //            string key = m.Groups[2].Value;
+        //            string[] localParam;
+        //            string result;
+        //            Dictionary<string, string> localOptions;
 
-                    // has custom param
-                    if (m.Groups[3].Success) (localParam, localOptions) = GetLocalParam(m.Groups[3], param);
-                    else (localParam, localOptions) = (param, ParseDynamicValue(new(), false, param));
+        //            // has custom param
+        //            if (m.Groups[3].Success) (localParam, localOptions) = GetLocalParam(m.Groups[3], param);
+        //            else (localParam, localOptions) = (param, ParseDynamicValue(new(), false, param));
 
-                    // if defined, then use it, otherwise ask context
-                    if (!localOptions.TryGetValue(key, out string replacement) && context != null)
-                        replacement = context.GetEscapeValue(key, localParam).ToString();
+        //            // if defined, then use it, otherwise ask context
+        //            if (!localOptions.TryGetValue(key, out string replacement) && context != null)
+        //                replacement = context.GetEscapeValue(key, localParam).ToString();
 
-                    // no replacement if not found
-                    if (replacement == key) result = m.Value;
-                    else result = m.Value.Replace(m.Groups[1].Value, ReplaceKeyEscape(replacement, context, localParam));
+        //            // no replacement if not found
+        //            if (replacement == key) result = m.Value;
+        //            else result = m.Value.Replace(m.Groups[1].Value, ReplaceKeyEscape(replacement, context, depth + 1, localParam));
 
-                    return result;
-                }
-                catch (System.Exception e)
-                {
-                    Debug.LogException(e);
-                    return m.Value;
-                }
-            });
-            return rawString;
-        }
+        //            return result;
+        //        }
+        //        catch (System.Exception e)
+        //        {
+        //            Debug.LogException(e);
+        //            return m.Value;
+        //        }
+        //    });
+        //    return rawString;
+        //}
 
 
         /// <summary>
@@ -187,8 +187,9 @@ namespace Minerva.Localizations.EscapePatterns
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>  
-        public static string ReplaceDynamicValueEscape(string rawString, ILocalizableContext context, params string[] param)
+        public static string ReplaceDynamicValueEscape(string rawString, ILocalizableContext context, int depth, params string[] param)
         {
+            if (!LoopCheck(depth, rawString)) return rawString;
             if (rawString == null) return string.Empty;
 
             Dictionary<string, string> globalValue = null;
@@ -220,10 +221,14 @@ namespace Minerva.Localizations.EscapePatterns
                     }
                     else if (result is not string)
                     {
-                        result = Localizable.Tr(result, param) ?? "null";
+                        Debug.Log(expr);
+                        Debug.Log(context.GetType().FullName);
+                        Debug.Log(result.GetType().FullName);
+                        Debug.Log(rawString);
+                        result = Localizable.Tr(result, depth + 1, param) ?? "null";
                     }
                     // string result could be key escape
-                    return ReplaceKeyEscape(result.ToString(), context, param);
+                    return ReplaceKeyEscape(result.ToString(), context, depth + 1, param);
                 }
                 catch (System.Exception e)
                 {
@@ -255,7 +260,7 @@ namespace Minerva.Localizations.EscapePatterns
                     {
                         return context.GetEscapeValue(key, localParam);
                     }
-                    var value = ReplaceKeyEscape(replacement, context, localParam);
+                    var value = ReplaceKeyEscape(replacement, context, depth + 1, localParam);
                     //Debug.Log($"{{{key}: {replacement}}} replaced to {value}");
                     return value;
                 }
@@ -304,6 +309,16 @@ namespace Minerva.Localizations.EscapePatterns
 
 
 
+
+        public static bool LoopCheck(int depth, string context)
+        {
+            if (depth >= L10n.MAX_RECURSION)
+            {
+                Debug.LogException(new StackOverflowException(context));
+                return false;
+            }
+            return true;
+        }
 
 
 

@@ -123,7 +123,7 @@ namespace Minerva.Localizations
         /// </returns>
         public string Tr(params string[] param)
         {
-            return Localizable.Tr(this, param);
+            return Localizable.Tr(this, 0, param);
         }
 
         /// <summary>
@@ -136,7 +136,7 @@ namespace Minerva.Localizations
         /// </returns>
         public string TrKey(string overrideKey, params string[] param)
         {
-            return Localizable.TrKey(overrideKey, this, param);
+            return Localizable.TrKey(overrideKey, this, 0, param);
         }
 
 
@@ -225,7 +225,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string LocalizationOf(object value, params string[] param)
         {
-            return Localizable.Tr(value, param);
+            return Localizable.Tr(value, 0, param);
         }
 
         /// <summary>
@@ -249,7 +249,7 @@ namespace Minerva.Localizations
             {
                 return value;
             }
-            return Localizable.Tr(value, param);
+            return Localizable.Tr(value, 0, param);
         }
 
         /// <summary>

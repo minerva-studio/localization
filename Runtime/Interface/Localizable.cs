@@ -18,10 +18,10 @@ namespace Minerva.Localizations
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string Tr(ILocalizableContext context, params string[] param)
+        public static string Tr(ILocalizableContext context, int depth, params string[] param)
         {
             var rawString = context.GetRawContent(param);
-            return Escape(rawString, context, param);
+            return Escape(rawString, context, depth + 1, param);
         }
 
         /// <summary>
@@ -30,10 +30,10 @@ namespace Minerva.Localizations
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string TrKey(string key, ILocalizableContext context, params string[] param)
+        public static string TrKey(string key, ILocalizableContext context, int depth, params string[] param)
         {
             var rawString = context.GetRawContentWithKey(key, param);
-            return Escape(rawString, context, param);
+            return Escape(rawString, context, depth + 1, param);
         }
 
         /// <summary>
@@ -42,12 +42,16 @@ namespace Minerva.Localizations
         /// <param name="value"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static string Tr(object value, params string[] param)
+        public static string Tr(object value, int depth, params string[] param)
         {
             // null value, return emtpy string
             if (value == null)
             {
                 return string.Empty;
+            }
+            if (!LoopCheck(depth, value.ToString()))
+            {
+                return value.ToString();
             }
             if (IsNumber(value))
             {
@@ -66,7 +70,7 @@ namespace Minerva.Localizations
                 {
                     foreach (var item in list)
                     {
-                        yield return Tr(item, param);
+                        yield return Tr(item, depth + 1, param);
                     }
                 }
             }
@@ -79,13 +83,13 @@ namespace Minerva.Localizations
             // is localizable 
             if (value is ILocalizableContext localizable)
             {
-                return Tr(localizable, param);
+                return Tr(localizable, depth + 1, param);
             }
             // custom content defined
             if (IsL10nContextDefined(value))
             {
                 var context = L10nContext.Of(value);
-                return Tr(context, param);
+                return Tr(context, depth + 1, param);
             }
             // return unlocalized contents
             string fullName = value?.GetType().FullName;

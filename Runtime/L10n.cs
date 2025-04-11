@@ -14,6 +14,7 @@ namespace Minerva.Localizations
     public class L10n
     {
         public const string DEFAULT_REGION = "EN_US";
+        public const int MAX_RECURSION = 30;
 
         [SerializeField]
         private bool loaded = false;
@@ -590,7 +591,7 @@ namespace Minerva.Localizations
         {
             var fullKey = Localizable.AppendKey(key, param);
             var rawString = GetRawContent(fullKey, solution);
-            rawString = EscapePattern.Escape(rawString, null, param);
+            rawString = EscapePattern.Escape(rawString, null, 0, param);
             return rawString;
         }
 
@@ -604,7 +605,7 @@ namespace Minerva.Localizations
         {
             var fullKey = Localizable.AppendKey(key, param);
             var rawString = GetRawContent(fullKey);
-            rawString = EscapePattern.Escape(rawString, null, param);
+            rawString = EscapePattern.Escape(rawString, null, 0, param);
             return rawString;
         }
 
@@ -626,7 +627,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string Tr(ILocalizableContext context, params string[] param)
         {
-            return Localizable.Tr(context, param);
+            return Localizable.Tr(context, 0, param);
         }
 
         /// <summary>
@@ -637,7 +638,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string TrKey(string key, ILocalizableContext context, params string[] param)
         {
-            return Localizable.TrKey(key, context, param);
+            return Localizable.TrKey(key, context, 0, param);
         }
 
 
