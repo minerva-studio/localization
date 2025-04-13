@@ -641,6 +641,17 @@ namespace Minerva.Localizations
             return Localizable.TrKey(key, context, 0, param);
         }
 
+        /// <summary>
+        /// Direct localization
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
+        public static string TrRaw(string rawContent, ILocalizableContext context, params string[] param)
+        {
+            return Localizable.TrRaw(rawContent, context, param);
+        }
+
 
     }
 }

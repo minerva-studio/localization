@@ -139,6 +139,19 @@ namespace Minerva.Localizations
             return Localizable.TrKey(overrideKey, this, 0, param);
         }
 
+        /// <summary>
+        /// <inheritdoc/>
+        /// <br/>
+        /// Short hand for <see cref="L10n.TrRaw(string, ILocalizableContext, string[])"/>
+        /// </summary>
+        /// <returns>
+        /// <inheritdoc/>
+        /// </returns>
+        public string TrRaw(string rawContent, params string[] param)
+        {
+            return Localizable.TrRaw(rawContent, this, param);
+        }
+
 
 
         /// <summary>

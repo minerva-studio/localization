@@ -8,7 +8,13 @@ namespace Minerva.Localizations.Editor
     [SerializeField]
     public class LocalizationTextEditor
     {
+        public bool showTools;
         public Color color;
+
+        string result;
+        TextEditor textEditor;
+        bool focus;
+
         [SerializeField]
         private string controlName;
 
@@ -21,15 +27,17 @@ namespace Minerva.Localizations.Editor
         public string DrawTextEditor(string desc)
         {
             GUI.SetNextControlName(controlName);
-            var result = EditorGUILayout.TextArea(desc, GUILayout.MinHeight(80));
-            var textEditor = GetTextEditor();
-
+            result = EditorGUILayout.TextArea(desc, GUILayout.MinHeight(80));
+            textEditor = GetTextEditor();
             // text editor not the current
-            var focus = textEditor.text == result;
+            focus = textEditor.text == result;
 
+            //showTools = EditorGUILayout.Foldout(showTools, new GUIContent("Tools"));
+            //if (showTools)
+            //{
             using (new GUILayout.HorizontalScope())
             {
-                GUILayout.Space(EditorGUIUtility.singleLineHeight);
+                GUILayout.Space(EditorGUIUtility.singleLineHeight * EditorGUI.indentLevel);
                 if (GUILayout.Button("§", GUILayout.Width(20)))
                 {
                     if (!focus) Focus();
@@ -69,8 +77,12 @@ namespace Minerva.Localizations.Editor
                     if (!focus) Focus();
                     InsertOrRetract(textEditor, "{", "}");
                 }
+
+                color = EditorGUILayout.ColorField("Color", color);
             }
-            color = EditorGUILayout.ColorField("Color", color);
+            //}
+
+
 
             if (!focus)
             {

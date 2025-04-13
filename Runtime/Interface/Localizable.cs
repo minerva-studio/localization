@@ -37,6 +37,17 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
+        /// Localize a localizable object with params
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
+        public static string TrRaw(string rawContent, ILocalizableContext context, params string[] param)
+        {
+            return Escape(rawContent, context, 0, param);
+        }
+
+        /// <summary>
         /// Translating any value
         /// </summary>
         /// <param name="value"></param>
