@@ -221,10 +221,6 @@ namespace Minerva.Localizations.EscapePatterns
                     }
                     else if (result is not string)
                     {
-                        Debug.Log(expr);
-                        Debug.Log(context.GetType().FullName);
-                        Debug.Log(result.GetType().FullName);
-                        Debug.Log(rawString);
                         result = Localizable.Tr(result, depth + 1, param) ?? "null";
                     }
                     // string result could be key escape
