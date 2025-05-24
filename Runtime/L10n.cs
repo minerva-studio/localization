@@ -7,6 +7,8 @@ using UnityEngine;
 
 namespace Minerva.Localizations
 {
+    public delegate void OnTranslating(string key, ref string value);
+
     /// <summary>
     /// The Localization main class
     /// </summary>
@@ -56,6 +58,7 @@ namespace Minerva.Localizations
 
         public static event Action OnLocalizationLoaded;
         public static event Action<string> OnKeyMissing;
+        public static event OnTranslating OnTranslating;
         private static L10n instance;
 
 
@@ -592,6 +595,7 @@ namespace Minerva.Localizations
             var fullKey = Localizable.AppendKey(key, param);
             var rawString = GetRawContent(fullKey, solution);
             rawString = EscapePattern.Escape(rawString, null, 0, param);
+            OnTranslating?.Invoke(fullKey, ref rawString);
             return rawString;
         }
 
@@ -606,17 +610,21 @@ namespace Minerva.Localizations
             var fullKey = Localizable.AppendKey(key, param);
             var rawString = GetRawContent(fullKey);
             rawString = EscapePattern.Escape(rawString, null, 0, param);
+            OnTranslating?.Invoke(fullKey, ref rawString);
             return rawString;
         }
 
         public static string Tr(object context, params string[] param)
         {
-            return context switch
+            switch (context)
             {
-                string str => Tr(str, param),
-                ILocalizableContext localizable => Tr(localizable, param),
-                _ => Tr(L10nContext.Of(context), param),
-            };
+                case string str:
+                    return Tr(str, param);
+                case ILocalizableContext localizable:
+                    return Tr(localizable, param);
+                default:
+                    return Tr(L10nContext.Of(context), param);
+            }
         }
 
         /// <summary>
@@ -627,7 +635,10 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string Tr(ILocalizableContext context, params string[] param)
         {
-            return Localizable.Tr(context, 0, param);
+            var value = Localizable.Tr(context, 0, param);
+            var key = context.GetLocalizationKey(param);
+            OnTranslating?.Invoke(key, ref value);
+            return value;
         }
 
         /// <summary>
@@ -638,7 +649,9 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string TrKey(string key, ILocalizableContext context, params string[] param)
         {
-            return Localizable.TrKey(key, context, 0, param);
+            var value = Localizable.TrKey(key, context, 0, param);
+            OnTranslating?.Invoke(key, ref value);
+            return value;
         }
 
         /// <summary>
@@ -649,9 +662,9 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string TrRaw(string rawContent, ILocalizableContext context, params string[] param)
         {
-            return Localizable.TrRaw(rawContent, context, param);
+            var value = Localizable.TrRaw(rawContent, context, param);
+            OnTranslating?.Invoke(string.Empty, ref value);
+            return value;
         }
-
-
     }
 }
