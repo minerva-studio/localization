@@ -205,8 +205,16 @@ namespace Minerva.Localizations.EscapePatterns
 
                     // float result uses format
                     string format;
-                    try { format = m.Groups[3].Value; }
-                    catch (Exception e) { format = ""; }
+                    try
+                    {
+                        if (m.Groups.Count > 3) format = m.Groups[3].Value;
+                        else format = "";
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                        format = "";
+                    }
                     if (IsNumeric(result))
                     {
                         return NumberToString(result, format);
@@ -347,7 +355,7 @@ namespace Minerva.Localizations.EscapePatterns
                         foreach (var item in globalValue)
                         {
                             localVariables[item.Key] = item.Value;
-                        };
+                        }
                     }
                     // ~var
                     else
