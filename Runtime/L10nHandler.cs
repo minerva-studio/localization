@@ -59,6 +59,7 @@ namespace Minerva.Localizations
             }
             else
             {
+                this.fallback = new();
                 Debug.LogException(new NullReferenceException("Default region not found"));
             }
         }
@@ -118,6 +119,7 @@ namespace Minerva.Localizations
             bool isPrimitive;
             bool hasValue = isPrimitive = dictionary.TryGetValue(key, out var entry);
             if (!hasValue) hasValue = dictionary.TryGetValue(key, out entry);
+            if (!hasValue) hasValue = fallback.TryGetValue(key, out entry);
             if (!hasValue) return null;
 
             // late replace
@@ -151,6 +153,7 @@ namespace Minerva.Localizations
             bool isPrimitive;
             bool hasValue = isPrimitive = Trie.TryGetValue(key.Section, out var entry);
             if (!hasValue) hasValue = dictionary.TryGetValue(key, out entry);
+            if (!hasValue) hasValue = fallback.TryGetValue(key, out entry);
             if (!hasValue) return null;
 
             // late replace
