@@ -8,14 +8,13 @@ using UnityEngine;
 namespace Minerva.Localizations
 {
     public delegate void OnTranslating(string key, ref string value);
-
     /// <summary>
     /// The Localization main class
     /// </summary>
     [Serializable]
     public class L10n
     {
-        public const string DEFAULT_REGION = "EN_US";
+        internal const string DEFAULT_REGION = "EN_US";
         public const int MAX_RECURSION = 30;
 
 
@@ -82,9 +81,6 @@ namespace Minerva.Localizations
 
         /// <summary>
         /// Load given type of language
-        /// <para>
-        /// If the given language is not found in manager, then <see cref="DEFAULT_REGION"/> would be used
-        /// </para>
         /// </summary>
         /// <param name="region"></param>
         /// <exception cref="NullReferenceException"></exception>
@@ -95,13 +91,12 @@ namespace Minerva.Localizations
             LanguageFile languageFile = manager.GetLanguageFile(region);
             wordSpace = languageFile.wordSpace;
             listDelimiter = languageFile.listDelimiter;
+
+            OnLocalizationLoaded?.Invoke();
         }
 
         /// <summary>
         /// Init and Load given type of language
-        /// <para>
-        /// If the given language is not found in manager, then <see cref="DEFAULT_REGION"/> would be used
-        /// </para>
         /// </summary>
         /// <param name="manager">The localization Data Manager</param>
         /// <param name="region">Region to set</param>
@@ -121,7 +116,11 @@ namespace Minerva.Localizations
         /// <summary>
         /// reload current localization
         /// </summary>
-        public static void Reload() => instance.Reload();
+        public static void Reload()
+        {
+            instance.Reload();
+            OnLocalizationLoaded?.Invoke();
+        }
 
         /// <summary>
         /// Set the custom l10n handler
@@ -172,7 +171,7 @@ namespace Minerva.Localizations
             {
                 return result;
             }
-            return ValidateValue(key, result, missingKeySolution);
+            return ValidateValue(key, result, solution ?? missingKeySolution);
         }
 
         /// <summary>
@@ -198,7 +197,7 @@ namespace Minerva.Localizations
             {
                 return result;
             }
-            return ValidateValue(key, result, missingKeySolution);
+            return ValidateValue(key, result, solution ?? missingKeySolution);
         }
 
         private static string ValidateValue(string key, string result, MissingKeySolution missingKeySolution)
@@ -206,6 +205,7 @@ namespace Minerva.Localizations
             if (string.IsNullOrEmpty(key) || result == null)
             {
                 Debug.LogWarning($"Key {key} does not appear in the localization file {Instance.Region}. The key will be added to localization manager if this happened in editor.");
+                OnKeyMissing?.Invoke(key);
                 return ResolveMissing(key, missingKeySolution);
             }
             if (disableEmptyEntries && string.IsNullOrEmpty(result))
@@ -251,40 +251,28 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public static bool Contains(string key)
-        {
-            return Instance?.Contains(key, false) == true;
-        }
+        public static bool Contains(string key) => Instance?.Contains(key, false) == true;
 
         /// <summary>
         /// Check whether given key is present in any localization file
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public static bool Exist(string key)
-        {
-            return Instance?.Contains(key, true) == true;
-        }
+        public static bool Exist(string key) => Instance?.Contains(key, true) == true;
 
         /// <summary>
         /// Check whether given key is present in current localization file (without fallback)
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public static bool Contains(Key key)
-        {
-            return Instance?.Contains(key, false) == true;
-        }
+        public static bool Contains(Key key) => Instance?.Contains(key, false) == true;
 
         /// <summary>
         /// Check whether given key is present in any localization file
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public static bool Exist(Key key)
-        {
-            return Instance?.Contains(key, true) == true;
-        }
+        public static bool Exist(Key key) => Instance?.Contains(key, true) == true;
 
 
 
@@ -294,30 +282,14 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
-        public static bool Write(string key, string value)
-        {
-            if (instance == null || !instance.IsLoaded)
-            {
-                return false;
-            }
-
-            return instance.Write(key, value);
-        }
+        public static bool Write(string key, string value) => instance != null && instance.IsLoaded && instance.Write(key, value);
 
         /// <summary>
         /// Override given key's entry to value, written value will be lost if localization reloaded
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
-        public static bool Write(Key key, string value)
-        {
-            if (instance == null || !instance.IsLoaded)
-            {
-                return false;
-            }
-
-            return instance.Write(key, value);
-        }
+        public static bool Write(Key key, string value) => instance != null && instance.IsLoaded && instance.Write(key, value);
 
 
 
