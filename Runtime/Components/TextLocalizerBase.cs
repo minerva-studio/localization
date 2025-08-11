@@ -104,6 +104,7 @@ namespace Minerva.Localizations.Components
         /// </summary>
         public void Load()
         {
+            if (!enabled) return;
             if (string.IsNullOrEmpty(key)) return;
             string text = context != null ? L10n.TrKey(key, context) : L10n.Tr(key);
             SetDisplayText(text);
