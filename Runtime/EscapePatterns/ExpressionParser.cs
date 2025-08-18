@@ -62,14 +62,14 @@ namespace Minerva.Localizations.EscapePatterns
             public Token GetNextToken()
             {
                 SkipWhitespace();
-
                 if (_position >= _input.Length)
                     return new Token(TokenType.End, ReadOnlyMemory<char>.Empty, _position);
 
                 char current = _input.Span[_position];
-
-                if (IsValidTokenInNumber(current))
+                // start of number: digit, '.', or a '-' followed by digit/'.'
+                if (IsNumer(current))
                     return NumberToken();
+
                 if (IsValidTokenInVariable(current))
                     return VariableToken();
                 if (current == '+')
@@ -90,6 +90,32 @@ namespace Minerva.Localizations.EscapePatterns
                 throw new Exception($"Unexpected character: {current}");
             }
 
+            private bool IsNumer(char current)
+            {
+                // plain number or "."
+                if (char.IsDigit(current) || current == '.') return true;
+
+                // possible signed literal: only treat '-' as part of number in *unary* contexts
+                if (current == '-')
+                {
+                    // lookahead: must be followed by a digit or '.'
+                    bool nextOk = _position + 1 < _input.Length &&
+                                  (char.IsDigit(_input.Span[_position + 1]) || _input.Span[_position + 1] == '.');
+                    if (!nextOk) return false;
+
+                    // lookbehind (skip spaces): start-of-input or after an operator or '('
+                    int i = _position - 1;
+                    while (i >= 0 && char.IsWhiteSpace(_input.Span[i])) i--;
+                    if (i < 0) return true; // beginning of expression
+
+                    char prev = _input.Span[i];
+                    return prev == '(' || prev == '+' || prev == '-' || prev == '*' || prev == '/' || prev == '^';
+                }
+
+                return false;
+            }
+
+
             private void SkipWhitespace()
             {
                 while (_position < _input.Length && char.IsWhiteSpace(_input.Span[_position]))
@@ -100,6 +126,16 @@ namespace Minerva.Localizations.EscapePatterns
             {
                 int start = _position;
                 bool hasDot = false;
+
+                // Optional leading sign support
+                if (_position < _input.Length && _input.Span[_position] == '-')
+                {
+                    // only treat '-' as a sign if followed by a digit or '.'
+                    if (_position + 1 < _input.Length && (char.IsDigit(_input.Span[_position + 1]) || _input.Span[_position + 1] == '.'))
+                        _position++;
+                    else
+                        throw new Exception($"Unexpected '-' at position {start}");
+                }
 
                 while (_position < _input.Length && (char.IsDigit(_input.Span[_position]) || _input.Span[_position] == '.'))
                 {
@@ -128,14 +164,6 @@ namespace Minerva.Localizations.EscapePatterns
                     throw new Exception($"Invalid variable format '{span}' at position {start}");
 
                 return new Token(TokenType.Variable, span, start);
-            }
-
-            private bool IsValidTokenInNumber(char c)
-            {
-                if (char.IsDigit(c)) return true;
-                if (c == '-') return true;
-                if (c == '.') return true;
-                return false;
             }
 
             private bool IsValidTokenInVariable(char c)
@@ -175,55 +203,47 @@ namespace Minerva.Localizations.EscapePatterns
                 _currentToken = _lexer.GetNextToken();
             }
 
-            // Parse the expression
             public Node ParseExpression()
             {
-                return ParseTerm();
+                return ParseBinaryExpression(1); // 最低优先级从 1 开始
             }
 
-            private Node ParseTerm()
+            private Node ParseBinaryExpression(int minPrecedence)
             {
-                Node node = ParseFactor();
+                Node left = ParseUnary();
 
-                while (_currentToken.Type == TokenType.Plus || _currentToken.Type == TokenType.Minus)
+                while (true)
                 {
-                    Token token = _currentToken;
+                    int prec = GetPrecedence(_currentToken.Type, out bool rightAssociative);
+                    if (prec < minPrecedence) break;
+
+                    Token op = _currentToken;
                     AdvanceToken();
-                    node = new BinaryOperationNode(node, token, ParseFactor());
-                    if (_currentToken.Type == TokenType.End) break;
+
+                    int nextMin = rightAssociative ? prec : prec + 1;
+                    Node right = ParseBinaryExpression(nextMin);
+
+                    left = new BinaryOperationNode(left, op, right);
                 }
 
-                return node;
+                return left;
             }
 
-            private Node ParseFactor()
+            private Node ParseUnary()
             {
-                Node node = ParseExponentiation();
-
-                while (_currentToken.Type == TokenType.Multiply || _currentToken.Type == TokenType.Divide)
+                if (_currentToken.Type == TokenType.Plus)
                 {
-                    Token token = _currentToken;
                     AdvanceToken();
-                    node = new BinaryOperationNode(node, token, ParseExponentiation());
-                    if (_currentToken.Type == TokenType.End) break;
+                    return ParseUnary();
                 }
-
-                return node;
-            }
-
-            private Node ParseExponentiation()
-            {
-                Node node = ParsePrimary();
-
-                while (_currentToken.Type == TokenType.Power)
+                if (_currentToken.Type == TokenType.Minus)
                 {
-                    Token token = _currentToken;
+                    Token minus = _currentToken;
                     AdvanceToken();
-                    node = new BinaryOperationNode(node, token, ParsePrimary());
-                    if (_currentToken.Type == TokenType.End) break;
+                    var negOne = new NumberNode(new Token(TokenType.Number, "-1".AsMemory(), minus.Position));
+                    return new BinaryOperationNode(negOne, new Token(TokenType.Multiply, "*".AsMemory(), minus.Position), ParseUnary());
                 }
-
-                return node;
+                return ParsePrimary();
             }
 
             private Node ParsePrimary()
@@ -256,6 +276,20 @@ namespace Minerva.Localizations.EscapePatterns
             private void AdvanceToken()
             {
                 _currentToken = _lexer.GetNextToken();
+            }
+
+            private static int GetPrecedence(TokenType t, out bool rightAssociative)
+            {
+                rightAssociative = false;
+                return t switch
+                {
+                    TokenType.Power => (rightAssociative = true, 4).Item2,
+                    TokenType.Multiply => 3,
+                    TokenType.Divide => 3,
+                    TokenType.Plus => 2,
+                    TokenType.Minus => 2,
+                    _ => 0,
+                };
             }
         }
 
@@ -329,7 +363,7 @@ namespace Minerva.Localizations.EscapePatterns
                         }
                     case TokenType.Minus:
                         {
-                            if (IsNumeric(a, out var fa) && IsNumeric(b, out var fb)) return fa + fb;
+                            if (IsNumeric(a, out var fa) && IsNumeric(b, out var fb)) return fa - fb;
                             break;
                         }
                     case TokenType.Multiply:
