@@ -8,7 +8,6 @@ using static Minerva.Module.Editor.EditorFieldDrawers;
 
 namespace Minerva.Localizations.Editor
 {
-
     public class LocalizationEditorWindow : EditorWindow
     {
         public enum EntryDrawMode

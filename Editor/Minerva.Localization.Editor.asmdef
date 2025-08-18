@@ -1,5 +1,5 @@
 {
-    "name": "Minerva-Localization-Editor",
+    "name": "Minerva.Localization.Editor",
     "rootNamespace": "",
     "references": [
         "GUID:c2de5b9fcdf9f934784c509d6fe63fd5",
