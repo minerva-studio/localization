@@ -15,7 +15,6 @@ namespace Minerva.Localizations.Components
         [Header("Key")]
         public string key;
         public ILocalizableContext context;
-        public L10nDataManager languageFileManager;
 
 
 
@@ -33,8 +32,13 @@ namespace Minerva.Localizations.Components
 #if UNITY_EDITOR
         private void OnDrawGizmos()
         {
+            var languageFileManager = LocalizationSettings.GetOrCreateSettings().manager;
             Color color;
             if (string.IsNullOrEmpty(key))
+            {
+                color = Color.red;
+            }
+            else if (!languageFileManager)
             {
                 color = Color.red;
             }

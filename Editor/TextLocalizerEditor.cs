@@ -1,6 +1,5 @@
 ﻿using Minerva.Localizations.Components;
 using Minerva.Module.Editor;
-using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -12,6 +11,7 @@ namespace Minerva.Localizations.Editor
     public class TextLocalizerEditor : UnityEditor.Editor
     {
         private bool entryFoldout = true;
+        public static L10nDataManager Manager => LocalizationSettings.GetOrCreateSettings().manager;
 
         public override void OnInspectorGUI()
         {
@@ -20,13 +20,12 @@ namespace Minerva.Localizations.Editor
 
             GUILayout.Space(10);
             TextLocalizerBase localizer = target as TextLocalizerBase;
-            L10nDataManager manager = localizer.languageFileManager;
             string key = localizer.key;
             Color currentContentColor = GUI.contentColor;
             SerializedObject obj = new SerializedObject(localizer);
             var property = obj.FindProperty("key");
 
-            if (manager == null)
+            if (Manager == null)
             {
                 using (GUIContentColor.By(Color.red))
                     GUILayout.Label(new GUIContent("Language File Manager not found"));
@@ -38,7 +37,7 @@ namespace Minerva.Localizations.Editor
                     using (GUIContentColor.By(Color.green))
                         GUILayout.Label(new GUIContent("The key is valid"));
                     if (entryFoldout = EditorGUILayout.Foldout(entryFoldout, "Entries"))
-                        foreach (var file in manager.files)
+                        foreach (var file in Manager.files)
                         {
                             EditorGUILayout.LabelField(file.Region.ToString(), file.Get(key));
                         }
@@ -48,12 +47,12 @@ namespace Minerva.Localizations.Editor
                     using (GUIContentColor.By(Color.yellow))
                         GUILayout.Label(new GUIContent("Current input key is in source, but the translation is not given yet"));
                     // none
-                    if (manager.files.All(f => !f.HasKey(key, true)))
+                    if (Manager.files.All(f => !f.HasKey(key, true)))
                     {
                     }
                     else if (entryFoldout = EditorGUILayout.Foldout(entryFoldout, "Entries"))
                     {
-                        foreach (var file in manager.files)
+                        foreach (var file in Manager.files)
                         {
                             if (file.TryGet(key, out var content))
                             {
@@ -75,11 +74,11 @@ namespace Minerva.Localizations.Editor
             }
 
 
-            if (manager != null)
+            if (Manager != null)
             {
                 GUILayout.Label("Possible Next Class");
                 //string currentFullKey = currentKey.Contains('.') ? currentKey[..currentKey.LastIndexOf('.')] : currentKey;
-                var possibleNextClass = manager.FindPossibleNextClass(key, true).ToArray();
+                var possibleNextClass = Manager.FindPossibleNextClass(key, true).ToArray();
                 foreach (var item in possibleNextClass)
                 {
                     if (string.IsNullOrEmpty(item)) continue;
@@ -101,11 +100,11 @@ namespace Minerva.Localizations.Editor
                     if (!HasValidkey(localizer) && GUILayout.Button("Add New Key", height))
                     {
                         var menu = new GenericMenu();
-                        foreach (var tag in manager.FileTags)
+                        foreach (var tag in Manager.FileTags)
                         {
                             GUIContent content = new GUIContent(tag);
-                            if (manager.GetLanguageFile(L10n.DEFAULT_REGION, tag) is LanguageFile file && !file.IsReadOnly)
-                                menu.AddItem(content, false, () => manager.AddKeyToFile(property.stringValue, tag));
+                            if (Manager.GetLanguageFile(L10n.DEFAULT_REGION, tag) is LanguageFile file && !file.IsReadOnly)
+                                menu.AddItem(content, false, () => Manager.AddKeyToFile(property.stringValue, tag));
                             else menu.AddDisabledItem(content, false);
 
                         }
@@ -142,12 +141,12 @@ namespace Minerva.Localizations.Editor
 
         private static bool HasValidkey(TextLocalizerBase textLocalizer)
         {
-            return textLocalizer.languageFileManager.HasKey(textLocalizer.key) && !string.IsNullOrEmpty(textLocalizer.key) && textLocalizer.languageFileManager.files.All(f => f.HasKey(textLocalizer.key, true));
+            return Manager && Manager.HasKey(textLocalizer.key) && !string.IsNullOrEmpty(textLocalizer.key) && Manager.files.All(f => f.HasKey(textLocalizer.key, true));
         }
 
         private static bool HasValidkeyInSource(TextLocalizerBase textLocalizer)
         {
-            return textLocalizer.languageFileManager.IsInSource(textLocalizer.key) && !string.IsNullOrEmpty(textLocalizer.key);
+            return Manager && Manager.IsInSource(textLocalizer.key) && !string.IsNullOrEmpty(textLocalizer.key);
         }
 
         private static void ClearKey(params TextLocalizerBase[] languageLoaders)
