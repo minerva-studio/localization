@@ -63,6 +63,11 @@ namespace Minerva.Localizations
 
 
 
+        /// <summary>
+        /// Init L10n
+        /// </summary>
+        /// <param name="manager"></param>
+        public static void Init() => Init(LocalizationSettings.GetOrCreateSettings().manager);
 
         /// <summary>
         /// Init L10n
