@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -64,9 +63,9 @@ namespace Minerva.Localizations
             {
                 return value.ToString();
             }
-            if (IsNumber(value))
+            if (TryFormatNumber(value, out var result, ""))
             {
-                return NumberToString(value, param);
+                return result;
             }
             // raw value, return value directly
             if (IsRawValue(value))
@@ -106,38 +105,6 @@ namespace Minerva.Localizations
             string fullName = value?.GetType().FullName;
             Debug.LogWarning("Unhandled object type in localization: " + fullName);
             return value?.ToString();
-        }
-
-        public static bool IsNumber(object value)
-        {
-            return value is int or float or double or decimal or long or short;
-        }
-
-        /// <summary>
-        /// use variable argument to format numbers to string
-        /// </summary>
-        /// <param name="numberLike"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>
-        public static string NumberToString(object numberLike, params string[] param)
-        {
-            var number = AsNumber(numberLike);
-            foreach (var item in param)
-            {
-                if (item.StartsWith("f_"))
-                {
-                    return number.ToString(item[2..]);
-                }
-            }
-            switch (numberLike)
-            {
-                case int:
-                case long:
-                case short:
-                    return numberLike.ToString();
-                default:
-                    return number.ToString("F1");
-            }
         }
 
         /// <summary>

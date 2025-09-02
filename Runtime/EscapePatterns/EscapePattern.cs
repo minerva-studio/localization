@@ -203,35 +203,18 @@ namespace Minerva.Localizations.EscapePatterns
                     Node ast = parser.ParseExpression();
                     var result = ast.Run(VariableParser);
 
-                    // float result uses format
-                    string format;
-                    try
-                    {
-                        if (m.Groups.Count > 3) format = m.Groups[3].Value;
-                        else format = "";
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogException(e);
-                        format = "";
-                    }
-                    if (IsNumeric(result))
-                    {
-                        return NumberToString(result, format);
-                    }
-                    else if (long.TryParse(result.ToString(), out long l))
-                    {
-                        return NumberToString(l, format);
-                    }
-                    else if (double.TryParse(result.ToString(), out double r))
-                    {
-                        return NumberToString(r, format);
-                    }
-                    else if (result is not string)
+                    // get :format
+                    string format = (m.Groups.Count > 3 && m.Groups[3].Success) ? m.Groups[3].Value : string.Empty;
+
+                    // if is number, parse number
+                    if (TryFormatNumber(result, out var str, format))
+                        return str;
+
+                    // string result could be key escape
+                    if (result is not string)
                     {
                         result = Localizable.Tr(result, depth + 1, param) ?? "null";
                     }
-                    // string result could be key escape
                     return ReplaceKeyEscape(result.ToString(), context, depth + 1, param);
                 }
                 catch (System.Exception e)
@@ -418,70 +401,68 @@ namespace Minerva.Localizations.EscapePatterns
             return value is string || value is decimal || value.GetType().IsPrimitive && value is not bool and not char and not IntPtr and not UIntPtr;
         }
 
-        public static bool IsNumeric(object value)
-        {
-            switch (value)
-            {
-                case int:
-                case long:
-                case float:
-                case double:
-                case short:
-                case decimal:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
         /// <summary>
-        /// use format section to format number to string
-        /// </summary>
-        /// <param name="numberLike"></param>
-        /// <param name="format"></param>
-        /// <returns></returns>
-        public static string NumberToString(object numberLike, string format)
-        {
-            var number = AsNumber(numberLike);
-            if (!string.IsNullOrEmpty(format))
-            {
-                return number.ToString(format);
-            }
-
-            return numberLike switch
-            {
-                int or long or short => numberLike.ToString(),
-                _ => number.ToString("F1"),
-            };
-        }
-
-        /// <summary>
-        /// try cast objec to number
+        /// Try parse the number to string format if value is representing a number
         /// </summary>
         /// <param name="value"></param>
+        /// <param name="result"></param>
+        /// <param name="format"></param>
         /// <returns></returns>
-        public static double AsNumber(object value)
+        public static bool TryFormatNumber(object value, out string result, string format)
         {
             switch (value)
             {
                 case byte b:
-                    return b;
-                case int i:
-                    return i;
-                case float f:
-                    return f;
-                case long l:
-                    return l;
+                    result = FormatNumeric(b, format);
+                    return true;
                 case short s:
-                    return s;
-                case decimal c:
-                    return (double)c;
+                    result = FormatNumeric(s, format);
+                    return true;
+                case int i:
+                    result = FormatNumeric(i, format);
+                    return true;
+                case long l:
+                    result = FormatNumeric(l, format);
+                    return true;
+                case float f:
+                    result = FormatNumeric(f, format);
+                    return true;
                 case double d:
-                    return d;
-                default:
-                    break;
+                    result = FormatNumeric(d, format);
+                    return true;
+                case decimal mmm:
+                    result = FormatNumeric(mmm, format);
+                    return true;
             }
-            return 0;
+
+            // result is not numeric but can be parse as numbers
+            if (long.TryParse(value?.ToString(), out var sl))
+            {
+                result = FormatNumeric(sl, format);
+                return true;
+            }
+            if (double.TryParse(value?.ToString(), out var sd))
+            {
+                result = FormatNumeric(sd, format);
+                return true;
+            }
+            result = null;
+            return false;
+        }
+
+        public static string FormatNumeric<T>(T v, string format)
+        {
+            if (string.IsNullOrEmpty(format))
+            {
+                return v switch
+                {
+                    int or uint or long or ulong or short or ushort => v.ToString(),
+                    _ when v is IFormattable f => f.ToString("F1", null),
+                    _ => Convert.ToDouble(v).ToString("F1")
+                };
+            }
+            // with formatter
+            return FormatHandlerRegistry.TryFormat(v, format);
         }
 
         /// <summary>

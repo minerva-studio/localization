@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using static Minerva.Localizations.EscapePatterns.EscapePattern;
-using static Minerva.Localizations.Localizable;
 
 namespace Minerva.Localizations
 {
@@ -263,6 +262,11 @@ namespace Minerva.Localizations
                 return value;
             }
             return Localizable.Tr(value, 0, param);
+
+            static bool IsNumber(object value)
+            {
+                return value is int or float or double or decimal or long or short;
+            }
         }
 
         /// <summary>
