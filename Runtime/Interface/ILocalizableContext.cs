@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Minerva.Localizations.Utilities;
+using System;
 
 namespace Minerva.Localizations
 {
