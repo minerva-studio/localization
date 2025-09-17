@@ -173,6 +173,7 @@ namespace Minerva.Localizations.EscapePatterns
                 {
                     case '<':
                     case '>':
+                    case ',': // variable parameter separator
                     case ':':
                     case '=':
                     case '.':
