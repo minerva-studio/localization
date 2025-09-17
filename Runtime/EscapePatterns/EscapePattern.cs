@@ -297,11 +297,11 @@ namespace Minerva.Localizations.EscapePatterns
 
 
 
-        public static bool LoopCheck(int depth, string context)
+        public static bool LoopCheck(int depth, in object context)
         {
             if (depth >= L10n.MAX_RECURSION)
             {
-                Debug.LogException(new StackOverflowException(context));
+                Debug.LogException(new StackOverflowException(context?.ToString()));
                 return false;
             }
             return true;

@@ -59,7 +59,7 @@ namespace Minerva.Localizations
             {
                 return string.Empty;
             }
-            if (!LoopCheck(depth, value.ToString()))
+            if (!LoopCheck(depth, value))
             {
                 return value.ToString();
             }
