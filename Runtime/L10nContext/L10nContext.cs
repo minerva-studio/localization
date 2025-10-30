@@ -152,6 +152,17 @@ namespace Minerva.Localizations
             return Localizable.TrRaw(rawContent, this, param);
         }
 
+        /// <summary>
+        /// Set the parameter of of the context (for extensions)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        public virtual bool SetParameter<T>(string name, T value)
+        {
+            return false;
+        }
+
 
 
         /// <summary>
