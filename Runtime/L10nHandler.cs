@@ -1,7 +1,7 @@
-﻿using Minerva.Localizations.EscapePatterns;
+using Minerva.Localizations.EscapePatterns;
 using Minerva.Module;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Minerva.Localizations

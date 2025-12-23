@@ -1,9 +1,7 @@
-﻿using UnityEditor.AssetImporters;
-using UnityEngine;
-using System.IO;
 using Minerva.Module;
-using UnityEditor;
-using System.Linq;
+using System.IO;
+using UnityEditor.AssetImporters;
+using UnityEngine;
 
 namespace Minerva.Localizations
 {

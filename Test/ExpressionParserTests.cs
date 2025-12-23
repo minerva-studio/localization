@@ -1,8 +1,8 @@
-﻿using System;
+using Minerva.Localizations.EscapePatterns;
+using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
-using NUnit.Framework;
-using Minerva.Localizations.EscapePatterns;
 
 namespace Minerva.Localizations.Tests
 {
