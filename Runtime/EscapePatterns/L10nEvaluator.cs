@@ -100,43 +100,110 @@ namespace Minerva.Localizations.EscapePatterns
         {
             try
             {
-                var expr = token.Content.ToString();
+                var exprSpan = token.Content.Span;
                 var format = token.Metadata.Length > 0 ? token.Metadata.ToString() : string.Empty;
 
+                // Fast path: check if it's a simple variable name (most common case)
+                // Simple variable: alphanumeric + underscore + dot only, no operators
+                if (IsSimpleVariableName(exprSpan))
+                {
+                    // Direct variable resolution without parser
+                    var r = VariableResolver(token.Content);
+                    AppendResult(r, format);
+                    return;
+                }
+
+                // Complex expression: use full parser
+                var expr = token.Content;
                 var parser = new Parser(expr);
                 var ast = parser.ParseExpression();
                 var result = ast.Run(VariableResolver);
 
-                if (EscapePattern.TryFormatNumber(result, out var formatted, format))
-                {
-                    output.Append(formatted);
-                    return;
-                }
-
-                if (result is string str)
-                {
-                    if (context.CanRecurse())
-                    {
-                        var nestedContext = context.IncreaseDepth();
-                        var nestedTokens = new L10nTokenizer(str).Tokenize();
-                        var resolved = new L10nEvaluator(nestedContext).Evaluate(nestedTokens);
-                        output.Append(resolved);
-                    }
-                    else
-                    {
-                        output.Append(str);
-                    }
-                }
-                else
-                {
-                    output.Append(result?.ToString() ?? "null");
-                }
+                AppendResult(result, format);
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
                 output.Append(token.Content.Span);
             }
+        }
+
+        private void AppendResult(object result, string format)
+        {
+            if (EscapePattern.TryFormatNumber(result, out var formatted, format))
+            {
+                output.Append(formatted);
+                return;
+            }
+
+            if (result is string str)
+            {
+                if (context.CanRecurse())
+                {
+                    var nestedContext = context.IncreaseDepth();
+                    var nestedTokens = new L10nTokenizer(str).Tokenize();
+                    var resolved = new L10nEvaluator(nestedContext).Evaluate(nestedTokens);
+                    output.Append(resolved);
+                }
+                else
+                {
+                    output.Append(str);
+                }
+            }
+            else
+            {
+                output.Append(result?.ToString() ?? "null");
+            }
+        }
+
+        /// <summary>
+        /// Check if expression is a simple variable name (fast path check)
+        /// Simple variable: letters, digits, underscore, dot, angle brackets for params
+        /// Examples: "name", "player.health", "damage<fire,level=2>"
+        /// </summary>
+        private static bool IsSimpleVariableName(ReadOnlySpan<char> expr)
+        {
+            if (expr.Length == 0)
+                return false;
+
+            bool inAngleBrackets = false;
+
+            for (int i = 0; i < expr.Length; i++)
+            {
+                char c = expr[i];
+
+                // Allowed: letters, digits, underscore, dot
+                if (char.IsLetterOrDigit(c) || c == '_' || c == '.')
+                    continue;
+
+                // Handle angle brackets for parameters: name<param1,param2>
+                if (c == '<')
+                {
+                    if (inAngleBrackets)
+                        return false; // Nested angle brackets not allowed
+                    inAngleBrackets = true;
+                    continue;
+                }
+
+                if (c == '>')
+                {
+                    if (!inAngleBrackets)
+                        return false; // Closing without opening
+                    inAngleBrackets = false;
+                    continue;
+                }
+
+                // Inside angle brackets, allow comma, equals, and whitespace
+                if (inAngleBrackets && (c == ',' || c == '=' || char.IsWhiteSpace(c)))
+                    continue;
+
+                // Any other character makes it a complex expression
+                // This includes: +, -, *, /, %, (, ), [, ], operators, etc.
+                return false;
+            }
+
+            // Must close all angle brackets
+            return !inAngleBrackets;
         }
 
         private void EvaluateColorTag(L10nToken token)

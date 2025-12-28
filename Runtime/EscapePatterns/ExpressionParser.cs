@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
@@ -57,6 +57,11 @@ namespace Minerva.Localizations.EscapePatterns
             public Lexer(string input)
             {
                 _input = input.AsMemory();
+            }
+
+            public Lexer(ReadOnlyMemory<char> input)
+            {
+                _input = input;
             }
 
             public Token GetNextToken()
@@ -199,6 +204,12 @@ namespace Minerva.Localizations.EscapePatterns
             private Token _currentToken;
 
             public Parser(string input)
+            {
+                _lexer = new Lexer(input);
+                _currentToken = _lexer.GetNextToken();
+            }
+
+            public Parser(ReadOnlyMemory<char> input)
             {
                 _lexer = new Lexer(input);
                 _currentToken = _lexer.GetNextToken();
