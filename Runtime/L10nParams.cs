@@ -123,6 +123,32 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
+        /// Returns a new instance of <see cref="L10nParams"/> with the specified options prepended to the current
+        /// options.
+        /// </summary>
+        /// <param name="additionalOptions">An array of option strings to prepend. The options are added in the order provided, before any existing
+        /// options. Cannot be null.</param>
+        /// <returns>A new <see cref="L10nParams"/> instance containing the prepended options followed by the existing options.</returns>
+        public L10nParams PrependOptions(params string[] additionalOptions)
+        {
+            if (additionalOptions == null || additionalOptions.Length == 0)
+                return this;
+
+            var filtered = additionalOptions.Where(o => !string.IsNullOrEmpty(o)).ToArray();
+            if (filtered.Length == 0)
+                return this;
+
+            if (options == null || options.Length == 0)
+                return new L10nParams(filtered, Depth, variables);
+
+            var combined = new string[filtered.Length + options.Length];
+            Array.Copy(filtered, 0, combined, 0, filtered.Length);
+            Array.Copy(options, 0, combined, filtered.Length, options.Length);
+            return new L10nParams(combined, Depth, variables);
+        }
+
+
+        /// <summary>
         /// Increase recursion depth (internal use)
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
