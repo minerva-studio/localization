@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -91,6 +91,7 @@ namespace Minerva.Localizations.Editor
             if (missingKeys.Contains(key)) return;
             if (string.IsNullOrEmpty(key)) return;
 
+            Debug.LogWarning($"Key {key} does not appear in the localization file {L10n.Instance.Region}. The key will be added to localization manager if this happened in editor.");
             missingKeys.Add(key);
         }
     }
