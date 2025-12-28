@@ -23,6 +23,7 @@ namespace Minerva.Localizations.EscapePatterns
         {
             if (s_tokenPool.TryTake(out var token))
             {
+                System.Threading.Interlocked.Decrement(ref s_tokenPoolCount);
                 return token;
             }
 
@@ -71,6 +72,7 @@ namespace Minerva.Localizations.EscapePatterns
         {
             if (s_tokenListPool.TryTake(out var list))
             {
+                System.Threading.Interlocked.Decrement(ref s_tokenListPoolCount);
                 return list;
             }
 
