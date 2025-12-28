@@ -1,5 +1,4 @@
 using Minerva.Localizations.EscapePatterns;
-using Minerva.Module;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,14 +21,14 @@ namespace Minerva.Localizations
         private Dictionary<string, TranslationEntry> dictionary;
         private Dictionary<string, TranslationEntry> fallback;
         // trie is for hierachy search
-        private Tries<TranslationEntry> trie;
+        private L10nTries<TranslationEntry> trie;
 
         public L10nDataManager Manager => manager;
         public bool IsLoaded => loaded;
         public string Region => region;
 
 
-        internal Tries<TranslationEntry> Trie { get => trie ??= new(dictionary); }
+        internal L10nTries<TranslationEntry> Trie { get => trie ??= new(dictionary); }
 
 
 
@@ -151,7 +150,7 @@ namespace Minerva.Localizations
             }
 
             bool isPrimitive;
-            bool hasValue = isPrimitive = Trie.TryGetValue(key.Section, out var entry);
+            bool hasValue = isPrimitive = Trie.TryGetValue(key, out var entry);
             if (!hasValue) hasValue = dictionary.TryGetValue(key, out entry);
             if (!hasValue) hasValue = fallback.TryGetValue(key, out entry);
             if (!hasValue) return null;
@@ -180,7 +179,7 @@ namespace Minerva.Localizations
 
         public bool Contains(Key key, bool fallback)
         {
-            return Trie.ContainsKey(key.Section) || (fallback && this.fallback.ContainsKey(key));
+            return Trie.ContainsKey(key) || (fallback && this.fallback.ContainsKey(key));
         }
 
 
@@ -207,7 +206,7 @@ namespace Minerva.Localizations
         public bool Write(Key key, string value)
         {
             dictionary[key] = value;
-            Trie[key.Section] = value;
+            Trie[key] = value;
             return true;
         }
 
@@ -247,7 +246,7 @@ namespace Minerva.Localizations
         {
             result = Array.Empty<string>();
             if (!loaded) { return false; }
-            if (!Trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
+            if (!Trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
                 result = subTrie.FirstLayerKeys.ToArray();
@@ -289,7 +288,7 @@ namespace Minerva.Localizations
         public bool CopyOptions(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
             if (!loaded) { return false; }
-            if (!Trie.TryGetSegment(partialKey.Section, out TriesSegment<TranslationEntry> subTrie))
+            if (!Trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
                 return false;
             if (firstLevelOnly)
                 strings.AddRange(subTrie.FirstLayerKeys);

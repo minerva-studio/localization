@@ -1,4 +1,4 @@
-﻿using Minerva.Module;
+using Minerva.Module;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -64,12 +64,12 @@ namespace Minerva.Localizations
         {
             StringBuilder stringBuilder = new StringBuilder();
             Tries<string> trie = new Tries<string>(keyValuePairs);
-            WriteLevel(new TriesSegment<string>(trie), 0, stringBuilder);
+            WriteLevel(new Module.TriesSegment<string>(trie), 0, stringBuilder);
 
             return stringBuilder.ToString();
         }
 
-        private static void WriteLevel(TriesSegment<string> trie, int indent = 0, StringBuilder stringBuilder = null)
+        private static void WriteLevel(Module.TriesSegment<string> trie, int indent = 0, StringBuilder stringBuilder = null)
         {
             var keys = trie.FirstLayerKeys.ToArray();
             Array.Sort(keys);
@@ -81,7 +81,7 @@ namespace Minerva.Localizations
                 if (trie.ContainsKey(key))
                 {
                     // something below
-                    if (trie.TryGetSegment(key, out TriesSegment<string> t) && t.Count > 1)
+                    if (trie.TryGetSegment(key, out Module.TriesSegment<string> t) && t.Count > 1)
                     {
                         stringBuilder.AppendLine();
                         stringBuilder.Append(' ', indent + 2);
@@ -94,7 +94,7 @@ namespace Minerva.Localizations
                 {
                     stringBuilder.AppendLine();
                 }
-                if (trie.TryGetSegment(key, out TriesSegment<string> subTrie))
+                if (trie.TryGetSegment(key, out Module.TriesSegment<string> subTrie))
                 {
                     WriteLevel(subTrie, indent + 2, stringBuilder);
                 }

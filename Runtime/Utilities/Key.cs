@@ -12,23 +12,45 @@ namespace Minerva.Localizations
     /// <summary>
     /// Localization key in construction
     /// </summary>
-    public readonly struct Key : IEnumerable<string>, IEquatable<Key>, IReadOnlyList<string>
+    public readonly struct Key : IEnumerable<string>, IEquatable<Key>, IReadOnlyList<string>, IReadOnlyList<ReadOnlyMemory<char>>
     {
         private readonly struct InlineSegments
         {
-            public const int MAX_INLINE_SEGMENTS = 4;
+            public const int MAX_INLINE_SEGMENTS = 8;
 
             private readonly ReadOnlyMemory<char> s0;
             private readonly ReadOnlyMemory<char> s1;
             private readonly ReadOnlyMemory<char> s2;
             private readonly ReadOnlyMemory<char> s3;
+            private readonly ReadOnlyMemory<char> s4;
+            private readonly ReadOnlyMemory<char> s5;
+            private readonly ReadOnlyMemory<char> s6;
+            private readonly ReadOnlyMemory<char> s7;
 
-            public InlineSegments(ReadOnlyMemory<char> s0, ReadOnlyMemory<char> s1, ReadOnlyMemory<char> s2, ReadOnlyMemory<char> s3)
+            public InlineSegments(
+                ReadOnlyMemory<char> s0,
+                ReadOnlyMemory<char> s1,
+                ReadOnlyMemory<char> s2,
+                ReadOnlyMemory<char> s3,
+                ReadOnlyMemory<char> s4,
+                ReadOnlyMemory<char> s5,
+                ReadOnlyMemory<char> s6,
+                ReadOnlyMemory<char> s7)
             {
                 this.s0 = s0;
                 this.s1 = s1;
                 this.s2 = s2;
                 this.s3 = s3;
+                this.s4 = s4;
+                this.s5 = s5;
+                this.s6 = s6;
+                this.s7 = s7;
+            }
+
+            public ReadOnlyMemory<char> this[int index]
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => Get(index);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,12 +62,14 @@ namespace Minerva.Localizations
                     1 => s1,
                     2 => s2,
                     3 => s3,
+                    4 => s4,
+                    5 => s5,
+                    6 => s6,
+                    7 => s7,
                     _ => default
                 };
             }
         }
-
-
 
         public static readonly Regex VALID_KEY_MEMBER = new(@"^[A-Za-z0-9_\-+]+$");
         public static readonly Regex VALID_KEY = new(@"(?:([A-Za-z0-9_-]+)\.?)+");
@@ -70,6 +94,7 @@ namespace Minerva.Localizations
         public bool IsEmpty => length == 0;
 
         int IReadOnlyCollection<string>.Count => length;
+        int IReadOnlyCollection<ReadOnlyMemory<char>>.Count => length;
 
         public string this[int index]
         {
@@ -78,6 +103,11 @@ namespace Minerva.Localizations
                 var span = GetSegmentSpan(index);
                 return new string(span);
             }
+        }
+        ReadOnlyMemory<char> IReadOnlyList<ReadOnlyMemory<char>>.this[int index]
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => GetSegmentMemory(index);
         }
 
         public ArraySegment<string> Section
@@ -115,7 +145,7 @@ namespace Minerva.Localizations
 
                 if (len <= InlineSegments.MAX_INLINE_SEGMENTS)
                 {
-                    ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
+                    ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
                     for (int i = 0; i < len; i++)
                     {
                         var mem = GetSegmentMemory(offset + i);
@@ -125,9 +155,13 @@ namespace Minerva.Localizations
                             case 1: m1 = mem; break;
                             case 2: m2 = mem; break;
                             case 3: m3 = mem; break;
+                            case 4: m4 = mem; break;
+                            case 5: m5 = mem; break;
+                            case 6: m6 = mem; break;
+                            case 7: m7 = mem; break;
                         }
                     }
-                    return new Key(m0, m1, m2, m3, len);
+                    return new Key(m0, m1, m2, m3, m4, m5, m6, m7, len);
                 }
                 else
                 {
@@ -142,6 +176,17 @@ namespace Minerva.Localizations
         }
 
         #region Constructor
+
+        public Key(ReadOnlySpan<char> keySpan)
+        {
+            if (keySpan.IsEmpty)
+            {
+                this = Empty;
+                return;
+            }
+
+            this = new Key(new string(keySpan));
+        }
 
         public Key(string key)
         {
@@ -164,7 +209,7 @@ namespace Minerva.Localizations
             {
                 storageMode = StorageMode.Inline;
 
-                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
+                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
 
                 int start = 0;
                 int segIndex = 0;
@@ -179,13 +224,17 @@ namespace Minerva.Localizations
                             case 1: m1 = mem; break;
                             case 2: m2 = mem; break;
                             case 3: m3 = mem; break;
+                            case 4: m4 = mem; break;
+                            case 5: m5 = mem; break;
+                            case 6: m6 = mem; break;
+                            case 7: m7 = mem; break;
                         }
                         segIndex++;
                         start = i + 1;
                     }
                 }
 
-                inlineSegments = new InlineSegments(m0, m1, m2, m3);
+                inlineSegments = new InlineSegments(m0, m1, m2, m3, m4, m5, m6, m7);
 
                 if (!ValidateSegmentsInline(this))
                     throw new ArgumentException($"'{key}' is not a valid member of a key");
@@ -230,7 +279,7 @@ namespace Minerva.Localizations
             {
                 storageMode = StorageMode.Inline;
 
-                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
+                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
 
                 for (int i = 0; i < length; i++)
                 {
@@ -241,10 +290,14 @@ namespace Minerva.Localizations
                         case 1: m1 = mem; break;
                         case 2: m2 = mem; break;
                         case 3: m3 = mem; break;
+                        case 4: m4 = mem; break;
+                        case 5: m5 = mem; break;
+                        case 6: m6 = mem; break;
+                        case 7: m7 = mem; break;
                     }
                 }
 
-                inlineSegments = new InlineSegments(m0, m1, m2, m3);
+                inlineSegments = new InlineSegments(m0, m1, m2, m3, m4, m5, m6, m7);
 
                 if (!ValidateSegmentsInline(this))
                     throw new ArgumentException(string.Join(KEY_SEPARATOR, path));
@@ -264,11 +317,6 @@ namespace Minerva.Localizations
                 if (!ValidateSegmentsMemory(this))
                     throw new ArgumentException(string.Join(KEY_SEPARATOR, path));
             }
-        }
-
-        public Key(Key baseKey, params string[] path)
-        {
-            this = Join(baseKey, path);
         }
 
         public Key(ReadOnlyMemory<char> keyMemory)
@@ -294,7 +342,7 @@ namespace Minerva.Localizations
             {
                 storageMode = StorageMode.Inline;
 
-                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
+                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
 
                 int start = 0;
                 int segIndex = 0;
@@ -309,13 +357,17 @@ namespace Minerva.Localizations
                             case 1: m1 = mem; break;
                             case 2: m2 = mem; break;
                             case 3: m3 = mem; break;
+                            case 4: m4 = mem; break;
+                            case 5: m5 = mem; break;
+                            case 6: m6 = mem; break;
+                            case 7: m7 = mem; break;
                         }
                         segIndex++;
                         start = i + 1;
                     }
                 }
 
-                inlineSegments = new InlineSegments(m0, m1, m2, m3);
+                inlineSegments = new InlineSegments(m0, m1, m2, m3, m4, m5, m6, m7);
 
                 if (!ValidateSegmentsInline(this))
                     throw new ArgumentException("Invalid key");
@@ -345,22 +397,20 @@ namespace Minerva.Localizations
             }
         }
 
-        public Key(ReadOnlySpan<char> keySpan)
-        {
-            if (keySpan.IsEmpty)
-            {
-                this = Empty;
-                return;
-            }
-
-            this = new Key(new string(keySpan));
-        }
-
-        private Key(ReadOnlyMemory<char> m0, ReadOnlyMemory<char> m1, ReadOnlyMemory<char> m2, ReadOnlyMemory<char> m3, int len)
+        private Key(
+            ReadOnlyMemory<char> m0,
+            ReadOnlyMemory<char> m1,
+            ReadOnlyMemory<char> m2,
+            ReadOnlyMemory<char> m3,
+            ReadOnlyMemory<char> m4,
+            ReadOnlyMemory<char> m5,
+            ReadOnlyMemory<char> m6,
+            ReadOnlyMemory<char> m7,
+            int len)
         {
             storageMode = len == 0 ? StorageMode.Empty : StorageMode.Inline;
             length = len;
-            inlineSegments = new InlineSegments(m0, m1, m2, m3);
+            inlineSegments = new InlineSegments(m0, m1, m2, m3, m4, m5, m6, m7);
             segmentMemories = null;
         }
 
@@ -386,6 +436,10 @@ namespace Minerva.Localizations
                 ReadOnlyMemory<char> m1 = inlineSegments.Get(1);
                 ReadOnlyMemory<char> m2 = inlineSegments.Get(2);
                 ReadOnlyMemory<char> m3 = inlineSegments.Get(3);
+                ReadOnlyMemory<char> m4 = inlineSegments.Get(4);
+                ReadOnlyMemory<char> m5 = inlineSegments.Get(5);
+                ReadOnlyMemory<char> m6 = inlineSegments.Get(6);
+                ReadOnlyMemory<char> m7 = inlineSegments.Get(7);
 
                 var mem = v.AsMemory();
                 switch (length)
@@ -394,9 +448,13 @@ namespace Minerva.Localizations
                     case 1: m1 = mem; break;
                     case 2: m2 = mem; break;
                     case 3: m3 = mem; break;
+                    case 4: m4 = mem; break;
+                    case 5: m5 = mem; break;
+                    case 6: m6 = mem; break;
+                    case 7: m7 = mem; break;
                 }
 
-                return new Key(m0, m1, m2, m3, newLen);
+                return new Key(m0, m1, m2, m3, m4, m5, m6, m7, newLen);
             }
 
             var segs = new ReadOnlyMemory<char>[newLen];
@@ -425,7 +483,15 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadOnlySpan<char> GetSegmentSpan(int index) => GetSegmentMemory(index).Span;
 
-        public IEnumerator<string> GetEnumerator()
+        public IEnumerator<ReadOnlyMemory<char>> GetEnumerator()
+        {
+            for (int i = 0; i < length; i++)
+            {
+                yield return GetSegmentMemory(i);
+            }
+        }
+
+        IEnumerator<string> IEnumerable<string>.GetEnumerator()
         {
             for (int i = 0; i < length; i++)
             {
@@ -434,11 +500,6 @@ namespace Minerva.Localizations
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-
-
-
-
 
         public override string ToString() => KeyStringCache.Shared.GetString(in this);
 
@@ -498,7 +559,7 @@ namespace Minerva.Localizations
 
             if (newLen <= InlineSegments.MAX_INLINE_SEGMENTS)
             {
-                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
+                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
                 for (int i = 0; i < newLen; i++)
                 {
                     var mem = key.GetSegmentMemory(i);
@@ -508,9 +569,13 @@ namespace Minerva.Localizations
                         case 1: m1 = mem; break;
                         case 2: m2 = mem; break;
                         case 3: m3 = mem; break;
+                        case 4: m4 = mem; break;
+                        case 5: m5 = mem; break;
+                        case 6: m6 = mem; break;
+                        case 7: m7 = mem; break;
                     }
                 }
-                return new Key(m0, m1, m2, m3, newLen);
+                return new Key(m0, m1, m2, m3, m4, m5, m6, m7, newLen);
             }
             else
             {
@@ -523,7 +588,6 @@ namespace Minerva.Localizations
             }
         }
 
-
         public static implicit operator string(Key key) => KeyStringCache.Shared.GetString(in key);
 
         public static implicit operator ArraySegment<string>(Key key) => key.Section;
@@ -531,9 +595,6 @@ namespace Minerva.Localizations
         public static explicit operator Key(string key) => new Key(key);
 
         public static explicit operator Key(ReadOnlyMemory<char> keyMemory) => new Key(keyMemory);
-
-
-
 
         #region Helper
 
@@ -565,10 +626,6 @@ namespace Minerva.Localizations
 
         #endregion
 
-
-
-
-
         public static string JoinString(params string[] s)
         {
             return KeyStringCache.Shared.GetString(new Key(s));
@@ -590,7 +647,7 @@ namespace Minerva.Localizations
             return KeyStringCache.Shared.GetString(new Key(combined));
         }
 
-        public static string JoinString(Key key, params string[] s2)
+        public static string JoinString(in Key key, params string[] s2)
         {
             if (s2 == null || s2.Length == 0)
             {
@@ -599,12 +656,7 @@ namespace Minerva.Localizations
             return KeyStringCache.Shared.GetString(key + new Key(s2));
         }
 
-
-
-
-
-
-        private static Key Join_Internal(Key a, Key b)
+        private static Key Join_Internal(in Key a, in Key b)
         {
             if (a.length == 0) return b;
             if (b.length == 0) return a;
@@ -613,7 +665,7 @@ namespace Minerva.Localizations
 
             if (newLen <= InlineSegments.MAX_INLINE_SEGMENTS)
             {
-                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
+                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
                 for (int i = 0; i < a.length; i++)
                 {
                     var mem = a.GetSegmentMemory(i);
@@ -623,6 +675,10 @@ namespace Minerva.Localizations
                         case 1: m1 = mem; break;
                         case 2: m2 = mem; break;
                         case 3: m3 = mem; break;
+                        case 4: m4 = mem; break;
+                        case 5: m5 = mem; break;
+                        case 6: m6 = mem; break;
+                        case 7: m7 = mem; break;
                     }
                 }
 
@@ -636,10 +692,14 @@ namespace Minerva.Localizations
                         case 1: m1 = mem; break;
                         case 2: m2 = mem; break;
                         case 3: m3 = mem; break;
+                        case 4: m4 = mem; break;
+                        case 5: m5 = mem; break;
+                        case 6: m6 = mem; break;
+                        case 7: m7 = mem; break;
                     }
                 }
 
-                return new Key(m0, m1, m2, m3, newLen);
+                return new Key(m0, m1, m2, m3, m4, m5, m6, m7, newLen);
             }
 
             var segs = new ReadOnlyMemory<char>[newLen];
@@ -654,9 +714,9 @@ namespace Minerva.Localizations
             return new Key(segs, newLen);
         }
 
-        public static Key Join(Key key1, Key key2) => Join_Internal(key1, key2);
+        public static Key Join(in Key key1, in Key key2) => Join_Internal(in key1, in key2);
 
-        public static Key Join(Key key, params string[] s2) => Join_Internal(key, new Key(s2));
+        public static Key Join(in Key key, params string[] s2) => Join_Internal(in key, new Key(s2));
 
         public static Key Join(params string[] s)
         {
@@ -725,9 +785,6 @@ namespace Minerva.Localizations
             return result;
         }
 
-
-
-
         #region KeyBuilder (per-thread, reusable)
 
         public sealed class KeyBuilder
@@ -736,7 +793,6 @@ namespace Minerva.Localizations
             private static readonly ThreadLocal<KeyBuilder> keyBuilder = new ThreadLocal<KeyBuilder>(static () => new KeyBuilder(KEY_BUILDER_DEFAULT_CAPACITY));
 
             public static KeyBuilder Builder => keyBuilder.Value;
-
 
             private ReadOnlyMemory<char>[] segments;
             private int count;
@@ -800,16 +856,24 @@ namespace Minerva.Localizations
                     ReadOnlyMemory<char> m1 = default;
                     ReadOnlyMemory<char> m2 = default;
                     ReadOnlyMemory<char> m3 = default;
+                    ReadOnlyMemory<char> m4 = default;
+                    ReadOnlyMemory<char> m5 = default;
+                    ReadOnlyMemory<char> m6 = default;
+                    ReadOnlyMemory<char> m7 = default;
 
                     switch (count)
                     {
+                        case 8: m7 = segments[7]; goto case 7;
+                        case 7: m6 = segments[6]; goto case 6;
+                        case 6: m5 = segments[5]; goto case 5;
+                        case 5: m4 = segments[4]; goto case 4;
                         case 4: m3 = segments[3]; goto case 3;
                         case 3: m2 = segments[2]; goto case 2;
                         case 2: m1 = segments[1]; goto case 1;
                         case 1: m0 = segments[0]; break;
                     }
 
-                    var key = new Key(m0, m1, m2, m3, count);
+                    var key = new Key(m0, m1, m2, m3, m4, m5, m6, m7, count);
                     if (validate && !ValidateSegmentsInline(key))
                     {
                         throw new ArgumentException("Invalid key");
