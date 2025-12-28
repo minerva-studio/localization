@@ -1,16 +1,21 @@
-using Minerva.Localizations.Utilities;
 using System;
+using System.Buffers;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Minerva.Localizations
 {
-    internal readonly struct TriesSegment<TValue>
+    public readonly struct TriesSegment<TValue>
     {
         private readonly L10nTriesNode<TValue> root;
 
         public bool HasValue => root != null;
         public int Count => root?.Count ?? 0;
+
+        public L10nTries<TValue>.FirstLayerKeyCollection FirstLayerKeys => root?.FirstLayerKeys ?? L10nTries<TValue>.FirstLayerKeyCollection.Empty;
+        public L10nTries<TValue>.KeyCollection Keys => new L10nTries<TValue>.KeyCollection(root);
 
         internal TriesSegment(L10nTriesNode<TValue> root)
         {
@@ -26,11 +31,11 @@ namespace Minerva.Localizations
                 return false;
             }
 
-            return root.TryGetValue(key, out value);
+            return root.TryGetValue(key.AsMemory(), out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetValue(ReadOnlySpan<char> key, out TValue value)
+        public bool TryGetValue(ReadOnlyMemory<char> key, out TValue value)
         {
             if (root == null)
             {
@@ -54,12 +59,27 @@ namespace Minerva.Localizations
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool ContainsKey(ReadOnlySpan<char> key) => TryGetValue(key, out _);
+        public bool ContainsKey(string key) => TryGetValue(key, out _);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool ContainsKey(ReadOnlyMemory<char> key) => TryGetValue(key, out _);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool ContainsKey<TKey>(in TKey key) where TKey : struct, IReadOnlyList<ReadOnlyMemory<char>> => TryGetValue(in key, out _);
 
-        public bool TryGetSegment(ReadOnlySpan<char> partialKey, out TriesSegment<TValue> segment)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetSegment(string partialKey, out TriesSegment<TValue> segment)
+        {
+            if (root == null)
+            {
+                segment = default;
+                return false;
+            }
+
+            return TryGetSegment(partialKey.AsMemory(), out segment);
+        }
+
+        public bool TryGetSegment(ReadOnlyMemory<char> partialKey, out TriesSegment<TValue> segment)
         {
             if (root == null)
             {
@@ -95,7 +115,18 @@ namespace Minerva.Localizations
             return true;
         }
 
-        public bool CopyFirstLayerKeys(ReadOnlySpan<char> partialKey, List<string> output)
+        public bool CopyFirstLayerKeys(string partialKey, List<string> output)
+        {
+            if (root == null)
+            {
+                output.Clear();
+                return false;
+            }
+
+            return CopyFirstLayerKeys(partialKey.AsMemory(), output);
+        }
+
+        public bool CopyFirstLayerKeys(ReadOnlyMemory<char> partialKey, List<string> output)
         {
             if (root == null)
             {
@@ -175,11 +206,13 @@ namespace Minerva.Localizations
             get => isTerminated;
         }
 
-        public void Clear()
+        public L10nTries<TValue>.FirstLayerKeyCollection FirstLayerKeys => new L10nTries<TValue>.FirstLayerKeyCollection(this);
+
+        internal void Clear()
         {
-            Children.Clear();
             isTerminated = false;
             value = default;
+            children?.Clear();
             count = 0;
         }
 
@@ -194,49 +227,157 @@ namespace Minerva.Localizations
                 return;
             }
 
-            var node = this;
-
             int segmentCount = 1;
             for (int i = 0; i < key.Length; i++)
             {
                 if (key[i] == '.') segmentCount++;
             }
 
-            Span<L10nTriesNode<TValue>> path = new L10nTriesNode<TValue>[segmentCount + 1];
+            int pathCapacity = segmentCount + 1;
+
+            var pool = ArrayPool<L10nTriesNode<TValue>>.Shared;
+            L10nTriesNode<TValue>[] path = pool.Rent(pathCapacity);
 
             int pathLen = 0;
-            path[pathLen++] = node;
 
-            int start = 0;
-            for (int i = 0; i <= key.Length; i++)
+            try
             {
-                if (i == key.Length || key[i] == '.')
+                var node = this;
+                path[pathLen++] = node;
+
+                int start = 0;
+                for (int i = 0; i <= key.Length; i++)
                 {
-                    var seg = key.AsMemory(start, i - start);
-
-                    if (!node.Children.TryGetValue(seg, out var child))
+                    if (i == key.Length || key[i] == '.')
                     {
-                        child = new L10nTriesNode<TValue>();
-                        node.Children.Add(seg, child);
+                        var seg = key.AsMemory(start, i - start);
+
+                        if (!node.Children.TryGetValue(seg, out var child))
+                        {
+                            child = new L10nTriesNode<TValue>();
+                            node.Children.Add(seg, child);
+                        }
+
+                        node = child;
+                        path[pathLen++] = node;
+
+                        start = i + 1;
                     }
+                }
 
-                    node = child;
-                    path[pathLen++] = node;
+                bool was = node.isTerminated;
+                node.value = value;
+                node.isTerminated = true;
 
-                    start = i + 1;
+                if (!was)
+                {
+                    for (int i = 0; i < pathLen; i++)
+                    {
+                        path[i].count++;
+                    }
                 }
             }
-
-            bool was = node.isTerminated;
-            node.value = value;
-            node.isTerminated = true;
-
-            if (!was)
+            finally
             {
-                for (int i = 0; i < pathLen; i++)
+                // 里面是 Node 引用，不需要 clearArray
+                pool.Return(path, clearArray: false);
+            }
+        }
+
+        public bool Remove(string key)
+        {
+            return Remove(key.AsMemory());
+        }
+
+        public bool Remove(ReadOnlyMemory<char> key)
+        {
+            if (key.IsEmpty)
+            {
+                if (!isTerminated) return false;
+
+                isTerminated = false;
+                value = default;
+                count--;
+                return true;
+            }
+
+            int segmentCount = 1;
+            var span = key.Span;
+            for (int i = 0; i < span.Length; i++)
+            {
+                if (span[i] == '.') segmentCount++;
+            }
+
+            int nodePathCapacity = segmentCount + 1;
+            int keyPathCapacity = segmentCount;
+
+            var nodePool = ArrayPool<L10nTriesNode<TValue>>.Shared;
+            var keyPool = ArrayPool<ReadOnlyMemory<char>>.Shared;
+
+            L10nTriesNode<TValue>[] nodePath = nodePool.Rent(nodePathCapacity);
+            ReadOnlyMemory<char>[] keyPath = keyPool.Rent(keyPathCapacity);
+
+            int nodeLen = 0;
+            int keyLen = 0;
+
+            try
+            {
+                var node = this;
+                nodePath[nodeLen++] = node;
+
+                int start = 0;
+                for (int i = 0; i <= span.Length; i++)
                 {
-                    path[i].count++;
+                    if (i == span.Length || span[i] == '.')
+                    {
+                        var seg = key.Slice(start, i - start);
+
+                        if (node.children == null || !node.children.TryGetValue(seg, out node))
+                        {
+                            return false;
+                        }
+
+                        keyPath[keyLen++] = seg;
+                        nodePath[nodeLen++] = node;
+
+                        start = i + 1;
+                    }
                 }
+
+                if (!node.isTerminated) return false;
+
+                node.isTerminated = false;
+                node.value = default;
+
+                for (int i = 0; i < nodeLen; i++)
+                {
+                    nodePath[i].count--;
+                }
+
+                for (int i = nodeLen - 1; i >= 1; i--)
+                {
+                    var current = nodePath[i];
+                    if (current.count > 0) break;
+
+                    if (current.children != null && current.children.Count > 0)
+                    {
+                        break;
+                    }
+
+                    var parent = nodePath[i - 1];
+                    if (parent.children == null) break;
+
+                    parent.children.Remove(keyPath[i - 1]);
+                }
+
+                return true;
+            }
+            finally
+            {
+                nodePool.Return(nodePath, clearArray: false);
+
+                // ReadOnlyMemory<char> 里会引用 string；清理避免 string 被池“挂住”
+                keyPool.Return(keyPath, clearArray: true);
             }
         }
 
@@ -253,31 +394,40 @@ namespace Minerva.Localizations
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool TryGetValue(string key, out TValue value)
-        {
-            if (string.IsNullOrEmpty(key))
-            {
-                return TryGetSelfValue(out value);
-            }
-
-            return TryGetValue(key.AsSpan(), out value);
-        }
-
-        internal bool TryGetValue(ReadOnlySpan<char> key, out TValue value)
+        internal bool TryGetValue(ReadOnlyMemory<char> key, out TValue value)
         {
             if (key.IsEmpty)
             {
                 return TryGetSelfValue(out value);
             }
 
-            if (!TryGetNode(key, out var node))
+            var node = this;
+            var span = key.Span;
+
+            int start = 0;
+            for (int i = 0; i <= span.Length; i++)
             {
-                value = default;
-                return false;
+                if (i == span.Length || span[i] == '.')
+                {
+                    var seg = key.Slice(start, i - start);
+
+                    if (node.children == null || !node.children.TryGetValue(seg, out node))
+                    {
+                        value = default;
+                        return false;
+                    }
+
+                    start = i + 1;
+                }
             }
 
             return node.TryGetSelfValue(out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool TryGetValue(string key, out TValue value)
+        {
+            return TryGetValue(key.AsMemory(), out value);
         }
 
         internal bool TryGetValue<TKey>(in TKey key, out TValue value) where TKey : struct, IReadOnlyList<ReadOnlyMemory<char>>
@@ -287,16 +437,22 @@ namespace Minerva.Localizations
                 return TryGetSelfValue(out value);
             }
 
-            if (!TryGetNode(in key, out var node))
+            var node = this;
+
+            for (int i = 0; i < key.Count; i++)
             {
-                value = default;
-                return false;
+                var seg = key[i];
+                if (node.children == null || !node.children.TryGetValue(seg, out node))
+                {
+                    value = default;
+                    return false;
+                }
             }
 
             return node.TryGetSelfValue(out value);
         }
 
-        internal bool TryGetSegment(ReadOnlySpan<char> partialKey, out L10nTriesNode<TValue> segmentRoot)
+        internal bool TryGetSegment(ReadOnlyMemory<char> partialKey, out L10nTriesNode<TValue> segmentRoot)
         {
             if (partialKey.IsEmpty)
             {
@@ -304,7 +460,28 @@ namespace Minerva.Localizations
                 return true;
             }
 
-            return TryGetNode(partialKey, out segmentRoot);
+            var node = this;
+            var span = partialKey.Span;
+
+            int start = 0;
+            for (int i = 0; i <= span.Length; i++)
+            {
+                if (i == span.Length || span[i] == '.')
+                {
+                    var seg = partialKey.Slice(start, i - start);
+
+                    if (node.children == null || !node.children.TryGetValue(seg, out node))
+                    {
+                        segmentRoot = null;
+                        return false;
+                    }
+
+                    start = i + 1;
+                }
+            }
+
+            segmentRoot = node;
+            return true;
         }
 
         internal bool TryGetSegment<TKey>(in TKey partialKey, out L10nTriesNode<TValue> segmentRoot) where TKey : struct, IReadOnlyList<ReadOnlyMemory<char>>
@@ -315,19 +492,32 @@ namespace Minerva.Localizations
                 return true;
             }
 
-            return TryGetNode(in partialKey, out segmentRoot);
+            var node = this;
+
+            for (int i = 0; i < partialKey.Count; i++)
+            {
+                var seg = partialKey[i];
+                if (node.children == null || !node.children.TryGetValue(seg, out node))
+                {
+                    segmentRoot = null;
+                    return false;
+                }
+            }
+
+            segmentRoot = node;
+            return true;
         }
 
         internal bool CopyFirstLayerKeys(List<string> output)
         {
             output.Clear();
 
-            if (Children == null || Children.Count == 0)
+            if (children == null || children.Count == 0)
             {
                 return true;
             }
 
-            foreach (var kv in Children)
+            foreach (var kv in children)
             {
                 output.Add(kv.Key.ToString());
             }
@@ -335,68 +525,218 @@ namespace Minerva.Localizations
             return true;
         }
 
-        private bool TryGetNode(ReadOnlySpan<char> key, out L10nTriesNode<TValue> node)
+        internal void TraverseCopyKey(StringBuilder builder, char separator, IList<string> array, ref int index)
         {
-            node = this;
-            var cursor = new L10nKeyCursor(key);
-
-            while (cursor.TryNext(out var seg))
+            if (isTerminated)
             {
-                if (!node.TryGetChild(seg, out node))
-                {
-                    node = null;
-                    return false;
-                }
+                array[index++] = builder.ToString();
+                if (count <= 1) return;
             }
 
-            return true;
-        }
+            if (children == null || children.Count == 0) return;
 
-        private bool TryGetNode<TKey>(in TKey key, out L10nTriesNode<TValue> node) where TKey : struct, IReadOnlyList<ReadOnlyMemory<char>>
-        {
-            node = this;
+            int baseLen = builder.Length;
+            if (baseLen > 0) builder.Append(separator);
 
-            for (int i = 0; i < key.Count; i++)
+            foreach (var kv in children)
             {
-                var seg = key[i].Span;
-                if (!node.TryGetChild(seg, out node))
-                {
-                    node = null;
-                    return false;
-                }
+                int before = builder.Length;
+                builder.Append(kv.Key.Span);
+                kv.Value.TraverseCopyKey(builder, separator, array, ref index);
+                builder.Length = before;
             }
 
-            return true;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool TryGetChild(ReadOnlySpan<char> seg, out L10nTriesNode<TValue> child)
-        {
-            if (Children.Count == 0)
-            {
-                child = null;
-                return false;
-            }
-
-            foreach (var kv in Children)
-            {
-                if (kv.Key.Span.SequenceEqual(seg))
-                {
-                    child = kv.Value;
-                    return true;
-                }
-            }
-
-            child = null;
-            return false;
+            builder.Length = baseLen;
         }
     }
 
-    internal sealed class L10nTries<TValue>
+    public sealed class L10nTries<TValue> : IDictionary<string, TValue>
     {
+        public readonly struct FirstLayerKeyCollection : ICollection<string>, IEnumerable<string>, IEnumerable, IReadOnlyCollection<string>
+        {
+            private readonly Dictionary<ReadOnlyMemory<char>, L10nTriesNode<TValue>>.KeyCollection collection;
+
+            public static FirstLayerKeyCollection Empty { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => new FirstLayerKeyCollection(); }
+
+            public int Count => collection?.Count ?? 0;
+            public bool IsReadOnly => true;
+
+            internal FirstLayerKeyCollection(L10nTriesNode<TValue> node)
+            {
+                collection = node.Children.Keys;
+            }
+
+            public bool Contains(string item)
+            {
+                if (collection == null) return false;
+                return ((ICollection<ReadOnlyMemory<char>>)collection).Contains(item.AsMemory());
+            }
+
+            public void CopyTo(string[] array, int arrayIndex)
+            {
+                if (collection == null) return;
+                foreach (var mem in collection)
+                {
+                    array[arrayIndex++] = mem.ToString();
+                }
+            }
+
+            public IEnumerator<string> GetEnumerator()
+            {
+                if (collection == null) yield break;
+                foreach (var mem in collection)
+                {
+                    yield return mem.ToString();
+                }
+            }
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            void ICollection<string>.Add(string item) => throw new NotSupportedException();
+            void ICollection<string>.Clear() => throw new NotSupportedException();
+            bool ICollection<string>.Remove(string item) => throw new NotSupportedException();
+
+            public string[] ToArray()
+            {
+                if (collection == null) return Array.Empty<string>();
+                var arr = new string[collection.Count];
+                CopyTo(arr, 0);
+                return arr;
+            }
+        }
+
+        public readonly struct KeyCollection : ICollection<string>, IEnumerable<string>, IEnumerable, IReadOnlyCollection<string>
+        {
+            private readonly L10nTriesNode<TValue> root;
+            private readonly char separator;
+
+            public int Count => root?.Count ?? 0;
+            public bool IsReadOnly => true;
+
+            internal KeyCollection(L10nTriesNode<TValue> root, char separator = '.')
+            {
+                this.root = root;
+                this.separator = separator;
+            }
+
+            public bool Contains(string item)
+            {
+                if (root == null) return false;
+                return root.TryGetValue(item, out _);
+            }
+
+            public void CopyTo(string[] array, int arrayIndex)
+            {
+                if (root == null) return;
+
+                int idx = arrayIndex;
+                root.TraverseCopyKey(new StringBuilder(), separator, array, ref idx);
+            }
+
+            public IEnumerator<string> GetEnumerator()
+            {
+                if (root == null) yield break;
+
+                var list = new string[Count];
+                CopyTo(list, 0);
+                for (int i = 0; i < list.Length; i++)
+                {
+                    yield return list[i];
+                }
+            }
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            void ICollection<string>.Add(string item) => throw new NotSupportedException();
+            void ICollection<string>.Clear() => throw new NotSupportedException();
+            bool ICollection<string>.Remove(string item) => throw new NotSupportedException();
+
+            public string[] ToArray()
+            {
+                if (root == null) return Array.Empty<string>();
+                var arr = new string[Count];
+                CopyTo(arr, 0);
+                return arr;
+            }
+        }
+
+        public readonly struct ValueCollection : ICollection<TValue>, IEnumerable<TValue>, IEnumerable, IReadOnlyCollection<TValue>
+        {
+            private readonly L10nTries<TValue> owner;
+
+            public int Count => owner?.Count ?? 0;
+            public bool IsReadOnly => true;
+
+            internal ValueCollection(L10nTries<TValue> owner)
+            {
+                this.owner = owner;
+            }
+
+            public bool Contains(TValue item)
+            {
+                if (owner == null) return false;
+
+                foreach (var kv in (IEnumerable<KeyValuePair<string, TValue>>)owner)
+                {
+                    if (EqualityComparer<TValue>.Default.Equals(kv.Value, item))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            public void CopyTo(TValue[] array, int arrayIndex)
+            {
+                if (array == null) throw new ArgumentNullException(nameof(array));
+                if (owner == null) return;
+                if ((uint)arrayIndex > (uint)array.Length) throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+                if (array.Length - arrayIndex < Count) throw new ArgumentException("Insufficient array length.");
+
+                int i = arrayIndex;
+                foreach (var kv in (IEnumerable<KeyValuePair<string, TValue>>)owner)
+                {
+                    array[i++] = kv.Value;
+                }
+            }
+
+            public IEnumerator<TValue> GetEnumerator()
+            {
+                if (owner == null) yield break;
+
+                foreach (var kv in (IEnumerable<KeyValuePair<string, TValue>>)owner)
+                {
+                    yield return kv.Value;
+                }
+            }
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            void ICollection<TValue>.Add(TValue item) => throw new NotSupportedException();
+            void ICollection<TValue>.Clear() => throw new NotSupportedException();
+            bool ICollection<TValue>.Remove(TValue item) => throw new NotSupportedException();
+        }
+
         private readonly L10nTriesNode<TValue> root = new L10nTriesNode<TValue>();
 
+        public L10nTries() { }
+
+        public L10nTries(IDictionary<string, TValue> dictionary)
+        {
+            foreach (var kv in dictionary)
+            {
+                Set(kv.Key, kv.Value);
+            }
+        }
+
         public int Count => root.Count;
+
+        public FirstLayerKeyCollection FirstLayerKeys => root.FirstLayerKeys;
+
+        public KeyCollection Keys => new KeyCollection(root);
+
+        public ValueCollection Values => new ValueCollection(this);
 
         public TriesSegment<TValue> RootSegment => new TriesSegment<TValue>(root);
 
@@ -404,7 +744,7 @@ namespace Minerva.Localizations
         {
             get
             {
-                if (!root.TryGetValue(key, out var value))
+                if (!root.TryGetValue(key.AsMemory(), out var value))
                 {
                     throw new KeyNotFoundException($"Key '{key}' not found in L10nTries.");
                 }
@@ -417,22 +757,42 @@ namespace Minerva.Localizations
 
         public void Set(string key, TValue value) => root.Set(key, value);
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetValue(string key, out TValue value) => root.TryGetValue(key, out value);
+        public void Add(string key, TValue value)
+        {
+            if (root.TryGetValue(key.AsMemory(), out _))
+            {
+                throw new ArgumentException($"An item with the same key has already been added. Key: {key}", nameof(key));
+            }
+
+            Set(key, value);
+        }
+
+        public bool Remove(string key) => root.Remove(key.AsMemory());
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetValue(ReadOnlySpan<char> key, out TValue value) => root.TryGetValue(key, out value);
+        public bool TryGetValue(string key, out TValue value) => root.TryGetValue(key.AsMemory(), out value);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetValue(ReadOnlyMemory<char> key, out TValue value) => root.TryGetValue(key, out value);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetValue<TKey>(in TKey key, out TValue value) where TKey : struct, IReadOnlyList<ReadOnlyMemory<char>> => root.TryGetValue(in key, out value);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool ContainsKey(ReadOnlySpan<char> key) => root.TryGetValue(key, out _);
+        public bool ContainsKey(string key) => root.TryGetValue(key.AsMemory(), out _);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool ContainsKey(ReadOnlyMemory<char> key) => root.TryGetValue(key, out _);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool ContainsKey<TKey>(in TKey key) where TKey : struct, IReadOnlyList<ReadOnlyMemory<char>> => root.TryGetValue(in key, out _);
 
-        public bool TryGetSegment(ReadOnlySpan<char> partialKey, out TriesSegment<TValue> segment)
+        public bool TryGetSegment(string partialKey, out TriesSegment<TValue> segment)
+        {
+            return TryGetSegment(partialKey.AsMemory(), out segment);
+        }
+
+        public bool TryGetSegment(ReadOnlyMemory<char> partialKey, out TriesSegment<TValue> segment)
         {
             if (!root.TryGetSegment(partialKey, out var segmentRoot))
             {
@@ -456,7 +816,12 @@ namespace Minerva.Localizations
             return true;
         }
 
-        public bool CopyFirstLayerKeys(ReadOnlySpan<char> partialKey, List<string> output)
+        public bool CopyFirstLayerKeys(string partialKey, List<string> output)
+        {
+            return CopyFirstLayerKeys(partialKey.AsMemory(), output);
+        }
+
+        public bool CopyFirstLayerKeys(ReadOnlyMemory<char> partialKey, List<string> output)
         {
             if (!root.TryGetSegment(partialKey, out var segRoot))
             {
@@ -477,5 +842,78 @@ namespace Minerva.Localizations
 
             return segRoot.CopyFirstLayerKeys(output);
         }
+
+        #region IDictionary<string, TValue> explicit implementation
+
+        bool ICollection<KeyValuePair<string, TValue>>.IsReadOnly => false;
+
+        ICollection<string> IDictionary<string, TValue>.Keys => Keys;
+
+        ICollection<TValue> IDictionary<string, TValue>.Values => Values;
+
+        int ICollection<KeyValuePair<string, TValue>>.Count => Count;
+
+        TValue IDictionary<string, TValue>.this[string key]
+        {
+            get => this[key];
+            set => this[key] = value;
+        }
+
+        void IDictionary<string, TValue>.Add(string key, TValue value) => Add(key, value);
+
+        bool IDictionary<string, TValue>.ContainsKey(string key) => root.TryGetValue(key.AsMemory(), out _);
+
+        bool IDictionary<string, TValue>.Remove(string key) => Remove(key);
+
+        bool IDictionary<string, TValue>.TryGetValue(string key, out TValue value) => TryGetValue(key, out value);
+
+        void ICollection<KeyValuePair<string, TValue>>.Add(KeyValuePair<string, TValue> item) => Add(item.Key, item.Value);
+
+        void ICollection<KeyValuePair<string, TValue>>.Clear() => Clear();
+
+        bool ICollection<KeyValuePair<string, TValue>>.Contains(KeyValuePair<string, TValue> item)
+        {
+            return root.TryGetValue(item.Key.AsMemory(), out var value) && EqualityComparer<TValue>.Default.Equals(value, item.Value);
+        }
+
+        void ICollection<KeyValuePair<string, TValue>>.CopyTo(KeyValuePair<string, TValue>[] array, int arrayIndex)
+        {
+            if (array == null) throw new ArgumentNullException(nameof(array));
+            if ((uint)arrayIndex > (uint)array.Length) throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+            if (array.Length - arrayIndex < Count) throw new ArgumentException("Insufficient array length.");
+
+            int i = arrayIndex;
+            foreach (var kv in (IEnumerable<KeyValuePair<string, TValue>>)this)
+            {
+                array[i++] = kv;
+            }
+        }
+
+        bool ICollection<KeyValuePair<string, TValue>>.Remove(KeyValuePair<string, TValue> item)
+        {
+            if (!((ICollection<KeyValuePair<string, TValue>>)this).Contains(item))
+            {
+                return false;
+            }
+
+            return Remove(item.Key);
+        }
+
+        IEnumerator<KeyValuePair<string, TValue>> IEnumerable<KeyValuePair<string, TValue>>.GetEnumerator()
+        {
+            var keys = Keys.ToArray();
+            for (int i = 0; i < keys.Length; i++)
+            {
+                string key = keys[i];
+                if (root.TryGetValue(key.AsMemory(), out var value))
+                {
+                    yield return new KeyValuePair<string, TValue>(key, value);
+                }
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<KeyValuePair<string, TValue>>)this).GetEnumerator();
+
+        #endregion
     }
 }
