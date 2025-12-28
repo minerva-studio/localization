@@ -22,7 +22,6 @@ namespace Minerva.Localizations.EscapePatterns
         public TokenType Type { get; set; }
         public ReadOnlyMemory<char> Content { get; set; }
         public ReadOnlyMemory<char> Metadata { get; set; }
-        public ReadOnlyMemory<char> Parameters { get; set; }
         public bool IsTooltip { get; set; }
 
         /// <summary>
@@ -33,8 +32,7 @@ namespace Minerva.Localizations.EscapePatterns
         public override string ToString()
         {
             var childInfo = Children != null ? $" ({Children.Count} children)" : "";
-            var paramInfo = Parameters.Length > 0 ? $" <{Parameters}>" : "";
-            return $"{Type}: {Content}{paramInfo}{childInfo}";
+            return $"{Type}: {Content}{childInfo}";
         }
     }
 }

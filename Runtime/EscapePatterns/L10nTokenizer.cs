@@ -128,7 +128,6 @@ namespace Minerva.Localizations.EscapePatterns
             int depth = 1;
             int contentStart = position;
             int formatStart = -1;
-            int paramStart = -1;  // ✅ 新增：参数列表开始位置
 
             while (!IsAtEnd() && depth > 0)
             {
@@ -149,13 +148,9 @@ namespace Minerva.Localizations.EscapePatterns
                     depth--;
                     if (depth == 0) break;
                 }
-                else if (c == ':' && depth == 1 && formatStart == -1 && paramStart == -1)
+                else if (c == ':' && depth == 1 && formatStart == -1)
                 {
                     formatStart = position;
-                }
-                else if (c == '<' && depth == 1 && paramStart == -1)  // ✅ 新增：参数列表标记
-                {
-                    paramStart = position;
                 }
 
                 position++;
@@ -168,65 +163,24 @@ namespace Minerva.Localizations.EscapePatterns
                 return false;
             }
 
-            ReadOnlyMemory<char> varName;
+            ReadOnlyMemory<char> content;
             ReadOnlyMemory<char> format = default;
-            ReadOnlyMemory<char> parameters = default;  // ✅ 新增：参数列表
 
-            // ✅ 解析 {varName<params>:format} 或 {varName:format} 或 {varName<params>}
-            if (paramStart > 0)
+            if (formatStart > 0)
             {
-                // 有参数列表
-                varName = source.AsMemory(contentStart, paramStart - contentStart);
-
-                // 查找参数列表结束 >
-                int paramEnd = position - 1;  // 默认到 }
-                if (formatStart > paramStart)
-                {
-                    // 有 format，参数列表在 < 和 : 之间
-                    // 需要找到 >
-                    for (int i = paramStart + 1; i < formatStart; i++)
-                    {
-                        if (source[i] == '>')
-                        {
-                            paramEnd = i;
-                            break;
-                        }
-                    }
-                    parameters = source.AsMemory(paramStart + 1, paramEnd - paramStart - 1);
-                    format = source.AsMemory(formatStart + 1, position - formatStart - 2);
-                }
-                else
-                {
-                    // 只有参数列表，需要找到 >
-                    for (int i = paramStart + 1; i < position - 1; i++)
-                    {
-                        if (source[i] == '>')
-                        {
-                            paramEnd = i;
-                            break;
-                        }
-                    }
-                    parameters = source.AsMemory(paramStart + 1, paramEnd - paramStart - 1);
-                }
-            }
-            else if (formatStart > 0)
-            {
-                // 只有 format
-                varName = source.AsMemory(contentStart, formatStart - contentStart);
+                content = source.AsMemory(contentStart, formatStart - contentStart);
                 format = source.AsMemory(formatStart + 1, position - formatStart - 2);
             }
             else
             {
-                // 什么都没有
-                varName = source.AsMemory(contentStart, position - contentStart - 1);
+                content = source.AsMemory(contentStart, position - contentStart - 1);
             }
 
             token = new L10nToken
             {
                 Type = TokenType.DynamicValue,
-                Content = varName,
-                Metadata = format,
-                Parameters = parameters
+                Content = content,
+                Metadata = format
             };
             return true;
         }

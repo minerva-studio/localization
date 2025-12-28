@@ -21,7 +21,7 @@ namespace Minerva.Localizations.Editor
         public static void ShowWindow()
         {
             var window = GetWindow<L10nTokenizerDebugger>("L10n Tokenizer Debugger");
-            window.minSize = new Vector2(900, 500);  // ✅ 增加宽度以容纳新列
+            window.minSize = new Vector2(800, 500);
         }
 
         private void OnEnable()
@@ -58,24 +58,16 @@ namespace Minerva.Localizations.Editor
                 new MultiColumnHeaderState.Column
                 {
                     headerContent = new GUIContent("Content", "Token Content"),
-                    width = 250,
+                    width = 300,
                     minWidth = 150,
                     autoResize = true,
                     allowToggleVisibility = false
                 },
                 new MultiColumnHeaderState.Column
                 {
-                    headerContent = new GUIContent("Parameters", "Variable Parameters"),  // ✅ 新增列
-                    width = 120,
-                    minWidth = 80,
-                    autoResize = true,
-                    allowToggleVisibility = true
-                },
-                new MultiColumnHeaderState.Column
-                {
-                    headerContent = new GUIContent("Metadata", "Format/Color Code"),
-                    width = 100,
-                    minWidth = 80,
+                    headerContent = new GUIContent("Metadata", "Additional Information"),
+                    width = 150,
+                    minWidth = 100,
                     autoResize = true,
                     allowToggleVisibility = true
                 },
@@ -131,6 +123,7 @@ namespace Minerva.Localizations.Editor
 
                 GUILayout.FlexibleSpace();
 
+                // Search field
                 treeView.searchString = searchField.OnToolbarGUI(treeView.searchString);
             }
         }
@@ -203,9 +196,9 @@ namespace Minerva.Localizations.Editor
                     inputText = "Use \\$ to escape \\{test\\}";
                     ParseInput();
                 }
-                if (GUILayout.Button("With Parameters", GUILayout.Height(30)))  // ✅ 新测试按钮
+                if (GUILayout.Button("Complex", GUILayout.Height(30)))
                 {
-                    inputText = "{list<param1,param2>} and {damage<min,max>:F1}";
+                    inputText = "deal §#FF0000{damage:f1}§ §G{element}§ damage";
                     ParseInput();
                 }
             }
@@ -235,6 +228,9 @@ namespace Minerva.Localizations.Editor
         }
     }
 
+    /// <summary>
+    /// Multi-column TreeView for displaying L10n tokens
+    /// </summary>
     internal class L10nTokenTreeView : TreeView
     {
         private List<L10nToken> tokens;
@@ -244,7 +240,6 @@ namespace Minerva.Localizations.Editor
         {
             Type,
             Content,
-            Parameters,  // ✅ 新增列 ID
             Metadata,
             Flags
         }
@@ -308,6 +303,8 @@ namespace Minerva.Localizations.Editor
                 return;
             }
 
+            var token = item.Token;
+
             for (int i = 0; i < args.GetNumVisibleColumns(); i++)
             {
                 CellGUI(args.GetCellRect(i), item, args.GetColumn(i), ref args);
@@ -330,10 +327,6 @@ namespace Minerva.Localizations.Editor
                     DrawContentCell(cellRect, token);
                     break;
 
-                case ColumnId.Parameters:  // ✅ 新增列渲染
-                    DrawParametersCell(cellRect, token);
-                    break;
-
                 case ColumnId.Metadata:
                     DrawMetadataCell(cellRect, token);
                     break;
@@ -346,6 +339,7 @@ namespace Minerva.Localizations.Editor
 
         private void DrawTypeCell(Rect rect, L10nToken token, RowGUIArgs args)
         {
+            // Icon
             var iconRect = new Rect(rect.x + 16, rect.y, 20, rect.height);
             var icon = GetTokenIcon(token.Type);
             var iconColor = GetTokenIconColor(token.Type);
@@ -355,6 +349,7 @@ namespace Minerva.Localizations.Editor
             GUI.Label(iconRect, icon, EditorStyles.label);
             GUI.color = oldColor;
 
+            // Type name
             var typeRect = new Rect(rect.x + 38, rect.y, rect.width - 38, rect.height);
             var typeColor = GetTokenTypeColor(token.Type);
             var style = new GUIStyle(EditorStyles.label)
@@ -380,8 +375,8 @@ namespace Minerva.Localizations.Editor
             }
             else
             {
-                if (content.Length > 50)
-                    content = content.Substring(0, 47) + "...";
+                if (content.Length > 60)
+                    content = content.Substring(0, 57) + "...";
 
                 var style = new GUIStyle(EditorStyles.label)
                 {
@@ -392,30 +387,13 @@ namespace Minerva.Localizations.Editor
             }
         }
 
-        // ✅ 新方法：显示 Parameters
-        private void DrawParametersCell(Rect rect, L10nToken token)
-        {
-            if (token.Parameters.Length > 0)
-            {
-                string parameters = token.Parameters.ToString();
-                if (parameters.Length > 25)
-                    parameters = parameters.Substring(0, 22) + "...";
-
-                var style = new GUIStyle(EditorStyles.label)
-                {
-                    normal = { textColor = new Color(1f, 0.7f, 0.4f) }  // 橙色
-                };
-                GUI.Label(rect, $"<{parameters}>", style);
-            }
-        }
-
         private void DrawMetadataCell(Rect rect, L10nToken token)
         {
             if (token.Metadata.Length > 0)
             {
                 string metadata = token.Metadata.ToString();
-                if (metadata.Length > 20)
-                    metadata = metadata.Substring(0, 17) + "...";
+                if (metadata.Length > 30)
+                    metadata = metadata.Substring(0, 27) + "...";
 
                 var style = new GUIStyle(EditorStyles.label)
                 {
@@ -541,8 +519,6 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.Space(10);
             DrawContent();
             EditorGUILayout.Space(10);
-            DrawParameters();
-            EditorGUILayout.Space(10);
             DrawMetadata();
             EditorGUILayout.Space(10);
             DrawChildren();
@@ -588,38 +564,6 @@ namespace Minerva.Localizations.Editor
             }
         }
 
-        private void DrawParameters()
-        {
-            if (token.Parameters.Length > 0)
-            {
-                EditorGUILayout.LabelField("Parameters:", EditorStyles.boldLabel);
-
-                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-                {
-                    string parameters = token.Parameters.ToString();
-
-                    EditorGUILayout.LabelField("Raw:", EditorStyles.miniLabel);
-                    EditorGUILayout.SelectableLabel($"<{parameters}>", GUILayout.Height(20));
-
-                    EditorGUILayout.Space(5);
-
-                    var paramList = ParseParameterList(parameters);
-                    if (paramList.Length > 0)
-                    {
-                        EditorGUILayout.LabelField("Parsed:", EditorStyles.miniLabel);
-                        foreach (var param in paramList)
-                        {
-                            using (new EditorGUILayout.HorizontalScope())
-                            {
-                                EditorGUILayout.LabelField("•", GUILayout.Width(15));
-                                EditorGUILayout.SelectableLabel(param, GUILayout.Height(16));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         private void DrawMetadata()
         {
             if (token.Metadata.Length > 0)
@@ -660,36 +604,6 @@ namespace Minerva.Localizations.Editor
                     }
                 }
             }
-        }
-
-        private string[] ParseParameterList(string parameters)
-        {
-            if (string.IsNullOrEmpty(parameters))
-                return System.Array.Empty<string>();
-
-            var result = new List<string>();
-            int depth = 0;
-            int start = 0;
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                char c = parameters[i];
-
-                if (c == '<' || c == '(') depth++;
-                else if (c == '>' || c == ')') depth--;
-                else if (c == ',' && depth == 0)
-                {
-                    result.Add(parameters.Substring(start, i - start).Trim());
-                    start = i + 1;
-                }
-            }
-
-            if (start < parameters.Length)
-            {
-                result.Add(parameters.Substring(start).Trim());
-            }
-
-            return result.ToArray();
         }
 
         private Color GetTypeColor(TokenType type)

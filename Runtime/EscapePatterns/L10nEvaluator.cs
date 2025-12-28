@@ -86,7 +86,6 @@ namespace Minerva.Localizations.EscapePatterns
                 var nestedTokens = new L10nTokenizer(rawContent).Tokenize();
                 var resolved = new L10nEvaluator(nestedContext).Evaluate(nestedTokens);
 
-                // Apply link/underline options
                 resolved = ApplyReferenceOptions(key, resolved, token.IsTooltip);
                 output.Append(resolved);
             }
@@ -101,78 +100,36 @@ namespace Minerva.Localizations.EscapePatterns
         {
             try
             {
-                var varName = token.Content.ToString();
+                var expr = token.Content.ToString();
                 var format = token.Metadata.Length > 0 ? token.Metadata.ToString() : string.Empty;
-                var parameters = token.Parameters.Length > 0 ? token.Parameters.ToString() : null;
 
-                // ✅ 解析参数列表
-                string[] localParams = null;
-                if (!string.IsNullOrEmpty(parameters))
+                var parser = new Parser(expr);
+                var ast = parser.ParseExpression();
+                var result = ast.Run(VariableResolver);
+
+                if (EscapePattern.TryFormatNumber(result, out var formatted, format))
                 {
-                    localParams = ParseParameterList(parameters);
+                    output.Append(formatted);
+                    return;
                 }
 
-                // ✅ 如果是表达式，使用 Parser
-                if (IsExpression(varName))
+                if (result is string str)
                 {
-                    var parser = new Parser(varName);
-                    var ast = parser.ParseExpression();
-                    var result = ast.Run(VariableResolver);
-
-                    if (EscapePattern.TryFormatNumber(result, out var formatted, format))
+                    if (context.CanRecurse())
                     {
-                        output.Append(formatted);
-                        return;
-                    }
-
-                    if (result is string str)
-                    {
-                        if (context.CanRecurse())
-                        {
-                            var nestedContext = context.IncreaseDepth();
-                            var nestedTokens = new L10nTokenizer(str).Tokenize();
-                            var resolved = new L10nEvaluator(nestedContext).Evaluate(nestedTokens);
-                            output.Append(resolved);
-                        }
-                        else
-                        {
-                            output.Append(str);
-                        }
+                        var nestedContext = context.IncreaseDepth();
+                        var nestedTokens = new L10nTokenizer(str).Tokenize();
+                        var resolved = new L10nEvaluator(nestedContext).Evaluate(nestedTokens);
+                        output.Append(resolved);
                     }
                     else
                     {
-                        output.Append(result?.ToString() ?? "null");
+                        output.Append(str);
                     }
                 }
                 else
                 {
-                    // ✅ 简单变量名，直接从 context 获取
-                    var value = ResolveVariable(varName, localParams);
-
-                    if (EscapePattern.TryFormatNumber(value, out var formatted, format))
-                    {
-                        output.Append(formatted);
-                        return;
-                    }
-
-                    if (value is string str)
-                    {
-                        if (context.CanRecurse())
-                        {
-                            var nestedContext = context.IncreaseDepth();
-                            var nestedTokens = new L10nTokenizer(str).Tokenize();
-                            var resolved = new L10nEvaluator(nestedContext).Evaluate(nestedTokens);
-                            output.Append(resolved);
-                        }
-                        else
-                        {
-                            output.Append(str);
-                        }
-                    }
-                    else
-                    {
-                        output.Append(value?.ToString() ?? "null");
-                    }
+                    output.Append(result?.ToString() ?? "null");
                 }
             }
             catch (Exception e)
@@ -186,16 +143,13 @@ namespace Minerva.Localizations.EscapePatterns
         {
             var colorCode = token.Metadata.ToString();
 
-            // Convert simple color code (e.g., 'R') to hex
             if (colorCode.Length == 1)
             {
                 colorCode = ColorCode.GetColorHex(colorCode[0]);
             }
 
-            // Apply UGUI color tag
             output.Append($"<color={colorCode}>");
 
-            // Handle Children
             if (token.Children != null && token.Children.Count > 0)
             {
                 foreach (var child in token.Children)
@@ -211,69 +165,96 @@ namespace Minerva.Localizations.EscapePatterns
             output.Append("</color>");
         }
 
-        // ✅ 新方法：判断是否为表达式
-        private bool IsExpression(string input)
+        private object VariableResolver(ReadOnlyMemory<char> varName)
         {
-            // 如果包含运算符，视为表达式
-            return input.Contains('+') || input.Contains('-') ||
-                   input.Contains('*') || input.Contains('/') ||
-                   input.Contains('(') || input.Contains(')');
-        }
+            var nameSpan = varName.Span;
 
-        // ✅ 新方法：解析参数列表
-        private string[] ParseParameterList(string parameters)
-        {
-            if (string.IsNullOrEmpty(parameters))
-                return Array.Empty<string>();
-
-            var result = new List<string>();
-            int depth = 0;
-            int start = 0;
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                char c = parameters[i];
-
-                if (c == '<' || c == '(') depth++;
-                else if (c == '>' || c == ')') depth--;
-                else if (c == ',' && depth == 0)
-                {
-                    result.Add(parameters.Substring(start, i - start).Trim());
-                    start = i + 1;
-                }
-            }
-
-            if (start < parameters.Length)
-            {
-                result.Add(parameters.Substring(start).Trim());
-            }
-
-            return result.ToArray();
-        }
-
-        // ✅ 新方法：解析变量（支持参数）
-        private object ResolveVariable(string varName, string[] localParams)
-        {
-            // 优先从 Variables 查找
-            if (context.Variables.TryGetValue(varName, out var value))
+            // Try direct lookup first (most common case, no allocation)
+            if (context.Variables.TryGetValue(varName.ToString(), out var value))
             {
                 return value;
             }
 
-            // 从 Context 查找，传递参数
-            if (context.Context != null)
+            if (context.Context == null)
             {
-                return context.Context.GetEscapeValue(varName, localParams ?? Array.Empty<string>());
+                return varName.ToString();
             }
 
-            return varName;
+            // Parse varName<param1,param2> structure manually
+            int angleIndex = nameSpan.IndexOf('<');
+
+            // No parameters - fast path (single allocation)
+            if (angleIndex < 0)
+            {
+                return context.Context.GetEscapeValue(varName.ToString(), Array.Empty<string>());
+            }
+
+            // Has parameters - parse carefully
+            if (nameSpan[^1] != '>')
+            {
+                // Malformed, fallback
+                return context.Context.GetEscapeValue(varName.ToString(), Array.Empty<string>());
+            }
+
+            var key = varName[..angleIndex].ToString();
+            var paramSpan = varName.Slice(angleIndex + 1, varName.Length - angleIndex - 2);
+
+            // Empty parameters
+            if (paramSpan.Length == 0)
+            {
+                return context.Context.GetEscapeValue(key, Array.Empty<string>());
+            }
+
+            // Parse parameters without intermediate allocations
+            var parameters = SplitParameters(paramSpan);
+            return context.Context.GetEscapeValue(key, parameters);
         }
 
-        private object VariableResolver(ReadOnlyMemory<char> varName)
+        private static string[] SplitParameters(ReadOnlyMemory<char> paramSpan)
         {
-            var name = varName.ToString();
-            return ResolveVariable(name, null);
+            var span = paramSpan.Span;
+
+            // Count commas to pre-allocate array (single allocation)
+            int commaCount = 0;
+            for (int i = 0; i < span.Length; i++)
+            {
+                if (span[i] == ',') commaCount++;
+            }
+
+            var parameters = new string[commaCount + 1];
+            int paramIndex = 0;
+            int start = 0;
+
+            for (int i = 0; i < span.Length; i++)
+            {
+                if (span[i] == ',')
+                {
+                    parameters[paramIndex++] = TrimAndExtract(span[start..i]);
+                    start = i + 1;
+                }
+            }
+
+            // Add last parameter
+            parameters[paramIndex] = TrimAndExtract(span[start..]);
+
+            return parameters;
+
+            static string TrimAndExtract(ReadOnlySpan<char> span)
+            {
+                // Manual trim to avoid allocation
+                int start = 0;
+                int end = span.Length;
+
+                while (start < end && char.IsWhiteSpace(span[start]))
+                    start++;
+
+                while (end > start && char.IsWhiteSpace(span[end - 1]))
+                    end--;
+
+                return start < end ? new string(span[start..end]) : string.Empty;
+            }
         }
+
 
         private string ApplyReferenceOptions(string key, string content, bool isTooltip)
         {
