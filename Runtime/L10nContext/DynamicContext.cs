@@ -1,4 +1,4 @@
-﻿using Minerva.Localizations.EscapePatterns;
+using Minerva.Localizations.EscapePatterns;
 using System;
 using System.Collections.Generic;
 
@@ -51,13 +51,13 @@ namespace Minerva.Localizations
             EscapePattern.ParseDynamicValue(dynamicValues, true, param);
         }
 
-        public override string GetRawContent(params string[] param)
+        public override string GetRawContent(L10nParams parameters)
         {
-            if (parentContext != null) return parentContext.GetRawContent(param);
-            return base.GetRawContent(param);
+            if (parentContext != null) return parentContext.GetRawContent(parameters);
+            return base.GetRawContent(parameters);
         }
 
-        public override object GetEscapeValue(string escapeKey, params string[] param)
+        public override object GetEscapeValue(string escapeKey, L10nParams param)
         {
             if (IsDefined(escapeKey)) return this[escapeKey];
             if (parentContext != null) return parentContext.GetEscapeValue(escapeKey, param);

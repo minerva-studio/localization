@@ -252,7 +252,7 @@ namespace Minerva.Localizations.EscapePatterns
                 return false;
             }
 
-            var innerContent = source.Slice(contentStart, contentEnd - contentStart);
+            var innerContent = source[contentStart..contentEnd];
             var nestedTokenizer = new L10nTokenizer(innerContent);
             token = nestedTokenizer.Tokenize();
 

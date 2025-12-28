@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace Minerva.Localizations
@@ -11,13 +12,13 @@ namespace Minerva.Localizations
     {
         public static L10nParams Empty => Create();
 
-
         private readonly Dictionary<string, object> variables;
+        private readonly string[] options;
 
         /// <summary>
-        /// Option type (e.g., "name", "desc", "info", or custom)
+        /// Option segments (e.g., ["Daily", "desc"] for "Daily.desc")
         /// </summary>
-        public string Option { get; }
+        public IReadOnlyList<string> Options => options ?? Array.Empty<string>();
 
         /// <summary>
         /// Recursion depth (internal use)
@@ -31,18 +32,32 @@ namespace Minerva.Localizations
 
         #region Constructors
 
-        // 私有构造函数
-        private L10nParams(string option, int depth, Dictionary<string, object> vars)
+        private L10nParams(string[] options, int depth, Dictionary<string, object> vars)
         {
-            Option = option ?? string.Empty;
+            this.options = options;
             Depth = depth;
             variables = vars;
         }
 
-        // Internal 构造函数供内部使用
+        internal L10nParams(string[] options, int depth, Dictionary<string, object> vars, bool _)
+        {
+            this.options = options;
+            Depth = depth;
+            variables = vars;
+        }
+
+        // Legacy single option constructor
+        private L10nParams(string option, int depth, Dictionary<string, object> vars)
+        {
+            this.options = string.IsNullOrEmpty(option) ? null : new[] { option };
+            Depth = depth;
+            variables = vars;
+        }
+
+        // Internal constructor for depth changes (legacy)
         internal L10nParams(string option, int depth, Dictionary<string, object> vars, bool _)
         {
-            Option = option ?? string.Empty;
+            this.options = string.IsNullOrEmpty(option) ? null : new[] { option };
             Depth = depth;
             variables = vars;
         }
@@ -57,7 +72,7 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static L10nParams Create()
         {
-            return new L10nParams(string.Empty, 0, null);
+            return new L10nParams((string[])null, 0, null);
         }
 
         /// <summary>
@@ -67,7 +82,18 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static L10nParams Create(string option)
         {
-            return new L10nParams(option ?? string.Empty, 0, null);
+            return new L10nParams(option, 0, null);
+        }
+
+        /// <summary>
+        /// Create parameters with multiple option segments
+        /// </summary>
+        /// <param name="options">Option segments (e.g., "Daily", "desc")</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static L10nParams Create(params string[] options)
+        {
+            var filtered = options?.Where(o => !string.IsNullOrEmpty(o)).ToArray();
+            return new L10nParams(filtered, 0, null);
         }
 
         /// <summary>
@@ -82,7 +108,7 @@ namespace Minerva.Localizations
                 ? new Dictionary<string, object>(variables)
                 : new Dictionary<string, object>(4);
             vars[key] = value;
-            return new L10nParams(Option, Depth, vars);
+            return new L10nParams(options, Depth, vars);
         }
 
         /// <summary>
@@ -97,12 +123,43 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
-        /// Change the option
+        /// Change the option (single segment)
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public L10nParams WithOption(string option)
         {
-            return new L10nParams(option ?? string.Empty, Depth, variables);
+            return new L10nParams(option, Depth, variables);
+        }
+
+        /// <summary>
+        /// Change the options (multiple segments)
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public L10nParams WithOptions(params string[] options)
+        {
+            var filtered = options?.Where(o => !string.IsNullOrEmpty(o)).ToArray();
+            return new L10nParams(filtered, Depth, variables);
+        }
+
+        /// <summary>
+        /// Append additional option segments
+        /// </summary>
+        public L10nParams AppendOptions(params string[] additionalOptions)
+        {
+            if (additionalOptions == null || additionalOptions.Length == 0)
+                return this;
+
+            var filtered = additionalOptions.Where(o => !string.IsNullOrEmpty(o)).ToArray();
+            if (filtered.Length == 0)
+                return this;
+
+            if (options == null || options.Length == 0)
+                return new L10nParams(filtered, Depth, variables);
+
+            var combined = new string[options.Length + filtered.Length];
+            Array.Copy(options, 0, combined, 0, options.Length);
+            Array.Copy(filtered, 0, combined, options.Length, filtered.Length);
+            return new L10nParams(combined, Depth, variables);
         }
 
         /// <summary>
@@ -111,7 +168,7 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal L10nParams IncreaseDepth()
         {
-            return new L10nParams(Option, Depth + 1, variables);
+            return new L10nParams(options, Depth + 1, variables);
         }
 
         #endregion
@@ -189,18 +246,20 @@ namespace Minerva.Localizations
         /// </summary>
         /// <remarks>
         /// Supports formats:
-        /// - First non-key=value string → treated as option
         /// - "key=value" → parsed as variable
-        /// - Bare strings → treated as option if first, ignored otherwise
+        /// - Bare strings (without '=') → treated as option segments in order
+        /// 
+        /// Example: ["Daily", "level=2", "desc"] 
+        /// → Options: ["Daily", "desc"], Variables: {"level": "2"}
+        /// → Final option: "Daily.desc"
         /// </remarks>
         public static L10nParams FromLegacy(params string[] param)
         {
             if (param == null || param.Length == 0)
                 return Create();
 
-            string option = string.Empty;
+            var optionList = new List<string>(param.Length);
             var vars = new Dictionary<string, object>(param.Length);
-            bool optionSet = false;
 
             foreach (var p in param)
             {
@@ -216,16 +275,42 @@ namespace Minerva.Localizations
                     continue;
                 }
 
-                // First bare string is option
-                if (!optionSet)
-                {
-                    option = p;
-                    optionSet = true;
-                }
-                // Other bare strings are ignored (or can be treated as positional args)
+                // Bare string without '=' is an option segment
+                optionList.Add(p);
             }
 
-            return new L10nParams(option, 0, vars.Count > 0 ? vars : null);
+            var options = optionList.Count > 0 ? optionList.ToArray() : null;
+            return new L10nParams(options, 0, vars.Count > 0 ? vars : null);
+        }
+
+        public static L10nParams FromLegacy(string[] param, int depth)
+        {
+            if (param == null || param.Length == 0)
+                return Create();
+
+            var optionList = new List<string>(param.Length);
+            var vars = new Dictionary<string, object>(param.Length);
+
+            foreach (var p in param)
+            {
+                if (string.IsNullOrEmpty(p)) continue;
+
+                // Try parse as key=value
+                int idx = p.IndexOf('=');
+                if (idx > 0)
+                {
+                    var key = p[..idx];
+                    var value = p[(idx + 1)..];
+                    vars[key] = value;
+                    continue;
+                }
+
+                // Bare string without '=' is an option segment
+                optionList.Add(p);
+            }
+
+            var options = optionList.Count > 0 ? optionList.ToArray() : null;
+            return new L10nParams(options, depth, vars.Count > 0 ? vars : null);
         }
 
         /// <summary>
@@ -233,11 +318,13 @@ namespace Minerva.Localizations
         /// </summary>
         public string[] ToLegacy()
         {
-            var result = new List<string>(variables?.Count ?? 0 + 1);
+            var result = new List<string>((options?.Length ?? 0) + (variables?.Count ?? 0));
 
-            // Add option as first element
-            if (!string.IsNullOrEmpty(Option))
-                result.Add(Option);
+            // Add option segments
+            if (options != null)
+            {
+                result.AddRange(options);
+            }
 
             // Add variables as key=value
             if (variables != null)
@@ -257,14 +344,17 @@ namespace Minerva.Localizations
 
         public override string ToString()
         {
-            return $"L10nParams {{ Option=\"{Option}\", Depth={Depth}, Variables={variables?.Count ?? 0} }}";
+            var optStr = options != null && options.Length > 0
+                ? $"[{string.Join(", ", options.Select(o => $"\"{o}\""))}]"
+                : "[]";
+            return $"L10nParams {{ Options={optStr}, Depth={Depth}, Variables={variables?.Count ?? 0} }}";
         }
 
         public override bool Equals(object obj)
         {
             if (obj is L10nParams other)
             {
-                return Option == other.Option &&
+                return ArrayEquals(options, other.options) &&
                        Depth == other.Depth &&
                        DictionaryEquals(variables, other.variables);
             }
@@ -276,9 +366,36 @@ namespace Minerva.Localizations
             unchecked
             {
                 int hash = 17;
-                hash = hash * 31 + (Option?.GetHashCode() ?? 0);
+                hash = hash * 31 + ArrayHashCode(options);
                 hash = hash * 31 + Depth;
                 hash = hash * 31 + (variables?.Count ?? 0);
+                return hash;
+            }
+        }
+
+        private static bool ArrayEquals(string[] a, string[] b)
+        {
+            if (a == null && b == null) return true;
+            if (a == null || b == null) return false;
+            if (a.Length != b.Length) return false;
+
+            for (int i = 0; i < a.Length; i++)
+            {
+                if (a[i] != b[i]) return false;
+            }
+            return true;
+        }
+
+        private static int ArrayHashCode(string[] arr)
+        {
+            if (arr == null) return 0;
+            unchecked
+            {
+                int hash = 17;
+                foreach (var item in arr)
+                {
+                    hash = hash * 31 + (item?.GetHashCode() ?? 0);
+                }
                 return hash;
             }
         }

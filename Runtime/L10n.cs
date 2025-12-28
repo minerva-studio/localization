@@ -1,4 +1,4 @@
-﻿using Minerva.Localizations.EscapePatterns;
+using Minerva.Localizations.EscapePatterns;
 using Minerva.Module;
 using System;
 using System.Collections.Generic;
@@ -356,90 +356,185 @@ namespace Minerva.Localizations
 
 
 
+        #region Translation API - New (L10nParams)
 
         /// <summary>
-        /// Direct localization from key
+        /// Direct localization from key with L10nParams
+        /// </summary>
+        /// <param name="key">Localization key</param>
+        /// <param name="parameters">Localization parameters</param>
+        /// <returns></returns>
+        public static string Tr(string key, L10nParams parameters)
+        {
+            return Tr(key, missingKeySolution, parameters);
+        }
+
+        /// <summary>
+        /// Direct localization from key with L10nParams and custom solution
+        /// </summary>
+        /// <param name="key">Localization key</param>
+        /// <param name="solution">Missing key solution</param>
+        /// <param name="parameters">Localization parameters</param>
+        /// <returns></returns>
+        public static string Tr(string key, MissingKeySolution solution, L10nParams parameters)
+        {
+            var fullKey = Localizable.AppendKey(key, parameters.Options);
+            var rawString = GetRawContent(fullKey, solution);
+            rawString = EscapePattern.Escape(rawString, null, parameters);
+            OnTranslating?.Invoke(fullKey, ref rawString);
+            return rawString;
+        }
+
+        /// <summary>
+        /// Direct localization from Key with L10nParams
+        /// </summary>
+        /// <param name="key">Localization key</param>
+        /// <param name="parameters">Localization parameters</param>
+        /// <returns></returns>
+        public static string Tr(Key key, L10nParams parameters)
+        {
+            var fullKey = Localizable.AppendKey(key, parameters.Options);
+            var rawString = GetRawContent(fullKey);
+            rawString = EscapePattern.Escape(rawString, null, parameters);
+            OnTranslating?.Invoke(fullKey, ref rawString);
+            return rawString;
+        }
+
+        /// <summary>
+        /// Direct localization from object with L10nParams
+        /// </summary>
+        /// <param name="context">Object to localize</param>
+        /// <param name="parameters">Localization parameters</param>
+        /// <returns></returns>
+        public static string Tr(object context, L10nParams parameters)
+        {
+            switch (context)
+            {
+                case string str:
+                    return Tr(str, parameters);
+                case ILocalizableContext localizable:
+                    return Tr(localizable, parameters);
+                default:
+                    return Tr(L10nContext.Of(context), parameters);
+            }
+        }
+
+        /// <summary>
+        /// Direct localization with L10nParams
+        /// </summary>
+        /// <param name="context">Localization context</param>
+        /// <param name="parameters">Localization parameters</param>
+        /// <returns></returns>
+        public static string Tr(ILocalizableContext context, L10nParams parameters)
+        {
+            var value = Localizable.Tr(context, parameters);
+            var key = context.GetLocalizationKey(parameters);
+            OnTranslating?.Invoke(key, ref value);
+            return value;
+        }
+
+        /// <summary>
+        /// Direct localization with custom key and L10nParams
+        /// </summary>
+        /// <param name="key">Override localization key</param>
+        /// <param name="context">Localization context</param>
+        /// <param name="parameters">Localization parameters</param>
+        /// <returns></returns>
+        public static string TrKey(string key, ILocalizableContext context, L10nParams parameters)
+        {
+            var value = Localizable.TrKey(key, context, parameters);
+            OnTranslating?.Invoke(key, ref value);
+            return value;
+        }
+
+        /// <summary>
+        /// Direct localization of raw content with L10nParams
+        /// </summary>
+        /// <param name="rawContent">Raw localization string</param>
+        /// <param name="context">Localization context</param>
+        /// <param name="parameters">Localization parameters</param>
+        /// <returns></returns>
+        public static string TrRaw(string rawContent, ILocalizableContext context, L10nParams parameters)
+        {
+            var value = Localizable.TrRaw(rawContent, context, parameters);
+            OnTranslating?.Invoke(string.Empty, ref value);
+            return value;
+        }
+
+        #endregion
+
+        #region Translation API - Legacy (string[])
+
+        /// <summary>
+        /// Direct localization from key (legacy)
         /// </summary>
         /// <param name="key"></param>
         /// <param name="param"></param>
         /// <returns></returns>
         public static string Tr(string key, params string[] param) => Tr(key, missingKeySolution, param);
 
+        /// <summary>
+        /// Direct localization from key with custom solution (legacy)
+        /// </summary>
         public static string Tr(string key, MissingKeySolution solution, params string[] param)
         {
-            var fullKey = Localizable.AppendKey(key, param);
-            var rawString = GetRawContent(fullKey, solution);
-            rawString = EscapePattern.Escape(rawString, null, 0, param);
-            OnTranslating?.Invoke(fullKey, ref rawString);
-            return rawString;
+            return Tr(key, solution, L10nParams.FromLegacy(param));
         }
 
         /// <summary>
-        /// Direct localization from key
+        /// Direct localization from key (legacy)
         /// </summary>
         /// <param name="key"></param>
         /// <param name="param"></param>
         /// <returns></returns>
         public static string Tr(Key key, params string[] param)
         {
-            var fullKey = Localizable.AppendKey(key, param);
-            var rawString = GetRawContent(fullKey);
-            rawString = EscapePattern.Escape(rawString, null, 0, param);
-            OnTranslating?.Invoke(fullKey, ref rawString);
-            return rawString;
-        }
-
-        public static string Tr(object context, params string[] param)
-        {
-            switch (context)
-            {
-                case string str:
-                    return Tr(str, param);
-                case ILocalizableContext localizable:
-                    return Tr(localizable, param);
-                default:
-                    return Tr(L10nContext.Of(context), param);
-            }
+            return Tr(key, L10nParams.FromLegacy(param));
         }
 
         /// <summary>
-        /// Direct localization
+        /// Direct localization from object (legacy)
+        /// </summary>
+        public static string Tr(object context, params string[] param)
+        {
+            return Tr(context, L10nParams.FromLegacy(param));
+        }
+
+        /// <summary>
+        /// Direct localization (legacy)
         /// </summary>
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
         public static string Tr(ILocalizableContext context, params string[] param)
         {
-            var value = Localizable.Tr(context, 0, param);
-            var key = context.GetLocalizationKey(param);
-            OnTranslating?.Invoke(key, ref value);
-            return value;
+            return Tr(context, L10nParams.FromLegacy(param));
         }
 
         /// <summary>
-        /// Direct localization
+        /// Direct localization with custom key (legacy)
         /// </summary>
+        /// <param name="key"></param>
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
         public static string TrKey(string key, ILocalizableContext context, params string[] param)
         {
-            var value = Localizable.TrKey(key, context, 0, param);
-            OnTranslating?.Invoke(key, ref value);
-            return value;
+            return TrKey(key, context, L10nParams.FromLegacy(param));
         }
 
         /// <summary>
-        /// Direct localization
+        /// Direct localization of raw content (legacy)
         /// </summary>
+        /// <param name="rawContent"></param>
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
         public static string TrRaw(string rawContent, ILocalizableContext context, params string[] param)
         {
-            var value = Localizable.TrRaw(rawContent, context, param);
-            OnTranslating?.Invoke(string.Empty, ref value);
-            return value;
+            return TrRaw(rawContent, context, L10nParams.FromLegacy(param));
         }
+
+        #endregion
     }
 }

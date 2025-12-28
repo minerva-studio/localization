@@ -97,15 +97,8 @@ namespace Minerva.Localizations.EscapePatterns
             }
 
             // Convert to L10nParams and use new path
-            var parameters = L10nParams.FromLegacy(param);
-            var parametersWithDepth = new L10nParams(
-                parameters.Option,
-                depth,
-                parameters.Variables as Dictionary<string, object>,
-                true
-            );
-
-            return Escape(rawString, context, parametersWithDepth);
+            var parameters = L10nParams.FromLegacy(param, depth);
+            return Escape(rawString, context, parameters);
         }
 
         /// <summary>
@@ -527,7 +520,27 @@ namespace Minerva.Localizations.EscapePatterns
         /// </summary>
         /// <param name="baseKey"></param>
         /// <returns></returns>
+        public static string AsKeyEscape(string baseKey, IReadOnlyList<string> args)
+        {
+            return $"${Localizable.AppendKey(baseKey, args)}$";
+        }
+
+        /// <summary>
+        /// Make given string as an content of given key as escape
+        /// </summary>
+        /// <param name="baseKey"></param>
+        /// <returns></returns>
         public static string AsTooltipKeyEscape(string baseKey, params string[] args)
+        {
+            return $"$@{Localizable.AppendKey(baseKey, args)}$";
+        }
+
+        /// <summary>
+        /// Make given string as an content of given key as escape
+        /// </summary>
+        /// <param name="baseKey"></param>
+        /// <returns></returns>
+        public static string AsTooltipKeyEscape(string baseKey, IReadOnlyList<string> args)
         {
             return $"$@{Localizable.AppendKey(baseKey, args)}$";
         }
