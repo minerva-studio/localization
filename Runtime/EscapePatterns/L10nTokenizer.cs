@@ -6,10 +6,11 @@ namespace Minerva.Localizations.EscapePatterns
 {
     /// <summary>
     /// High-performance tokenizer for L10n strings (single-pass with nesting support)
+    /// Supports object pooling for reduced GC pressure
     /// </summary>
     internal sealed class L10nTokenizer
     {
-        private readonly ReadOnlyMemory<char> source;
+        private ReadOnlyMemory<char> source;
         private int position;
 
         public L10nTokenizer(string source)
@@ -25,60 +26,78 @@ namespace Minerva.Localizations.EscapePatterns
         }
 
         /// <summary>
+        /// Reset tokenizer for reuse from pool
+        /// </summary>
+        internal void Reset(ReadOnlyMemory<char> newSource)
+        {
+            this.source = newSource;
+            this.position = 0;
+        }
+
+        /// <summary>
         /// Tokenize entire string in one pass
         /// </summary>
         public L10nToken Tokenize()
         {
-            var tokens = new List<L10nToken>();
-            var literalBuffer = new StringBuilder();
+            var tokens = L10nObjectPool.RentTokenList();
+            var literalBuffer = L10nObjectPool.RentStringBuilder();
 
-            while (position < source.Length)
+            try
             {
-                char current = Peek();
-
-                // 1. Escape sequences: \\ \$ \{ \§
-                if (current == '\\' && position + 1 < source.Length)
+                while (position < source.Length)
                 {
-                    position++; // Skip '\'
-                    literalBuffer.Append(Peek());
+                    char current = Peek();
+
+                    // 1. Escape sequences: \\ \$ \{ \§
+                    if (current == '\\' && position + 1 < source.Length)
+                    {
+                        position++; // Skip '\'
+                        literalBuffer.Append(Peek());
+                        position++;
+                        continue;
+                    }
+
+                    // 2. Key reference: $...$ or $@...$
+                    if (current == '$' && TryReadKeyReference(out var keyToken))
+                    {
+                        FlushLiteral(tokens, literalBuffer);
+                        tokens.Add(keyToken);
+                        continue;
+                    }
+
+                    // 3. Dynamic value: {...}
+                    if (current == '{' && TryReadDynamicValue(out var dynToken))
+                    {
+                        FlushLiteral(tokens, literalBuffer);
+                        tokens.Add(dynToken);
+                        continue;
+                    }
+
+                    // 4. Color tag: §C...§ or §#FFFFFF...§
+                    if (current == '§' && TryReadColorTag(out var colorToken))
+                    {
+                        FlushLiteral(tokens, literalBuffer);
+                        tokens.Add(colorToken);
+                        continue;
+                    }
+
+                    literalBuffer.Append(current);
                     position++;
-                    continue;
                 }
 
-                // 2. Key reference: $...$ or $@...$
-                if (current == '$' && TryReadKeyReference(out var keyToken))
-                {
-                    FlushLiteral(tokens, literalBuffer);
-                    tokens.Add(keyToken);
-                    continue;
-                }
+                FlushLiteral(tokens, literalBuffer);
 
-                // 3. Dynamic value: {...}
-                if (current == '{' && TryReadDynamicValue(out var dynToken))
-                {
-                    FlushLiteral(tokens, literalBuffer);
-                    tokens.Add(dynToken);
-                    continue;
-                }
+                var rootToken = L10nObjectPool.RentToken();
+                rootToken.Type = TokenType.Literal;
+                rootToken.Children = tokens;
 
-                // 4. Color tag: §C...§ or §#FFFFFF...§
-                if (current == '§' && TryReadColorTag(out var colorToken))
-                {
-                    FlushLiteral(tokens, literalBuffer);
-                    tokens.Add(colorToken);
-                    continue;
-                }
-
-                literalBuffer.Append(current);
-                position++;
+                return rootToken;
             }
-
-            FlushLiteral(tokens, literalBuffer);
-            return new L10nToken()
+            finally
             {
-                Type = TokenType.Literal,
-                Children = tokens
-            };
+                L10nObjectPool.ReturnStringBuilder(literalBuffer);
+                // Don't return tokens list - it's now owned by rootToken
+            }
         }
 
         #region Token Readers
@@ -112,12 +131,10 @@ namespace Minerva.Localizations.EscapePatterns
             }
 
             var content = source.Slice(contentStart, position - contentStart - 1);
-            token = new L10nToken
-            {
-                Type = TokenType.KeyReference,
-                Content = content,
-                IsTooltip = isTooltip
-            };
+            token = L10nObjectPool.RentToken();
+            token.Type = TokenType.KeyReference;
+            token.Content = content;
+            token.IsTooltip = isTooltip;
             return true;
         }
 
@@ -182,12 +199,10 @@ namespace Minerva.Localizations.EscapePatterns
                 content = source.Slice(contentStart, position - contentStart - 1);
             }
 
-            token = new L10nToken
-            {
-                Type = TokenType.DynamicValue,
-                Content = content,
-                Metadata = format
-            };
+            token = L10nObjectPool.RentToken();
+            token.Type = TokenType.DynamicValue;
+            token.Content = content;
+            token.Metadata = format;
             return true;
         }
 
@@ -253,15 +268,22 @@ namespace Minerva.Localizations.EscapePatterns
             }
 
             var innerContent = source[contentStart..contentEnd];
-            var nestedTokenizer = new L10nTokenizer(innerContent);
-            token = nestedTokenizer.Tokenize();
+            var nestedTokenizer = L10nObjectPool.RentTokenizer(innerContent);
 
-            position = contentEnd + 1;
+            try
+            {
+                token = nestedTokenizer.Tokenize();
+                position = contentEnd + 1;
 
-            token.Type = TokenType.ColorTag;
-            token.Content = innerContent;
-            token.Metadata = colorCode;
-            return true;
+                token.Type = TokenType.ColorTag;
+                token.Content = innerContent;
+                token.Metadata = colorCode;
+                return true;
+            }
+            finally
+            {
+                L10nObjectPool.ReturnTokenizer(nestedTokenizer);
+            }
         }
 
         /// <summary>
@@ -303,11 +325,10 @@ namespace Minerva.Localizations.EscapePatterns
         {
             if (buffer.Length > 0)
             {
-                tokens.Add(new L10nToken
-                {
-                    Type = TokenType.Literal,
-                    Content = buffer.ToString().AsMemory()
-                });
+                var token = L10nObjectPool.RentToken();
+                token.Type = TokenType.Literal;
+                token.Content = buffer.ToString().AsMemory();
+                tokens.Add(token);
                 buffer.Clear();
             }
         }

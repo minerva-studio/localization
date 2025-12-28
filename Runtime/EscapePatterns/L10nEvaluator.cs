@@ -8,13 +8,27 @@ namespace Minerva.Localizations.EscapePatterns
 {
     internal sealed class L10nEvaluator
     {
-        private readonly EvaluationContext context;
-        private readonly StringBuilder output;
+        private EvaluationContext context;
 
         public L10nEvaluator(EvaluationContext context)
         {
             this.context = context;
-            this.output = new StringBuilder();
+        }
+
+        /// <summary>
+        /// Reset evaluator for reuse from pool
+        /// </summary>
+        internal void Reset(EvaluationContext newContext)
+        {
+            this.context = newContext;
+        }
+
+        /// <summary>
+        /// Clear evaluator state (for returning to pool)
+        /// </summary>
+        internal void Clear()
+        {
+            this.context = default;
         }
 
         public string Evaluate(List<L10nToken> tokens)
@@ -22,54 +36,70 @@ namespace Minerva.Localizations.EscapePatterns
             if (tokens == null || tokens.Count == 0)
                 return string.Empty;
 
-            foreach (var token in tokens)
+            var output = L10nObjectPool.RentStringBuilder();
+            try
             {
-                EvaluateToken(token);
-            }
+                foreach (var token in tokens)
+                {
+                    EvaluateToken(token, output);
+                }
 
-            return output.ToString();
+                return output.ToString();
+            }
+            finally
+            {
+                L10nObjectPool.ReturnStringBuilder(output);
+            }
         }
 
         public string Evaluate(L10nToken token)
         {
-            EvaluateToken(token);
-            return output.ToString();
+            var output = L10nObjectPool.RentStringBuilder();
+            try
+            {
+                EvaluateToken(token, output);
+                return output.ToString();
+            }
+            finally
+            {
+                L10nObjectPool.ReturnStringBuilder(output);
+            }
         }
 
-        private void EvaluateToken(L10nToken token)
+        private void EvaluateToken(L10nToken token, StringBuilder output)
         {
             switch (token.Type)
             {
                 case TokenType.Literal:
-                    EvaluateLiteral(token);
+                    EvaluateLiteral(token, output);
                     break;
 
                 case TokenType.KeyReference:
-                    EvaluateKeyReference(token);
+                    EvaluateKeyReference(token, output);
                     break;
 
                 case TokenType.DynamicValue:
-                    EvaluateDynamicValue(token);
+                    EvaluateDynamicValue(token, output);
                     break;
 
                 case TokenType.ColorTag:
-                    EvaluateColorTag(token);
+                    EvaluateColorTag(token, output);
                     break;
             }
         }
 
-        private void EvaluateLiteral(L10nToken token)
+        private void EvaluateLiteral(L10nToken token, StringBuilder output)
         {
             output.Append(token.Content.Span);
             if (token.Children == null || token.Children.Count <= 0) return;
 
             foreach (var child in token.Children)
             {
-                EvaluateToken(child);
+                EvaluateToken(child, output);
             }
         }
 
-        private void EvaluateKeyReference(L10nToken token)
+        private void EvaluateKeyReference(L10nToken token, StringBuilder output)
         {
             var key = token.Content.ToString();
             var rawContent = L10n.GetRawContent(key);
@@ -83,11 +113,39 @@ namespace Minerva.Localizations.EscapePatterns
             if (context.CanRecurse())
             {
                 var nestedContext = context.IncreaseDepth();
-                var nestedTokens = new L10nTokenizer(rawContent).Tokenize();
-                var resolved = new L10nEvaluator(nestedContext).Evaluate(nestedTokens);
+                var nestedTokenizer = L10nObjectPool.RentTokenizer(rawContent.AsMemory());
+                L10nToken nestedRootToken = null;
 
-                resolved = ApplyReferenceOptions(key, resolved, token.IsTooltip);
-                output.Append(resolved);
+                try
+                {
+                    nestedRootToken = nestedTokenizer.Tokenize();
+
+                    // ✅ 直接在这个 StringBuilder 上操作，不创建新的 evaluator
+                    var nestedOutput = L10nObjectPool.RentStringBuilder();
+                    try
+                    {
+                        foreach (var child in nestedRootToken.Children ?? new List<L10nToken>())
+                        {
+                            EvaluateTokenWithContext(child, nestedOutput, nestedContext);
+                        }
+
+                        var resolved = nestedOutput.ToString();
+                        resolved = ApplyReferenceOptions(key, resolved, token.IsTooltip);
+                        output.Append(resolved);
+                    }
+                    finally
+                    {
+                        L10nObjectPool.ReturnStringBuilder(nestedOutput);
+                    }
+                }
+                finally
+                {
+                    if (nestedRootToken != null)
+                    {
+                        L10nObjectPool.ReturnToken(nestedRootToken);
+                    }
+                    L10nObjectPool.ReturnTokenizer(nestedTokenizer);
+                }
             }
             else
             {
@@ -96,7 +154,21 @@ namespace Minerva.Localizations.EscapePatterns
             }
         }
 
-        private void EvaluateDynamicValue(L10nToken token)
+        private void EvaluateTokenWithContext(L10nToken token, StringBuilder output, EvaluationContext ctx)
+        {
+            var oldContext = this.context;
+            this.context = ctx;
+            try
+            {
+                EvaluateToken(token, output);
+            }
+            finally
+            {
+                this.context = oldContext;
+            }
+        }
+
+        private void EvaluateDynamicValue(L10nToken token, StringBuilder output)
         {
             try
             {
@@ -104,22 +176,21 @@ namespace Minerva.Localizations.EscapePatterns
                 var format = token.Metadata.Length > 0 ? token.Metadata.ToString() : string.Empty;
 
                 // Fast path: check if it's a simple variable name (most common case)
-                // Simple variable: alphanumeric + underscore + dot only, no operators
                 if (IsSimpleVariableName(exprSpan))
                 {
                     // Direct variable resolution without parser
                     var r = VariableResolver(token.Content);
-                    AppendResult(r, format);
+                    AppendResult(r, format, output);
                     return;
                 }
 
                 // Complex expression: use full parser
-                var expr = token.Content;
+                var expr = token.Content.ToString();
                 var parser = new Parser(expr);
                 var ast = parser.ParseExpression();
                 var result = ast.Run(VariableResolver);
 
-                AppendResult(result, format);
+                AppendResult(result, format, output);
             }
             catch (Exception e)
             {
@@ -128,7 +199,7 @@ namespace Minerva.Localizations.EscapePatterns
             }
         }
 
-        private void AppendResult(object result, string format)
+        private void AppendResult(object result, string format, StringBuilder output)
         {
             if (EscapePattern.TryFormatNumber(result, out var formatted, format))
             {
@@ -141,9 +212,27 @@ namespace Minerva.Localizations.EscapePatterns
                 if (context.CanRecurse())
                 {
                     var nestedContext = context.IncreaseDepth();
-                    var nestedTokens = new L10nTokenizer(str).Tokenize();
-                    var resolved = new L10nEvaluator(nestedContext).Evaluate(nestedTokens);
-                    output.Append(resolved);
+                    var nestedTokenizer = L10nObjectPool.RentTokenizer(str.AsMemory());
+                    L10nToken nestedRootToken = null;
+
+                    try
+                    {
+                        nestedRootToken = nestedTokenizer.Tokenize();
+
+                        // ✅ 直接在当前 StringBuilder 上追加
+                        foreach (var child in nestedRootToken.Children ?? new List<L10nToken>())
+                        {
+                            EvaluateTokenWithContext(child, output, nestedContext);
+                        }
+                    }
+                    finally
+                    {
+                        if (nestedRootToken != null)
+                        {
+                            L10nObjectPool.ReturnToken(nestedRootToken);
+                        }
+                        L10nObjectPool.ReturnTokenizer(nestedTokenizer);
+                    }
                 }
                 else
                 {
@@ -158,8 +247,6 @@ namespace Minerva.Localizations.EscapePatterns
 
         /// <summary>
         /// Check if expression is a simple variable name (fast path check)
-        /// Simple variable: letters, digits, underscore, dot, angle brackets for params
-        /// Examples: "name", "player.health", "damage<fire,level=2>"
         /// </summary>
         private static bool IsSimpleVariableName(ReadOnlySpan<char> expr)
         {
@@ -172,15 +259,13 @@ namespace Minerva.Localizations.EscapePatterns
             {
                 char c = expr[i];
 
-                // Allowed: letters, digits, underscore, dot
                 if (char.IsLetterOrDigit(c) || c == '_' || c == '.')
                     continue;
 
-                // Handle angle brackets for parameters: name<param1,param2>
                 if (c == '<')
                 {
                     if (inAngleBrackets)
-                        return false; // Nested angle brackets not allowed
+                        return false;
                     inAngleBrackets = true;
                     continue;
                 }
@@ -188,25 +273,21 @@ namespace Minerva.Localizations.EscapePatterns
                 if (c == '>')
                 {
                     if (!inAngleBrackets)
-                        return false; // Closing without opening
+                        return false;
                     inAngleBrackets = false;
                     continue;
                 }
 
-                // Inside angle brackets, allow comma, equals, and whitespace
                 if (inAngleBrackets && (c == ',' || c == '=' || char.IsWhiteSpace(c)))
                     continue;
 
-                // Any other character makes it a complex expression
-                // This includes: +, -, *, /, %, (, ), [, ], operators, etc.
                 return false;
             }
 
-            // Must close all angle brackets
             return !inAngleBrackets;
         }
 
-        private void EvaluateColorTag(L10nToken token)
+        private void EvaluateColorTag(L10nToken token, StringBuilder output)
         {
             var colorCode = token.Metadata.ToString();
 
@@ -221,7 +302,7 @@ namespace Minerva.Localizations.EscapePatterns
             {
                 foreach (var child in token.Children)
                 {
-                    EvaluateToken(child);
+                    EvaluateToken(child, output);
                 }
             }
             else
@@ -237,7 +318,7 @@ namespace Minerva.Localizations.EscapePatterns
             var nameSpan = varName.Span;
 
             // Try direct lookup first (most common case, no allocation)
-            if (context.Variables.TryGetValue(varName.ToString(), out var value))
+            if (context.Variables != null && context.Variables.TryGetValue(varName.ToString(), out var value))
             {
                 return value;
             }

@@ -44,17 +44,35 @@ namespace Minerva.Localizations.EscapePatterns
             try
             {
                 // Single-pass tokenization
-                var tokens = new L10nTokenizer(rawString).Tokenize();
+                var tokenizer = L10nObjectPool.RentTokenizer(rawString.AsMemory());
+                L10nToken rootToken = null;
+                L10nEvaluator evaluator = null;
+                try
+                {
+                    rootToken = tokenizer.Tokenize();
 
-                // Build evaluation context
-                var evalContext = new EvaluationContext(parameters.Depth, context, ConvertVariablesToDict(parameters));
+                    var evalContext = new EvaluationContext(context, parameters);
+                    evaluator = L10nObjectPool.RentEvaluator(evalContext);
 
-                string value = new L10nEvaluator(evalContext).Evaluate(tokens);
+                    string value = evaluator.Evaluate(rootToken);
 
-                if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always)
-                    return SplitUnderlineByColor(value);
+                    if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always)
+                        return SplitUnderlineByColor(value);
 
-                return value;
+                    return value;
+                }
+                finally
+                {
+                    if (rootToken != null)
+                    {
+                        L10nObjectPool.ReturnToken(rootToken);
+                    }
+                    if (evaluator != null)
+                    {
+                        L10nObjectPool.ReturnEvaluator(evaluator);
+                    }
+                    L10nObjectPool.ReturnTokenizer(tokenizer);
+                }
             }
             catch (Exception e)
             {
