@@ -195,10 +195,9 @@ namespace Minerva.Localizations.Tests
             testCases.AddRange(ComplexTestCases);
             testCases.AddRange(EdgeCaseTestCases);
 
-            // Warmup - 减少预热次数
             using (new LegacyParserScope(false))
             {
-                foreach (var testCase in SimpleTestCases) // 只预热简单用例
+                foreach (var testCase in SimpleTestCases)
                 {
                     EscapePattern.Escape(testCase, testContext, L10nParams.Empty);
                 }

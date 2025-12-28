@@ -219,7 +219,6 @@ namespace Minerva.Localizations.EscapePatterns
                     {
                         nestedRootToken = nestedTokenizer.Tokenize();
 
-                        // ✅ 直接在当前 StringBuilder 上追加
                         foreach (var child in nestedRootToken.Children ?? new List<L10nToken>())
                         {
                             EvaluateTokenWithContext(child, output, nestedContext);
