@@ -14,12 +14,43 @@ namespace Minerva.Localizations
     /// </summary>
     public readonly struct Key : IEnumerable<string>, IEquatable<Key>, IReadOnlyList<string>
     {
+        private readonly struct InlineSegments
+        {
+            public const int MAX_INLINE_SEGMENTS = 4;
+
+            private readonly ReadOnlyMemory<char> s0;
+            private readonly ReadOnlyMemory<char> s1;
+            private readonly ReadOnlyMemory<char> s2;
+            private readonly ReadOnlyMemory<char> s3;
+
+            public InlineSegments(ReadOnlyMemory<char> s0, ReadOnlyMemory<char> s1, ReadOnlyMemory<char> s2, ReadOnlyMemory<char> s3)
+            {
+                this.s0 = s0;
+                this.s1 = s1;
+                this.s2 = s2;
+                this.s3 = s3;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public ReadOnlyMemory<char> Get(int index)
+            {
+                return index switch
+                {
+                    0 => s0,
+                    1 => s1,
+                    2 => s2,
+                    3 => s3,
+                    _ => default
+                };
+            }
+        }
+
+
+
         public static readonly Regex VALID_KEY_MEMBER = new(@"^[A-Za-z0-9_\-+]+$");
         public static readonly Regex VALID_KEY = new(@"(?:([A-Za-z0-9_-]+)\.?)+");
 
         public static readonly Key Empty = default;
-
-        private const int MAX_INLINE_SEGMENTS = 4;
 
         private enum StorageMode : byte
         {
@@ -31,11 +62,7 @@ namespace Minerva.Localizations
         private readonly StorageMode storageMode;
         private readonly int length;
 
-        private readonly ReadOnlyMemory<char> inline0;
-        private readonly ReadOnlyMemory<char> inline1;
-        private readonly ReadOnlyMemory<char> inline2;
-        private readonly ReadOnlyMemory<char> inline3;
-
+        private readonly InlineSegments inlineSegments;
         private readonly ReadOnlyMemory<char>[] segmentMemories;
 
         public int Length => length;
@@ -86,7 +113,7 @@ namespace Minerva.Localizations
                     return this;
                 }
 
-                if (len <= MAX_INLINE_SEGMENTS)
+                if (len <= InlineSegments.MAX_INLINE_SEGMENTS)
                 {
                     ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
                     for (int i = 0; i < len; i++)
@@ -132,11 +159,12 @@ namespace Minerva.Localizations
 
             length = segCount;
             segmentMemories = null;
-            inline0 = inline1 = inline2 = inline3 = default;
 
-            if (segCount <= MAX_INLINE_SEGMENTS)
+            if (segCount <= InlineSegments.MAX_INLINE_SEGMENTS)
             {
                 storageMode = StorageMode.Inline;
+
+                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
 
                 int start = 0;
                 int segIndex = 0;
@@ -147,15 +175,17 @@ namespace Minerva.Localizations
                         var mem = key.AsMemory(start, i - start);
                         switch (segIndex)
                         {
-                            case 0: inline0 = mem; break;
-                            case 1: inline1 = mem; break;
-                            case 2: inline2 = mem; break;
-                            case 3: inline3 = mem; break;
+                            case 0: m0 = mem; break;
+                            case 1: m1 = mem; break;
+                            case 2: m2 = mem; break;
+                            case 3: m3 = mem; break;
                         }
                         segIndex++;
                         start = i + 1;
                     }
                 }
+
+                inlineSegments = new InlineSegments(m0, m1, m2, m3);
 
                 if (!ValidateSegmentsInline(this))
                     throw new ArgumentException($"'{key}' is not a valid member of a key");
@@ -163,6 +193,8 @@ namespace Minerva.Localizations
             else
             {
                 storageMode = StorageMode.Memory;
+                inlineSegments = default;
+
                 var segs = new ReadOnlyMemory<char>[segCount];
 
                 int start = 0;
@@ -193,22 +225,26 @@ namespace Minerva.Localizations
 
             length = path.Length;
             segmentMemories = null;
-            inline0 = inline1 = inline2 = inline3 = default;
 
-            if (length <= MAX_INLINE_SEGMENTS)
+            if (length <= InlineSegments.MAX_INLINE_SEGMENTS)
             {
                 storageMode = StorageMode.Inline;
+
+                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
+
                 for (int i = 0; i < length; i++)
                 {
                     var mem = (path[i] ?? string.Empty).AsMemory();
                     switch (i)
                     {
-                        case 0: inline0 = mem; break;
-                        case 1: inline1 = mem; break;
-                        case 2: inline2 = mem; break;
-                        case 3: inline3 = mem; break;
+                        case 0: m0 = mem; break;
+                        case 1: m1 = mem; break;
+                        case 2: m2 = mem; break;
+                        case 3: m3 = mem; break;
                     }
                 }
+
+                inlineSegments = new InlineSegments(m0, m1, m2, m3);
 
                 if (!ValidateSegmentsInline(this))
                     throw new ArgumentException(string.Join(KEY_SEPARATOR, path));
@@ -216,6 +252,8 @@ namespace Minerva.Localizations
             else
             {
                 storageMode = StorageMode.Memory;
+                inlineSegments = default;
+
                 var segs = new ReadOnlyMemory<char>[length];
                 for (int i = 0; i < length; i++)
                 {
@@ -251,11 +289,12 @@ namespace Minerva.Localizations
 
             length = segCount;
             segmentMemories = null;
-            inline0 = inline1 = inline2 = inline3 = default;
 
-            if (segCount <= MAX_INLINE_SEGMENTS)
+            if (segCount <= InlineSegments.MAX_INLINE_SEGMENTS)
             {
                 storageMode = StorageMode.Inline;
+
+                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
 
                 int start = 0;
                 int segIndex = 0;
@@ -266,15 +305,17 @@ namespace Minerva.Localizations
                         var mem = keyMemory.Slice(start, i - start);
                         switch (segIndex)
                         {
-                            case 0: inline0 = mem; break;
-                            case 1: inline1 = mem; break;
-                            case 2: inline2 = mem; break;
-                            case 3: inline3 = mem; break;
+                            case 0: m0 = mem; break;
+                            case 1: m1 = mem; break;
+                            case 2: m2 = mem; break;
+                            case 3: m3 = mem; break;
                         }
                         segIndex++;
                         start = i + 1;
                     }
                 }
+
+                inlineSegments = new InlineSegments(m0, m1, m2, m3);
 
                 if (!ValidateSegmentsInline(this))
                     throw new ArgumentException("Invalid key");
@@ -282,6 +323,8 @@ namespace Minerva.Localizations
             else
             {
                 storageMode = StorageMode.Memory;
+                inlineSegments = default;
+
                 var segs = new ReadOnlyMemory<char>[segCount];
 
                 int start = 0;
@@ -317,10 +360,7 @@ namespace Minerva.Localizations
         {
             storageMode = len == 0 ? StorageMode.Empty : StorageMode.Inline;
             length = len;
-            inline0 = m0;
-            inline1 = m1;
-            inline2 = m2;
-            inline3 = m3;
+            inlineSegments = new InlineSegments(m0, m1, m2, m3);
             segmentMemories = null;
         }
 
@@ -328,7 +368,7 @@ namespace Minerva.Localizations
         {
             storageMode = len == 0 ? StorageMode.Empty : StorageMode.Memory;
             length = len;
-            inline0 = inline1 = inline2 = inline3 = default;
+            inlineSegments = default;
             segmentMemories = segs;
         }
 
@@ -340,12 +380,12 @@ namespace Minerva.Localizations
 
             int newLen = length + 1;
 
-            if (newLen <= MAX_INLINE_SEGMENTS)
+            if (newLen <= InlineSegments.MAX_INLINE_SEGMENTS)
             {
-                ReadOnlyMemory<char> m0 = inline0;
-                ReadOnlyMemory<char> m1 = inline1;
-                ReadOnlyMemory<char> m2 = inline2;
-                ReadOnlyMemory<char> m3 = inline3;
+                ReadOnlyMemory<char> m0 = inlineSegments.Get(0);
+                ReadOnlyMemory<char> m1 = inlineSegments.Get(1);
+                ReadOnlyMemory<char> m2 = inlineSegments.Get(2);
+                ReadOnlyMemory<char> m3 = inlineSegments.Get(3);
 
                 var mem = v.AsMemory();
                 switch (length)
@@ -376,14 +416,7 @@ namespace Minerva.Localizations
 
             if (storageMode == StorageMode.Inline)
             {
-                return index switch
-                {
-                    0 => inline0,
-                    1 => inline1,
-                    2 => inline2,
-                    3 => inline3,
-                    _ => default
-                };
+                return inlineSegments.Get(index);
             }
 
             return segmentMemories[index];
@@ -463,7 +496,7 @@ namespace Minerva.Localizations
             if (newLen <= 0) return Empty;
             if (newLen == key.length) return key;
 
-            if (newLen <= MAX_INLINE_SEGMENTS)
+            if (newLen <= InlineSegments.MAX_INLINE_SEGMENTS)
             {
                 ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
                 for (int i = 0; i < newLen; i++)
@@ -578,7 +611,7 @@ namespace Minerva.Localizations
 
             int newLen = a.length + b.length;
 
-            if (newLen <= MAX_INLINE_SEGMENTS)
+            if (newLen <= InlineSegments.MAX_INLINE_SEGMENTS)
             {
                 ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default;
                 for (int i = 0; i < a.length; i++)
@@ -761,7 +794,7 @@ namespace Minerva.Localizations
                     return Empty;
                 }
 
-                if (count <= MAX_INLINE_SEGMENTS)
+                if (count <= InlineSegments.MAX_INLINE_SEGMENTS)
                 {
                     ReadOnlyMemory<char> m0 = default;
                     ReadOnlyMemory<char> m1 = default;
