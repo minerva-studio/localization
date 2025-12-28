@@ -82,21 +82,6 @@ namespace Minerva.Localizations.EscapePatterns
             }
         }
 
-        private static Dictionary<string, object> ConvertVariablesToDict(L10nParams parameters)
-        {
-            var dict = new Dictionary<string, object>();
-
-            if (parameters.Variables != null)
-            {
-                foreach (var kv in parameters.Variables)
-                {
-                    dict[kv.Key] = kv.Value;
-                }
-            }
-
-            return dict;
-        }
-
         #endregion
 
         #region Legacy API (Regex-based, Backward Compatible)
