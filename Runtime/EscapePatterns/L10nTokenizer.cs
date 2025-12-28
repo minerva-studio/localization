@@ -9,12 +9,18 @@ namespace Minerva.Localizations.EscapePatterns
     /// </summary>
     internal sealed class L10nTokenizer
     {
-        private readonly string source;
+        private readonly ReadOnlyMemory<char> source;
         private int position;
 
         public L10nTokenizer(string source)
         {
-            this.source = source ?? string.Empty;
+            this.source = (source ?? string.Empty).AsMemory();
+            this.position = 0;
+        }
+
+        public L10nTokenizer(ReadOnlyMemory<char> source)
+        {
+            this.source = source;
             this.position = 0;
         }
 
@@ -105,7 +111,7 @@ namespace Minerva.Localizations.EscapePatterns
                 return false;
             }
 
-            var content = source.AsMemory(contentStart, position - contentStart - 1);
+            var content = source.Slice(contentStart, position - contentStart - 1);
             token = new L10nToken
             {
                 Type = TokenType.KeyReference,
@@ -168,12 +174,12 @@ namespace Minerva.Localizations.EscapePatterns
 
             if (formatStart > 0)
             {
-                content = source.AsMemory(contentStart, formatStart - contentStart);
-                format = source.AsMemory(formatStart + 1, position - formatStart - 2);
+                content = source.Slice(contentStart, formatStart - contentStart);
+                format = source.Slice(formatStart + 1, position - formatStart - 2);
             }
             else
             {
-                content = source.AsMemory(contentStart, position - contentStart - 1);
+                content = source.Slice(contentStart, position - contentStart - 1);
             }
 
             token = new L10nToken
@@ -195,7 +201,7 @@ namespace Minerva.Localizations.EscapePatterns
                 return false;
             }
 
-            string colorCode;
+            ReadOnlyMemory<char> colorCode;
 
             // Try read hex color: #RRGGBB
             if (Peek() == '#')
@@ -219,12 +225,12 @@ namespace Minerva.Localizations.EscapePatterns
                     }
                 }
 
-                colorCode = "#" + source.Substring(hexStart, 6);
+                colorCode = source.Slice(hexStart - 1, 7);
             }
             // Try read single char color: R, G, B, etc.
             else if (!IsAtEnd() && char.IsLetter(Peek()))
             {
-                colorCode = Peek().ToString();
+                colorCode = source.Slice(position, 1);
                 position++;
             }
             else
@@ -246,15 +252,15 @@ namespace Minerva.Localizations.EscapePatterns
                 return false;
             }
 
-            string innerContent = source.Substring(contentStart, contentEnd - contentStart);
+            var innerContent = source.Slice(contentStart, contentEnd - contentStart);
             var nestedTokenizer = new L10nTokenizer(innerContent);
             token = nestedTokenizer.Tokenize();
 
             position = contentEnd + 1;
 
             token.Type = TokenType.ColorTag;
-            token.Content = innerContent.AsMemory();
-            token.Metadata = colorCode.AsMemory();
+            token.Content = innerContent;
+            token.Metadata = colorCode;
             return true;
         }
 
@@ -266,9 +272,10 @@ namespace Minerva.Localizations.EscapePatterns
         {
             int pos = startPos;
 
+            ReadOnlySpan<char> span = source.Span;
             while (pos < source.Length)
             {
-                char c = source[pos];
+                char c = span[pos];
 
                 // Skip escaped characters
                 if (c == '\\' && pos + 1 < source.Length)
@@ -307,7 +314,7 @@ namespace Minerva.Localizations.EscapePatterns
 
         private char Peek()
         {
-            return position < source.Length ? source[position] : '\0';
+            return position < source.Length ? source.Span[position] : '\0';
         }
 
         private bool Match(char expected)

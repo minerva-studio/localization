@@ -17,6 +17,15 @@ namespace Minerva.Localizations.EscapePatterns
         // Feature flag for gradual migration
         private static bool tokenize = true;
 
+        /// <summary>
+        /// Public API to control parser mode (for testing)
+        /// </summary>
+        public static bool UseLegacyParser
+        {
+            get => !tokenize;
+            set => tokenize = !value;
+        }
+
         #region New API (Tokenizer-based, High Performance)
 
         /// <summary>

@@ -9,6 +9,9 @@ namespace Minerva.Localizations
     /// </summary>
     public readonly struct L10nParams
     {
+        public static L10nParams Empty => Create();
+
+
         private readonly Dictionary<string, object> variables;
 
         /// <summary>

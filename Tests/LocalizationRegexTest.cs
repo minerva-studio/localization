@@ -1,4 +1,4 @@
-﻿using Minerva.Localizations.EscapePatterns;
+using Minerva.Localizations.EscapePatterns;
 using Minerva.Module;
 using NUnit.Framework;
 using System.Collections.Generic;
