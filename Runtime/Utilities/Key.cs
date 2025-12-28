@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -66,7 +66,7 @@ namespace Minerva.Localizations
             CachedKeyString = key;
             if (!SectionArray.All(k => VALID_KEY_MEMBER.IsMatch(k)))
             {
-                throw new ArgumentException(key);
+                throw new ArgumentException($"'{key}' is not a valid member of a key");
             }
         }
 
@@ -132,6 +132,8 @@ namespace Minerva.Localizations
 
         public static implicit operator Key(string key)
         {
+            // special case for empty key
+            if (string.IsNullOrEmpty(key)) return Key.Empty;
             return new Key(key);
         }
 

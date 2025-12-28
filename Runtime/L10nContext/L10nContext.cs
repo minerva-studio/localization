@@ -3,6 +3,7 @@ using Minerva.Localizations.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using UnityEngine;
 using static Minerva.Localizations.EscapePatterns.EscapePattern;
 
 namespace Minerva.Localizations
@@ -64,7 +65,7 @@ namespace Minerva.Localizations
         /// <param name="value"></param>
         protected virtual void Parse(object value)
         {
-            this.key = value is string str ? str : (value?.GetType().FullName ?? string.Empty);
+            key = value?.GetType().FullName ?? string.Empty;
         }
 
 
@@ -116,7 +117,6 @@ namespace Minerva.Localizations
             var value = GetObjectNullPropagation(this.value, escapeKey);
             if (value == null)
                 return escapeKey;
-
             return DynamicValueOf(value, parameters);
         }
 

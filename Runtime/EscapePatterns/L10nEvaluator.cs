@@ -186,14 +186,14 @@ namespace Minerva.Localizations.EscapePatterns
             // No parameters - fast path (single allocation)
             if (angleIndex < 0)
             {
-                return context.Context.GetEscapeValue(varName.ToString(), Array.Empty<string>());
+                return context.Context.GetEscapeValue(varName.ToString(), L10nParams.Empty);
             }
 
             // Has parameters - parse carefully
             if (nameSpan[^1] != '>')
             {
                 // Malformed, fallback
-                return context.Context.GetEscapeValue(varName.ToString(), Array.Empty<string>());
+                return context.Context.GetEscapeValue(varName.ToString(), L10nParams.Empty);
             }
 
             var key = varName[..angleIndex].ToString();
@@ -202,59 +202,13 @@ namespace Minerva.Localizations.EscapePatterns
             // Empty parameters
             if (paramSpan.Length == 0)
             {
-                return context.Context.GetEscapeValue(key, Array.Empty<string>());
+                return context.Context.GetEscapeValue(key, L10nParams.Empty);
             }
 
-            // Parse parameters without intermediate allocations
-            var parameters = SplitParameters(paramSpan);
+            // Parse parameters directly to L10nParams (zero-allocation parsing)
+            var parameters = L10nParams.ParseParameters(paramSpan);
             return context.Context.GetEscapeValue(key, parameters);
         }
-
-        private static string[] SplitParameters(ReadOnlyMemory<char> paramSpan)
-        {
-            var span = paramSpan.Span;
-
-            // Count commas to pre-allocate array (single allocation)
-            int commaCount = 0;
-            for (int i = 0; i < span.Length; i++)
-            {
-                if (span[i] == ',') commaCount++;
-            }
-
-            var parameters = new string[commaCount + 1];
-            int paramIndex = 0;
-            int start = 0;
-
-            for (int i = 0; i < span.Length; i++)
-            {
-                if (span[i] == ',')
-                {
-                    parameters[paramIndex++] = TrimAndExtract(span[start..i]);
-                    start = i + 1;
-                }
-            }
-
-            // Add last parameter
-            parameters[paramIndex] = TrimAndExtract(span[start..]);
-
-            return parameters;
-
-            static string TrimAndExtract(ReadOnlySpan<char> span)
-            {
-                // Manual trim to avoid allocation
-                int start = 0;
-                int end = span.Length;
-
-                while (start < end && char.IsWhiteSpace(span[start]))
-                    start++;
-
-                while (end > start && char.IsWhiteSpace(span[end - 1]))
-                    end--;
-
-                return start < end ? new string(span[start..end]) : string.Empty;
-            }
-        }
-
 
         private string ApplyReferenceOptions(string key, string content, bool isTooltip)
         {

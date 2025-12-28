@@ -1,5 +1,7 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -10,15 +12,10 @@ namespace Minerva.Localizations
     /// </summary>
     public readonly struct L10nParams
     {
-        public static L10nParams Empty => Create();
+        public static readonly L10nParams Empty = Create();
 
-        private readonly Dictionary<string, object> variables;
-        private readonly string[] options;
-
-        /// <summary>
-        /// Option segments (e.g., ["Daily", "desc"] for "Daily.desc")
-        /// </summary>
-        public IReadOnlyList<string> Options => options ?? Array.Empty<string>();
+        private readonly Dictionary<string, object>? variables;
+        private readonly string[]? options;
 
         /// <summary>
         /// Recursion depth (internal use)
@@ -26,38 +23,20 @@ namespace Minerva.Localizations
         public int Depth { get; }
 
         /// <summary>
+        /// Option segments (e.g., ["Daily", "desc"] for "Daily.desc")
+        /// </summary>
+        public IReadOnlyList<string> Options => options ?? Array.Empty<string>();
+
+        /// <summary>
         /// Variables dictionary (read-only view)
         /// </summary>
-        public IReadOnlyDictionary<string, object> Variables => variables;
+        public IReadOnlyDictionary<string, object>? Variables => variables;
 
         #region Constructors
 
-        private L10nParams(string[] options, int depth, Dictionary<string, object> vars)
+        private L10nParams(string[]? options, int depth, Dictionary<string, object>? vars)
         {
             this.options = options;
-            Depth = depth;
-            variables = vars;
-        }
-
-        internal L10nParams(string[] options, int depth, Dictionary<string, object> vars, bool _)
-        {
-            this.options = options;
-            Depth = depth;
-            variables = vars;
-        }
-
-        // Legacy single option constructor
-        private L10nParams(string option, int depth, Dictionary<string, object> vars)
-        {
-            this.options = string.IsNullOrEmpty(option) ? null : new[] { option };
-            Depth = depth;
-            variables = vars;
-        }
-
-        // Internal constructor for depth changes (legacy)
-        internal L10nParams(string option, int depth, Dictionary<string, object> vars, bool _)
-        {
-            this.options = string.IsNullOrEmpty(option) ? null : new[] { option };
             Depth = depth;
             variables = vars;
         }
@@ -72,17 +51,7 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static L10nParams Create()
         {
-            return new L10nParams((string[])null, 0, null);
-        }
-
-        /// <summary>
-        /// Create parameters with specified option
-        /// </summary>
-        /// <param name="option">Option name (e.g., "name", "desc", "tooltip")</param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static L10nParams Create(string option)
-        {
-            return new L10nParams(option, 0, null);
+            return new L10nParams((string[]?)null, 0, null);
         }
 
         /// <summary>
@@ -120,15 +89,6 @@ namespace Minerva.Localizations
             foreach (var (key, value) in keyValues)
                 result = result.With(key, value);
             return result;
-        }
-
-        /// <summary>
-        /// Change the option (single segment)
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public L10nParams WithOption(string option)
-        {
-            return new L10nParams(option, Depth, variables);
         }
 
         /// <summary>
@@ -179,7 +139,7 @@ namespace Minerva.Localizations
         /// Try get a variable value
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetVariable<T>(string key, out T value)
+        public bool TryGetVariable<T>(string key, [NotNullWhen(true)] out T? value)
         {
             if (variables != null && variables.TryGetValue(key, out var obj))
             {
@@ -208,7 +168,7 @@ namespace Minerva.Localizations
         /// Try get a variable value as string (most common case)
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetVariable(string key, out string value)
+        public bool TryGetVariable(string key, [NotNullWhen(true)] out string? value)
         {
             if (variables != null && variables.TryGetValue(key, out var obj))
             {
@@ -223,7 +183,7 @@ namespace Minerva.Localizations
         /// Get variable or default
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T GetVariableOrDefault<T>(string key, T defaultValue = default)
+        public T GetVariableOrDefault<T>(string key, T defaultValue = default!)
         {
             return TryGetVariable<T>(key, out var value) ? value : defaultValue;
         }
@@ -235,6 +195,79 @@ namespace Minerva.Localizations
         public bool HasVariable(string key)
         {
             return variables != null && variables.ContainsKey(key);
+        }
+
+        #endregion
+
+        #region Zero-Allocation Parsing
+
+        /// <summary>
+        /// Parse parameters from ReadOnlyMemory with minimal allocations
+        /// Supports: "opt1,opt2,key=value,opt3"
+        /// </summary>
+        public static L10nParams ParseParameters(ReadOnlyMemory<char> paramSpan)
+        {
+            var span = paramSpan.Span;
+
+            if (span.Length == 0)
+                return Empty;
+
+            // Count commas to estimate capacity
+            int commaCount = 0;
+            for (int i = 0; i < span.Length; i++)
+            {
+                if (span[i] == ',') commaCount++;
+            }
+
+            List<string>? optionList = null;
+            Dictionary<string, object>? vars = null;
+
+            int start = 0;
+            for (int i = 0; i <= span.Length; i++)
+            {
+                if (i == span.Length || span[i] == ',')
+                {
+                    var segment = TrimSegment(span[start..i]);
+
+                    if (segment.Length > 0)
+                    {
+                        // Check if it's a key=value pair
+                        int eqIndex = segment.IndexOf('=');
+                        if (eqIndex > 0)
+                        {
+                            vars ??= new Dictionary<string, object>(commaCount);
+                            var key = new string(segment[..eqIndex]);
+                            var value = new string(segment[(eqIndex + 1)..]);
+                            vars[key] = value;
+                        }
+                        else
+                        {
+                            // It's an option
+                            optionList ??= new List<string>(commaCount + 1);
+                            optionList.Add(new string(segment));
+                        }
+                    }
+
+                    start = i + 1;
+                }
+            }
+
+            var options = optionList?.ToArray();
+            return new L10nParams(options, 0, vars);
+        }
+
+        private static ReadOnlySpan<char> TrimSegment(ReadOnlySpan<char> span)
+        {
+            int start = 0;
+            int end = span.Length;
+
+            while (start < end && char.IsWhiteSpace(span[start]))
+                start++;
+
+            while (end > start && char.IsWhiteSpace(span[end - 1]))
+                end--;
+
+            return span[start..end];
         }
 
         #endregion
@@ -251,7 +284,6 @@ namespace Minerva.Localizations
         /// 
         /// Example: ["Daily", "level=2", "desc"] 
         /// → Options: ["Daily", "desc"], Variables: {"level": "2"}
-        /// → Final option: "Daily.desc"
         /// </remarks>
         public static L10nParams FromLegacy(params string[] param)
         {
@@ -286,7 +318,7 @@ namespace Minerva.Localizations
         public static L10nParams FromLegacy(string[] param, int depth)
         {
             if (param == null || param.Length == 0)
-                return Create();
+                return new L10nParams(null, depth, null);
 
             var optionList = new List<string>(param.Length);
             var vars = new Dictionary<string, object>(param.Length);
@@ -373,7 +405,7 @@ namespace Minerva.Localizations
             }
         }
 
-        private static bool ArrayEquals(string[] a, string[] b)
+        private static bool ArrayEquals(string[]? a, string[]? b)
         {
             if (a == null && b == null) return true;
             if (a == null || b == null) return false;
@@ -386,7 +418,7 @@ namespace Minerva.Localizations
             return true;
         }
 
-        private static int ArrayHashCode(string[] arr)
+        private static int ArrayHashCode(string[]? arr)
         {
             if (arr == null) return 0;
             unchecked
@@ -400,7 +432,7 @@ namespace Minerva.Localizations
             }
         }
 
-        private static bool DictionaryEquals(Dictionary<string, object> a, Dictionary<string, object> b)
+        private static bool DictionaryEquals(Dictionary<string, object>? a, Dictionary<string, object>? b)
         {
             if (a == null && b == null) return true;
             if (a == null || b == null) return false;
