@@ -1,4 +1,4 @@
-﻿using Minerva.Localizations.Components;
+using Minerva.Localizations.Components;
 using Minerva.Module.Editor;
 using System.Linq;
 using UnityEditor;

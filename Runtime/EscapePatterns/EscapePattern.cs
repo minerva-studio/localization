@@ -1,4 +1,4 @@
-﻿using Minerva.Module;
+using Minerva.Module;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,24 +14,109 @@ namespace Minerva.Localizations.EscapePatterns
     /// </summary>
     internal static class EscapePattern
     {
+        // Feature flag for gradual migration
+        private static bool tokenize = true;
+
+        #region New API (Tokenizer-based, High Performance)
+
         /// <summary>
-        /// Resolve all escape characters
+        /// Escape with L10nParams
         /// </summary>
-        /// <param name="rawString"></param>
-        /// <param name="context"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>
+        public static string Escape(string rawString, ILocalizableContext context, L10nParams parameters)
+        {
+            if (rawString == null) return string.Empty;
+
+            if (!tokenize)
+            {
+                // Fallback to legacy implementation
+                return EscapeLegacy(rawString, context, parameters.Depth, parameters.ToLegacy());
+            }
+
+            try
+            {
+                // Single-pass tokenization
+                var tokens = new L10nTokenizer(rawString).Tokenize();
+
+                // Build evaluation context
+                var evalContext = new EvaluationContext(parameters.Depth, context, ConvertVariablesToDict(parameters));
+
+                string value = new L10nEvaluator(evalContext).Evaluate(tokens);
+
+                if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always)
+                    return SplitUnderlineByColor(value);
+
+                return value;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                // Fallback to legacy on error
+                return EscapeLegacy(rawString, context, parameters.Depth, parameters.ToLegacy());
+            }
+        }
+
+        private static Dictionary<string, object> ConvertVariablesToDict(L10nParams parameters)
+        {
+            var dict = new Dictionary<string, object>();
+
+            if (parameters.Variables != null)
+            {
+                foreach (var kv in parameters.Variables)
+                {
+                    dict[kv.Key] = kv.Value;
+                }
+            }
+
+            return dict;
+        }
+
+        #endregion
+
+        #region Legacy API (Regex-based, Backward Compatible)
+
+        /// <summary>
+        /// Escape with string[] params (legacy, slower)
+        /// </summary>
+        /// <remarks>
+        /// Performance Note: Consider migrating to Escape(string, ILocalizableContext, L10nParams)
+        /// </remarks>
         public static string Escape(string rawString, ILocalizableContext context, int depth = 0, params string[] param)
+        {
+            if (!tokenize)
+            {
+                return EscapeLegacy(rawString, context, depth, param);
+            }
+
+            // Convert to L10nParams and use new path
+            var parameters = L10nParams.FromLegacy(param);
+            var parametersWithDepth = new L10nParams(
+                parameters.Option,
+                depth,
+                parameters.Variables as Dictionary<string, object>,
+                true
+            );
+
+            return Escape(rawString, context, parametersWithDepth);
+        }
+
+        /// <summary>
+        /// Legacy implementation (preserved for fallback)
+        /// </summary>
+        private static string EscapeLegacy(string rawString, ILocalizableContext context, int depth, string[] param)
         {
             if (rawString == null) return string.Empty;
             rawString = ReplaceKeyEscape(rawString, context, depth, param);
             rawString = ReplaceDynamicValueEscape(rawString, context, depth, param);
             rawString = ReplaceColorEscape(rawString);
             rawString = ReplaceBackSlash(rawString);
-            if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always) return SplitUnderlineByColor(rawString);
+            if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always)
+                return SplitUnderlineByColor(rawString);
             return rawString;
         }
 
+        #endregion
+
+        #region Legacy Methods (Preserved for Compatibility)
 
         /// <summary>
         /// replace \\ to \
@@ -134,59 +219,9 @@ namespace Minerva.Localizations.EscapePatterns
             return content;
         }
 
-
-
         /// <summary>
         /// Replace dynamic value escape strings
         /// </summary>
-        /// <param name="rawString"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>  
-        //[Obsolete]
-        //public static string ReplaceDynamicValueEscape_Default(string rawString, ILocalizableContext context, params string[] param)
-        //{
-        //    if (rawString == null) return string.Empty;
-        //    rawString = DYNAMIC_VALUE_ARG_PATTERN.Replace(rawString, (m) =>
-        //    {
-        //        // we can't really guarantee context can correctly provide replacements
-        //        try
-        //        {
-        //            string key = m.Groups[2].Value;
-        //            string[] localParam;
-        //            string result;
-        //            Dictionary<string, string> localOptions;
-
-        //            // has custom param
-        //            if (m.Groups[3].Success) (localParam, localOptions) = GetLocalParam(m.Groups[3], param);
-        //            else (localParam, localOptions) = (param, ParseDynamicValue(new(), false, param));
-
-        //            // if defined, then use it, otherwise ask context
-        //            if (!localOptions.TryGetValue(key, out string replacement) && context != null)
-        //                replacement = context.GetEscapeValue(key, localParam).ToString();
-
-        //            // no replacement if not found
-        //            if (replacement == key) result = m.Value;
-        //            else result = m.Value.Replace(m.Groups[1].Value, ReplaceKeyEscape(replacement, context, depth + 1, localParam));
-
-        //            return result;
-        //        }
-        //        catch (System.Exception e)
-        //        {
-        //            Debug.LogException(e);
-        //            return m.Value;
-        //        }
-        //    });
-        //    return rawString;
-        //}
-
-
-        /// <summary>
-        /// Replace dynamic value escape strings
-        /// </summary>
-        /// <param name="rawString"></param>
-        /// <param name="context"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>  
         public static string ReplaceDynamicValueEscape(string rawString, ILocalizableContext context, int depth, params string[] param)
         {
             if (!LoopCheck(depth, rawString)) return rawString;
@@ -263,6 +298,10 @@ namespace Minerva.Localizations.EscapePatterns
             }
         }
 
+        #endregion
+
+        #region Shared Utilities
+
         public static string SplitUnderlineByColor(string input)
         {
             // Match: <u>(...multiple <color> tags...)</u>
@@ -320,7 +359,6 @@ namespace Minerva.Localizations.EscapePatterns
             for (int k = 0; k < group.Captures.Count; k++)
             {
                 string value = group.Captures[k].Value.Trim();
-                Debug.Log(value);
                 if (string.IsNullOrEmpty(value)) continue;
                 if (value == L10nSymbols.PARAM_REF_SYMBOL)
                 {
@@ -484,5 +522,7 @@ namespace Minerva.Localizations.EscapePatterns
         {
             return $"$@{Localizable.AppendKey(baseKey, args)}$";
         }
+
+        #endregion
     }
 }
