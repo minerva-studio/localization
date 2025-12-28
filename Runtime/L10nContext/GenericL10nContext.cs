@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 
 namespace Minerva.Localizations
@@ -13,7 +13,7 @@ namespace Minerva.Localizations
             if (value != null)
             {
                 System.Type type = value.GetType();
-                BaseKey = L10nAlias.GetTypeName(type);
+                BaseKey = L10nAlias.GetTypeKey(type);
                 //_ = TryFindField(value, type, "name")
                 //    || TryFindField(value, type, "Name")
                 //    || TryFindProperty(value, type, "name")

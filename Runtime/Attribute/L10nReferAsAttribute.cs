@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -17,32 +17,86 @@ namespace Minerva.Localizations
         }
 
     }
-
-#nullable enable 
+#nullable enable
     public static class L10nAlias
     {
-        public static readonly Dictionary<Type, string> typeName = new();
-        public static readonly Dictionary<Type, Dictionary<string, MemberInfo>?> keyAttributes = new();
+        public struct TypeEntry
+        {
+            public string? TypeName;
+            public Key? TypeKey;
+
+            public bool MemberMapBuilt;
+            public Dictionary<string, MemberInfo>? MemberMap;
+        }
+
+        private static readonly Dictionary<Type, TypeEntry> entries = new();
 
         public static string GetTypeName(Type type)
         {
-            if (typeName.TryGetValue(type, out var name))
-                return name;
+            if (entries.TryGetValue(type, out var entry) && entry.TypeName != null)
+            {
+                return entry.TypeName;
+            }
+
+            string name;
             if (Attribute.GetCustomAttribute(type, typeof(L10nReferAsAttribute)) is L10nReferAsAttribute attr)
-                return typeName[type] = attr.Key;
+            {
+                name = attr.Key;
+            }
             else
-                return typeName[type] = type.FullName;
+            {
+                name = type.FullName;
+            }
+
+            if (!entries.TryGetValue(type, out entry))
+            {
+                entry = default;
+            }
+
+            entry.TypeName = name;
+            entries[type] = entry;
+            return name;
+        }
+
+        public static Key GetTypeKey(Type type)
+        {
+            if (entries.TryGetValue(type, out var entry) && entry.TypeKey.HasValue)
+            {
+                return entry.TypeKey.Value;
+            }
+
+            var key = new Key(GetTypeName(type));
+
+            if (!entries.TryGetValue(type, out entry))
+            {
+                entry = default;
+            }
+
+            entry.TypeKey = key;
+            entries[type] = entry;
+            return key;
         }
 
         public static MemberInfo? GetMember(Type type, string name)
         {
-            if (!keyAttributes.TryGetValue(type, out var map))
+            if (!entries.TryGetValue(type, out var entry))
             {
-                map = BuildMap(type);
-                keyAttributes[type] = map;
+                entry = default;
             }
-            if (map == null) return null;
-            return map.TryGetValue(name, out var member) ? member : null;
+
+            if (!entry.MemberMapBuilt)
+            {
+                entry.MemberMap = BuildMap(type);
+                entry.MemberMapBuilt = true;
+                entries[type] = entry;
+            }
+
+            if (entry.MemberMap == null)
+            {
+                return null;
+            }
+
+            return entry.MemberMap.TryGetValue(name, out var member) ? member : null;
         }
 
         private static Dictionary<string, MemberInfo>? BuildMap(Type type)

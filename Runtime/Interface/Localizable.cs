@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -131,6 +132,7 @@ namespace Minerva.Localizations
         /// <param name="depth">Recursion depth</param>
         /// <param name="param"></param>
         /// <returns></returns>
+        [Obsolete("Use L10nParams instead")]
         public static string Tr(ILocalizableContext context, int depth, params string[] param)
         {
             var parameters = L10nParams.FromLegacy(param, depth);
@@ -145,6 +147,7 @@ namespace Minerva.Localizations
         /// <param name="depth">Recursion depth</param>
         /// <param name="param"></param>
         /// <returns></returns>
+        [Obsolete("Use L10nParams instead")]
         public static string TrKey(string key, ILocalizableContext context, int depth, params string[] param)
         {
             var parameters = L10nParams.FromLegacy(param, depth);
@@ -158,6 +161,7 @@ namespace Minerva.Localizations
         /// <param name="context"></param>
         /// <param name="param"></param>
         /// <returns></returns>
+        [Obsolete("Use L10nParams instead")]
         public static string TrRaw(string rawContent, ILocalizableContext context, params string[] param)
         {
             var parameters = L10nParams.FromLegacy(param);
@@ -171,6 +175,7 @@ namespace Minerva.Localizations
         /// <param name="depth">Recursion depth</param>
         /// <param name="param"></param>
         /// <returns></returns>
+        [Obsolete("Use L10nParams instead")]
         public static string Tr(object value, int depth, params string[] param)
         {
             var parameters = L10nParams.FromLegacy(param, depth);
@@ -237,7 +242,15 @@ namespace Minerva.Localizations
         /// <param name="baseKey"></param>
         /// <param name="param"></param>
         /// <returns></returns>
-        public static Key AppendKey(Key baseKey, params string[] param)
+        public static Key AppendKey(Key baseKey, params string[] param) => AppendKey(baseKey, (IReadOnlyList<string>)param);
+
+        /// <summary>
+        /// Append given key (legacy)
+        /// </summary>
+        /// <param name="baseKey"></param>
+        /// <param name="param"></param>
+        /// <returns></returns>
+        public static Key AppendKey(Key baseKey, IReadOnlyList<string> param)
         {
             foreach (var item in param)
             {

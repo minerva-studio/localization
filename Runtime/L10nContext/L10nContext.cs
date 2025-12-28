@@ -3,7 +3,6 @@ using Minerva.Localizations.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 using static Minerva.Localizations.EscapePatterns.EscapePattern;
 
 namespace Minerva.Localizations
@@ -65,7 +64,7 @@ namespace Minerva.Localizations
         /// <param name="value"></param>
         protected virtual void Parse(object value)
         {
-            key = value?.GetType().FullName ?? string.Empty;
+            key = new(value?.GetType().FullName ?? string.Empty);
         }
 
 
@@ -162,10 +161,9 @@ namespace Minerva.Localizations
 
         #region Helper Methods
 
-        public static Key AppendKey(Key key, params string[] param)
-        {
-            return Localizable.AppendKey(key, param);
-        }
+        public static Key AppendKey(Key key, params string[] param) => Localizable.AppendKey(key, param);
+
+        public static Key AppendKey(Key baseKey, IReadOnlyList<string> param) => Localizable.AppendKey(baseKey, param);
 
         /// <summary>
         /// <inheritdoc/> 

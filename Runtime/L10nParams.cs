@@ -225,6 +225,23 @@ namespace Minerva.Localizations
 
         #endregion
 
+        #region Options
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Contains(string option)
+        {
+            if (options == null || options.Length == 0)
+                return false;
+            foreach (var opt in options)
+            {
+                if (opt == option)
+                    return true;
+            }
+            return false;
+        }
+
+        #endregion
+
         #region Zero-Allocation Parsing
 
         /// <summary>
