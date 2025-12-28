@@ -8,6 +8,8 @@ namespace Minerva.Localizations.Editor
     [SerializeField]
     public class LocalizationTextEditor
     {
+        static GUILayoutOption MinHeight = GUILayout.MinHeight(80);
+
         public bool showTools;
         public Color color;
 
@@ -27,7 +29,9 @@ namespace Minerva.Localizations.Editor
         public string DrawTextEditor(string desc)
         {
             GUI.SetNextControlName(controlName);
-            result = EditorGUILayout.TextArea(desc, GUILayout.MinHeight(80));
+            GUIStyle style = new GUIStyle(EditorStyles.textArea);
+            style.wordWrap = true;
+            result = EditorGUILayout.TextArea(desc, style, MinHeight);
             textEditor = GetTextEditor();
             // text editor not the current
             focus = textEditor.text == result;
