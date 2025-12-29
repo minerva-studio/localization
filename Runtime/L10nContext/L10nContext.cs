@@ -1,4 +1,3 @@
-using Minerva.Localizations.EscapePatterns;
 using Minerva.Localizations.Utilities;
 using System;
 using System.Collections.Generic;
@@ -10,7 +9,7 @@ namespace Minerva.Localizations
     /// <summary>
     /// Base class of the context of localization
     /// </summary>
-    public abstract class L10nContext : ILocalizableContext, ILocalizer
+    public abstract class L10nContext : ILocalizableContext
     {
         private static Dictionary<string, DynamicValueProvider> globalEscapeValues = new();
 
@@ -75,10 +74,7 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="parameters">Localization parameters</param>
         /// <returns></returns>
-        public virtual Key GetLocalizationKey(L10nParams parameters)
-        {
-            return Localizable.AppendKey(key, parameters.Options);
-        }
+        public virtual Key GetLocalizationKey(L10nParams parameters) => Key.Join(in key, parameters.Options);
 
         /// <summary>
         /// Get the raw content, override this for creating custom format of localized content
@@ -119,64 +115,28 @@ namespace Minerva.Localizations
             return DynamicValueOf(value, parameters);
         }
 
-        #endregion
-
-        #region Legacy API (string[])
+        #endregion 
 
         /// <summary>
         /// Get the key represent for this localizable object (legacy)
         /// </summary>
-        /// <param name="param">Legacy string parameters</param>
+        /// <param name="param">string parameters</param>
         /// <returns></returns>
-        [Obsolete("Use GetLocalizationKey(L10nParams) instead")]
-        public virtual Key GetLocalizationKey(params string[] param)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Key GetLocalizationKey(params string[] param)
         {
-            return GetLocalizationKey(L10nParams.FromLegacy(param));
+            return GetLocalizationKey(L10nParams.FromStrings(param));
         }
 
         /// <summary>
-        /// Get the raw content (legacy)
+        /// Get the key represent for this localizable object (legacy)
         /// </summary>
-        /// <param name="param">Legacy string parameters</param>
+        /// <param name="param">string parameter</param>
         /// <returns></returns>
-        [Obsolete("Use GetRawContent(L10nParams) instead")]
-        public virtual string GetRawContent(params string[] param)
-        {
-            return GetRawContent(L10nParams.FromLegacy(param));
-        }
-
-        /// <summary>
-        /// Get escape value from the object (legacy)
-        /// </summary>
-        /// <param name="escapeKey">The escape key</param>
-        /// <param name="param">Legacy string parameters</param>
-        /// <returns></returns>
-        [Obsolete("Use GetEscapeValue(string, L10nParams) instead")]
-        public virtual object GetEscapeValue(string escapeKey, params string[] param)
-        {
-            return GetEscapeValue(escapeKey, L10nParams.FromLegacy(param));
-        }
-
-        #endregion
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Key GetLocalizationKey(string param) => GetLocalizationKey(L10nParams.FromString(param));
 
         #region Helper Methods
-
-        public static Key AppendKey(Key key, params string[] param) => Localizable.AppendKey(key, param);
-
-        public static Key AppendKey(Key baseKey, IReadOnlyList<string> param) => Localizable.AppendKey(baseKey, param);
-
-        /// <summary>
-        /// <inheritdoc/> 
-        /// <br/>
-        /// Short hand for <see cref="L10n.Tr(ILocalizableContext, string[])"/>
-        /// </summary>
-        /// <returns>
-        /// <inheritdoc/>
-        /// </returns>
-        public string Tr(params string[] param)
-        {
-            return Localizable.Tr(this, 0, param);
-        }
 
         /// <summary>
         /// Translate with L10nParams
@@ -184,40 +144,6 @@ namespace Minerva.Localizations
         public string Tr(L10nParams parameters)
         {
             return Localizable.Tr(this, parameters);
-        }
-
-        /// <summary>
-        /// <inheritdoc/>
-        /// <br/>
-        /// Short hand for <see cref="L10n.TrKey(string, ILocalizableContext, string[])"/>
-        /// </summary>
-        /// <returns>
-        /// <inheritdoc/>
-        /// </returns>
-        public string TrKey(string overrideKey, params string[] param)
-        {
-            return Localizable.TrKey(overrideKey, this, 0, param);
-        }
-
-        /// <summary>
-        /// Translate with override key and L10nParams
-        /// </summary>
-        public string TrKey(string overrideKey, L10nParams parameters)
-        {
-            return Localizable.TrKey(overrideKey, this, parameters);
-        }
-
-        /// <summary>
-        /// <inheritdoc/>
-        /// <br/>
-        /// Short hand for <see cref="L10n.TrRaw(string, ILocalizableContext, string[])"/>
-        /// </summary>
-        /// <returns>
-        /// <inheritdoc/>
-        /// </returns>
-        public string TrRaw(string rawContent, params string[] param)
-        {
-            return Localizable.TrRaw(rawContent, this, param);
         }
 
         /// <summary>
@@ -250,11 +176,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public string[] GetOptions(bool firstLevelOnly = false, params string[] options)
         {
-            var key = BaseKey;
-            foreach (var item in options ?? Array.Empty<string>())
-            {
-                key.Append(item);
-            }
+            var key = Key.Join(this.key, options);
             return L10n.OptionOf(key, firstLevelOnly);
         }
 
@@ -313,19 +235,7 @@ namespace Minerva.Localizations
 
         #endregion
 
-        #region Static Helper Methods
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string AsKeyEscape(string baseKey, params string[] args) => EscapePattern.AsKeyEscape(baseKey, args);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string AsKeyEscape(string baseKey, IReadOnlyList<string> args) => EscapePattern.AsKeyEscape(baseKey, args);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string AsTooltipKeyEscape(string baseKey, params string[] args) => EscapePattern.AsTooltipKeyEscape(baseKey, args);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string AsTooltipKeyEscape(string baseKey, IReadOnlyList<string> args) => EscapePattern.AsTooltipKeyEscape(baseKey, args);
+        #region Static Helper Methods  
 
         /// <summary>
         /// Try get the localization of given value
@@ -335,7 +245,8 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string LocalizationOf(object value, params string[] param)
         {
-            return Localizable.Tr(value, 0, param);
+            var parameters = L10nParams.FromStrings(param);
+            return Localizable.Tr(value, parameters);
         }
 
         /// <summary>
@@ -344,17 +255,6 @@ namespace Minerva.Localizations
         public static string LocalizationOf(object value, L10nParams parameters)
         {
             return Localizable.Tr(value, parameters);
-        }
-
-        /// <summary>
-        /// Try get the localization of given value (legacy)
-        /// </summary>
-        /// <param name="value"></param>
-        /// <param name="param">Legacy parameters</param>
-        /// <returns></returns>
-        public static object DynamicValueOf(object value, params string[] param)
-        {
-            return DynamicValueOf(value, L10nParams.FromLegacy(param));
         }
 
         /// <summary>

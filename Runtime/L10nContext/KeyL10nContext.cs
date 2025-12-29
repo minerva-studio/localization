@@ -1,4 +1,4 @@
-﻿namespace Minerva.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// L10n content directly use given string as base key, for short term translation, try to use <see cref="L10n.Tr(string, string[])"/> instead
@@ -16,12 +16,7 @@
             BaseKeyString = (string)value;
         }
 
-        /// <summary>
-        /// Only returns the escape key because escape value cannot be retrieve from string
-        /// </summary>
-        /// <param name="escapeKey"></param>
-        /// <returns></returns>
-        public override object GetEscapeValue(string escapeKey, params string[] param)
+        public override object GetEscapeValue(string escapeKey, L10nParams parameters)
         {
             return escapeKey;
         }

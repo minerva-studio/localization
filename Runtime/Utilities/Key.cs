@@ -175,18 +175,7 @@ namespace Minerva.Localizations
             }
         }
 
-        #region Constructor
-
-        public Key(ReadOnlySpan<char> keySpan)
-        {
-            if (keySpan.IsEmpty)
-            {
-                this = Empty;
-                return;
-            }
-
-            this = new Key(new string(keySpan));
-        }
+        #region Constructor 
 
         public Key(string key)
         {
@@ -266,135 +255,12 @@ namespace Minerva.Localizations
 
         public Key(params string[] path)
         {
-            if (path == null || path.Length == 0)
-            {
-                this = Empty;
-                return;
-            }
-
-            length = path.Length;
-            segmentMemories = null;
-
-            if (length <= InlineSegments.MAX_INLINE_SEGMENTS)
-            {
-                storageMode = StorageMode.Inline;
-
-                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
-
-                for (int i = 0; i < length; i++)
-                {
-                    var mem = (path[i] ?? string.Empty).AsMemory();
-                    switch (i)
-                    {
-                        case 0: m0 = mem; break;
-                        case 1: m1 = mem; break;
-                        case 2: m2 = mem; break;
-                        case 3: m3 = mem; break;
-                        case 4: m4 = mem; break;
-                        case 5: m5 = mem; break;
-                        case 6: m6 = mem; break;
-                        case 7: m7 = mem; break;
-                    }
-                }
-
-                inlineSegments = new InlineSegments(m0, m1, m2, m3, m4, m5, m6, m7);
-
-                if (!ValidateSegmentsInline(this))
-                    throw new ArgumentException(string.Join(KEY_SEPARATOR, path));
-            }
-            else
-            {
-                storageMode = StorageMode.Memory;
-                inlineSegments = default;
-
-                var segs = new ReadOnlyMemory<char>[length];
-                for (int i = 0; i < length; i++)
-                {
-                    segs[i] = (path[i] ?? string.Empty).AsMemory();
-                }
-                segmentMemories = segs;
-
-                if (!ValidateSegmentsMemory(this))
-                    throw new ArgumentException(string.Join(KEY_SEPARATOR, path));
-            }
+            this = new Key((IReadOnlyList<string>)path);
         }
 
-        public Key(ReadOnlyMemory<char> keyMemory)
+        public Key(IReadOnlyList<string> path)
         {
-            if (keyMemory.IsEmpty)
-            {
-                this = Empty;
-                return;
-            }
-
-            var span = keyMemory.Span;
-
-            int segCount = 1;
-            for (int i = 0; i < span.Length; i++)
-            {
-                if (span[i] == KEY_SEPARATOR) segCount++;
-            }
-
-            length = segCount;
-            segmentMemories = null;
-
-            if (segCount <= InlineSegments.MAX_INLINE_SEGMENTS)
-            {
-                storageMode = StorageMode.Inline;
-
-                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
-
-                int start = 0;
-                int segIndex = 0;
-                for (int i = 0; i <= span.Length; i++)
-                {
-                    if (i == span.Length || span[i] == KEY_SEPARATOR)
-                    {
-                        var mem = keyMemory.Slice(start, i - start);
-                        switch (segIndex)
-                        {
-                            case 0: m0 = mem; break;
-                            case 1: m1 = mem; break;
-                            case 2: m2 = mem; break;
-                            case 3: m3 = mem; break;
-                            case 4: m4 = mem; break;
-                            case 5: m5 = mem; break;
-                            case 6: m6 = mem; break;
-                            case 7: m7 = mem; break;
-                        }
-                        segIndex++;
-                        start = i + 1;
-                    }
-                }
-
-                inlineSegments = new InlineSegments(m0, m1, m2, m3, m4, m5, m6, m7);
-
-                if (!ValidateSegmentsInline(this))
-                    throw new ArgumentException("Invalid key");
-            }
-            else
-            {
-                storageMode = StorageMode.Memory;
-                inlineSegments = default;
-
-                var segs = new ReadOnlyMemory<char>[segCount];
-
-                int start = 0;
-                int segIndex = 0;
-                for (int i = 0; i <= span.Length; i++)
-                {
-                    if (i == span.Length || span[i] == KEY_SEPARATOR)
-                    {
-                        segs[segIndex++] = keyMemory.Slice(start, i - start);
-                        start = i + 1;
-                    }
-                }
-
-                segmentMemories = segs;
-
-                if (!ValidateSegmentsMemory(this))
-                    throw new ArgumentException("Invalid key");
-            }
+            this = Join(path);
         }
 
         private Key(
@@ -422,7 +288,7 @@ namespace Minerva.Localizations
             segmentMemories = segs;
         }
 
-        #endregion
+        #endregion 
 
         public Key Append(string v)
         {
@@ -538,18 +404,17 @@ namespace Minerva.Localizations
             return hash.ToHashCode();
         }
 
-        public static bool operator ==(Key left, Key right) => left.Equals(right);
+        public static bool operator ==(in Key left, in Key right) => left.Equals(right);
 
-        public static bool operator !=(Key left, Key right) => !left.Equals(right);
+        public static bool operator !=(in Key left, in Key right) => !left.Equals(right);
 
-        public static Key operator +(Key a, Key b)
-        {
-            return Join_Internal(a, b);
-        }
+        public static Key operator +(in Key a, in Key b) => Join(in a, in b);
 
-        public static Key operator +(Key key, string next) => key.Append(next);
+        public static Key operator +(in Key key, string next) => Key.Join(key, next, Array.Empty<string>());
 
-        public static Key operator -(Key key, int count)
+        public static Key operator +(in Key key, IReadOnlyList<string> str) => Join(in key, str);
+
+        public static Key operator -(in Key key, int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException("count");
 
@@ -588,13 +453,9 @@ namespace Minerva.Localizations
             }
         }
 
-        public static implicit operator string(Key key) => KeyStringCache.Shared.GetString(in key);
-
-        public static implicit operator ArraySegment<string>(Key key) => key.Section;
+        public static implicit operator string(in Key key) => KeyStringCache.Shared.GetString(in key);
 
         public static explicit operator Key(string key) => new Key(key);
-
-        public static explicit operator Key(ReadOnlyMemory<char> keyMemory) => new Key(keyMemory);
 
         #region Helper
 
@@ -628,7 +489,7 @@ namespace Minerva.Localizations
 
         public static string JoinString(params string[] s)
         {
-            return KeyStringCache.Shared.GetString(new Key(s));
+            return KeyStringCache.Shared.GetString(Join(s));
         }
 
         public static string JoinString(string[] s, params string[] s2)
@@ -656,101 +517,87 @@ namespace Minerva.Localizations
             return KeyStringCache.Shared.GetString(key + new Key(s2));
         }
 
-        private static Key Join_Internal(in Key a, in Key b)
+
+
+
+        public static Key Join(in Key a, in Key b)
         {
-            if (a.length == 0) return b;
             if (b.length == 0) return a;
+            if (a.length == 0) return b;
 
-            int newLen = a.length + b.length;
-
-            if (newLen <= InlineSegments.MAX_INLINE_SEGMENTS)
-            {
-                ReadOnlyMemory<char> m0 = default, m1 = default, m2 = default, m3 = default, m4 = default, m5 = default, m6 = default, m7 = default;
-                for (int i = 0; i < a.length; i++)
-                {
-                    var mem = a.GetSegmentMemory(i);
-                    switch (i)
-                    {
-                        case 0: m0 = mem; break;
-                        case 1: m1 = mem; break;
-                        case 2: m2 = mem; break;
-                        case 3: m3 = mem; break;
-                        case 4: m4 = mem; break;
-                        case 5: m5 = mem; break;
-                        case 6: m6 = mem; break;
-                        case 7: m7 = mem; break;
-                    }
-                }
-
-                for (int i = 0; i < b.length; i++)
-                {
-                    var mem = b.GetSegmentMemory(i);
-                    int idx = a.length + i;
-                    switch (idx)
-                    {
-                        case 0: m0 = mem; break;
-                        case 1: m1 = mem; break;
-                        case 2: m2 = mem; break;
-                        case 3: m3 = mem; break;
-                        case 4: m4 = mem; break;
-                        case 5: m5 = mem; break;
-                        case 6: m6 = mem; break;
-                        case 7: m7 = mem; break;
-                    }
-                }
-
-                return new Key(m0, m1, m2, m3, m4, m5, m6, m7, newLen);
-            }
-
-            var segs = new ReadOnlyMemory<char>[newLen];
-            for (int i = 0; i < a.length; i++)
-            {
-                segs[i] = a.GetSegmentMemory(i);
-            }
-            for (int i = 0; i < b.length; i++)
-            {
-                segs[a.length + i] = b.GetSegmentMemory(i);
-            }
-            return new Key(segs, newLen);
+            using var builder = KeyBuilder.Builder;
+            builder.Append(a);
+            builder.Append(b);
+            var result = builder.Build();
+            return result;
         }
 
-        public static Key Join(in Key key1, in Key key2) => Join_Internal(in key1, in key2);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Key Join(in Key key, params string[] s2) => Join(in key, (IReadOnlyList<string>)s2);
 
-        public static Key Join(in Key key, params string[] s2) => Join_Internal(in key, new Key(s2));
-
-        public static Key Join(params string[] s)
+        public static Key Join(in Key key, IReadOnlyList<string> s)
         {
-            var builder = KeyBuilder.Builder;
-            builder.Clear();
+            if (s.Count == 0) return key;
+
+            using var builder = KeyBuilder.Builder;
+            builder.Append(key);
+            foreach (var seg in s)
+            {
+                builder.Append(seg);
+            }
+            var result = builder.Build();
+            return result;
+        }
+
+        public static Key Join(in Key key, string s1, IReadOnlyList<string> strings)
+        {
+            if (strings.Count == 0 && !s1.Contains(KEY_SEPARATOR))
+                return key.Append(s1);
+
+            using var builder = KeyBuilder.Builder;
+            builder.Append(key);
+            builder.Append(s1);
+            if (strings != null)
+            {
+                for (int i = 0; i < strings.Count; i++)
+                {
+                    builder.Append(strings[i]);
+                }
+            }
+            var result = builder.Build();
+            return result;
+        }
+
+        public static Key Join(params string[] s) => Join((IReadOnlyList<string>)s);
+
+        public static Key Join(IReadOnlyList<string> s)
+        {
+            using var builder = KeyBuilder.Builder;
 
             if (s != null)
             {
-                for (int i = 0; i < s.Length; i++)
+                for (int i = 0; i < s.Count; i++)
                 {
                     builder.Append(s[i]);
                 }
             }
 
             var result = builder.Build();
-            builder.Clear();
             return result;
         }
 
         public static Key Join(string s1, string s2)
         {
-            var builder = KeyBuilder.Builder;
-            builder.Clear();
+            using var builder = KeyBuilder.Builder;
             builder.Append(s1);
             builder.Append(s2);
             var result = builder.Build();
-            builder.Clear();
             return result;
         }
 
         public static Key Join(string s1, params string[] s2)
         {
-            var builder = KeyBuilder.Builder;
-            builder.Clear();
+            using var builder = KeyBuilder.Builder;
             builder.Append(s1);
 
             if (s2 != null)
@@ -762,14 +609,12 @@ namespace Minerva.Localizations
             }
 
             var result = builder.Build();
-            builder.Clear();
             return result;
         }
 
         public static Key Join(string s1, IReadOnlyList<string> s2)
         {
-            var builder = KeyBuilder.Builder;
-            builder.Clear();
+            using var builder = KeyBuilder.Builder;
             builder.Append(s1);
 
             if (s2 != null)
@@ -781,18 +626,35 @@ namespace Minerva.Localizations
             }
 
             var result = builder.Build();
-            builder.Clear();
             return result;
+        }
+
+        public string ToEscape()
+        {
+            return $"${ToString()}$";
+        }
+
+        public string ToTooltipEscape()
+        {
+            return $"$@{ToString()}$";
         }
 
         #region KeyBuilder (per-thread, reusable)
 
-        public sealed class KeyBuilder
+        public sealed class KeyBuilder : IDisposable
         {
             private const int KEY_BUILDER_DEFAULT_CAPACITY = 8;
             private static readonly ThreadLocal<KeyBuilder> keyBuilder = new ThreadLocal<KeyBuilder>(static () => new KeyBuilder(KEY_BUILDER_DEFAULT_CAPACITY));
 
-            public static KeyBuilder Builder => keyBuilder.Value;
+            public static KeyBuilder Builder
+            {
+                get
+                {
+                    KeyBuilder value = keyBuilder.Value;
+                    value.Clear();
+                    return value;
+                }
+            }
 
             private ReadOnlyMemory<char>[] segments;
             private int count;
@@ -878,7 +740,6 @@ namespace Minerva.Localizations
                     {
                         throw new ArgumentException("Invalid key");
                     }
-                    Clear();
                     return key;
                 }
                 else
@@ -891,7 +752,6 @@ namespace Minerva.Localizations
                     {
                         throw new ArgumentException("Invalid key");
                     }
-                    Clear();
                     return key;
                 }
             }
@@ -910,6 +770,11 @@ namespace Minerva.Localizations
                 }
 
                 Array.Resize(ref segments, newSize);
+            }
+
+            public void Dispose()
+            {
+                Clear();
             }
         }
 

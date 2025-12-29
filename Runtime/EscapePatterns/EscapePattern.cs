@@ -100,7 +100,7 @@ namespace Minerva.Localizations.EscapePatterns
             }
 
             // Convert to L10nParams and use new path
-            var parameters = L10nParams.FromLegacy(param, depth);
+            var parameters = L10nParams.FromStrings(param, depth);
             return Escape(rawString, context, parameters);
         }
 
@@ -285,7 +285,7 @@ namespace Minerva.Localizations.EscapePatterns
                     if (!localValue.TryGetValue(key, out string replacement) && context != null)
                     // no replacement if not found
                     {
-                        return context.GetEscapeValue(key, localParam);
+                        return context.GetEscapeValue(key, L10nParams.FromStrings(localParam));
                     }
                     var value = ReplaceKeyEscape(replacement, context, depth + 1, localParam);
                     //Debug.Log($"{{{key}: {replacement}}} replaced to {value}");

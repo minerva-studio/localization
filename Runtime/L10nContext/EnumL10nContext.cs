@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -21,14 +21,14 @@ namespace Minerva.Localizations
             BaseKey = new Key(path, value.ToString());
         }
 
-        public override string GetRawContent(params string[] param)
+        public override string GetRawContent(L10nParams parameters)
         {
             if (Attribute.GetCustomAttribute(BaseValue.GetType(), typeof(L10nFlagEnumAttribute)) is L10nFlagEnumAttribute)
             {
                 var flags = FlagEnumSplit(BaseValue.GetType(), BaseValue as Enum);
-                return string.Join(L10n.ListDelimiter, flags.Select(s => Localizable.AppendKey($"{path}.{s}", param)));
+                return string.Join(L10n.ListDelimiter, flags.Select(s => Localizable.AppendKey($"{path}.{s}", parameters.Options)));
             }
-            else return base.GetRawContent(param);
+            else return base.GetRawContent(parameters);
         }
 
         public IEnumerable<Enum> FlagEnumSplit(Type type, Enum e)

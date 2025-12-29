@@ -392,7 +392,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string Tr(Key key, L10nParams parameters)
         {
-            var fullKey = Localizable.AppendKey(key, parameters.Options);
+            var fullKey = Key.Join(in key, parameters.Options);
             var rawString = GetRawContent(fullKey);
             rawString = EscapePattern.Escape(rawString, null, parameters);
             OnTranslating?.Invoke(fullKey, ref rawString);
@@ -477,7 +477,7 @@ namespace Minerva.Localizations
         /// </summary>
         public static string Tr(string key, MissingKeySolution solution, params string[] param)
         {
-            return Tr(key, solution, L10nParams.FromLegacy(param));
+            return Tr(key, solution, L10nParams.FromStrings(param));
         }
 
         /// <summary>
@@ -488,7 +488,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string Tr(Key key, params string[] param)
         {
-            return Tr(key, L10nParams.FromLegacy(param));
+            return Tr(key, L10nParams.FromStrings(param));
         }
 
         /// <summary>
@@ -496,7 +496,7 @@ namespace Minerva.Localizations
         /// </summary>
         public static string Tr(object context, params string[] param)
         {
-            return Tr(context, L10nParams.FromLegacy(param));
+            return Tr(context, L10nParams.FromStrings(param));
         }
 
         /// <summary>
@@ -507,7 +507,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string Tr(ILocalizableContext context, params string[] param)
         {
-            return Tr(context, L10nParams.FromLegacy(param));
+            return Tr(context, L10nParams.FromStrings(param));
         }
 
         /// <summary>
@@ -519,7 +519,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string TrKey(string key, ILocalizableContext context, params string[] param)
         {
-            return TrKey(key, context, L10nParams.FromLegacy(param));
+            return TrKey(key, context, L10nParams.FromStrings(param));
         }
 
         /// <summary>
@@ -531,7 +531,7 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string TrRaw(string rawContent, ILocalizableContext context, params string[] param)
         {
-            return TrRaw(rawContent, context, L10nParams.FromLegacy(param));
+            return TrRaw(rawContent, context, L10nParams.FromStrings(param));
         }
 
         #endregion

@@ -1,4 +1,4 @@
-﻿namespace Minerva.Localizations
+namespace Minerva.Localizations
 {
     /// <summary>
     /// A context without object but a direct raw context with it.
@@ -23,7 +23,7 @@
             else RawContent = value.ToString();
         }
 
-        public override string GetRawContent(params string[] param)
+        public override string GetRawContent(L10nParams param)
         {
             return RawContent;
         }

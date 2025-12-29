@@ -96,12 +96,6 @@ namespace Minerva.Localizations
                 }
             }
 
-            // is localizer 
-            if (value is ILocalizer localizer)
-            {
-                return localizer.Tr(parameters.ToLegacy());
-            }
-
             // is localizable 
             if (value is ILocalizableContext localizable)
             {
@@ -135,7 +129,7 @@ namespace Minerva.Localizations
         [Obsolete("Use L10nParams instead")]
         public static string Tr(ILocalizableContext context, int depth, params string[] param)
         {
-            var parameters = L10nParams.FromLegacy(param, depth);
+            var parameters = L10nParams.FromStrings(param, depth);
             return Tr(context, parameters);
         }
 
@@ -150,7 +144,7 @@ namespace Minerva.Localizations
         [Obsolete("Use L10nParams instead")]
         public static string TrKey(string key, ILocalizableContext context, int depth, params string[] param)
         {
-            var parameters = L10nParams.FromLegacy(param, depth);
+            var parameters = L10nParams.FromStrings(param, depth);
             return TrKey(key, context, parameters);
         }
 
@@ -164,7 +158,7 @@ namespace Minerva.Localizations
         [Obsolete("Use L10nParams instead")]
         public static string TrRaw(string rawContent, ILocalizableContext context, params string[] param)
         {
-            var parameters = L10nParams.FromLegacy(param);
+            var parameters = L10nParams.FromStrings(param);
             return TrRaw(rawContent, context, parameters);
         }
 
@@ -178,7 +172,7 @@ namespace Minerva.Localizations
         [Obsolete("Use L10nParams instead")]
         public static string Tr(object value, int depth, params string[] param)
         {
-            var parameters = L10nParams.FromLegacy(param, depth);
+            var parameters = L10nParams.FromStrings(param, depth);
             return Tr(value, parameters);
         }
 
@@ -221,43 +215,6 @@ namespace Minerva.Localizations
         {
             var extensions = param.Where(p => Key.VALID_KEY_MEMBER.IsMatch(p)).Prepend(baseKey);
             return string.Join(L10nSymbols.KEY_SEPARATOR, extensions);
-        }
-
-        /// <summary>
-        /// Append given key with option
-        /// </summary>
-        /// <param name="baseKey">Base key</param>
-        /// <param name="option">Option to append</param>
-        /// <returns></returns>
-        public static Key AppendKey(Key baseKey, string option)
-        {
-            if (!string.IsNullOrEmpty(option) && Key.VALID_KEY_MEMBER.IsMatch(option))
-                baseKey += option;
-            return baseKey;
-        }
-
-        /// <summary>
-        /// Append given key (legacy)
-        /// </summary>
-        /// <param name="baseKey"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>
-        public static Key AppendKey(Key baseKey, params string[] param) => AppendKey(baseKey, (IReadOnlyList<string>)param);
-
-        /// <summary>
-        /// Append given key (legacy)
-        /// </summary>
-        /// <param name="baseKey"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>
-        public static Key AppendKey(Key baseKey, IReadOnlyList<string> param)
-        {
-            foreach (var item in param)
-            {
-                if (Key.VALID_KEY_MEMBER.IsMatch(item))
-                    baseKey += item;
-            }
-            return baseKey;
         }
 
         #endregion

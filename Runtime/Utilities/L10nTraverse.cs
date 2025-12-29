@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -85,7 +85,7 @@ namespace Minerva.Localizations
             if (options == null) return new LevelContext(false, this);
             if (optionIndex < 0 || optionIndex >= options.Count) return new LevelContext(false, this);
 
-            key.Append(options[optionIndex]);
+            key += options[optionIndex];
             options = null;
             return new LevelContext(true, this);
         }

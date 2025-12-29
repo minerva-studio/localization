@@ -32,6 +32,8 @@ namespace Minerva.Localizations
         /// </summary>
         public IReadOnlyDictionary<string, object>? Variables => variables;
 
+        public bool IsEmpty => (options == null || options.Length == 0) && (variables == null || variables.Count == 0);
+
         #region Constructors
 
         private L10nParams(string[]? options, int depth, Dictionary<string, object>? vars)
@@ -61,8 +63,7 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static L10nParams Create(params string[] options)
         {
-            var filtered = options?.Where(o => !string.IsNullOrEmpty(o)).ToArray();
-            return new L10nParams(filtered, 0, null);
+            return new L10nParams(options, 0, null);
         }
 
         /// <summary>
@@ -174,7 +175,6 @@ namespace Minerva.Localizations
                     value = typed;
                     return true;
                 }
-                // 尝试类型转换
                 try
                 {
                     value = (T)Convert.ChangeType(obj, typeof(T));
@@ -328,7 +328,7 @@ namespace Minerva.Localizations
         /// Example: ["Daily", "level=2", "desc"] 
         /// → Options: ["Daily", "desc"], Variables: {"level": "2"}
         /// </remarks>
-        public static L10nParams FromLegacy(params string[] param)
+        public static L10nParams FromStrings(params string[] param)
         {
             if (param == null || param.Length == 0)
                 return Create();
@@ -358,7 +358,7 @@ namespace Minerva.Localizations
             return new L10nParams(options, 0, vars.Count > 0 ? vars : null);
         }
 
-        public static L10nParams FromLegacy(string[] param, int depth)
+        public static L10nParams FromStrings(string[] param, int depth)
         {
             if (param == null || param.Length == 0)
                 return new L10nParams(null, depth, null);
@@ -386,6 +386,29 @@ namespace Minerva.Localizations
 
             var options = optionList.Count > 0 ? optionList.ToArray() : null;
             return new L10nParams(options, depth, vars.Count > 0 ? vars : null);
+        }
+
+        public static L10nParams FromString(string str)
+        {
+            if (string.IsNullOrEmpty(str))
+                return Create();
+
+            // check arg or option
+            int idx = str.IndexOf('=');
+            if (idx > 0)
+            {
+                var key = str[..idx];
+                var value = str[(idx + 1)..];
+                var vars = new Dictionary<string, object>(1)
+                {
+                    [key] = value
+                };
+                return new L10nParams(null, 0, vars);
+            }
+            else
+            {
+                return new L10nParams(new string[] { str }, 0, null);
+            }
         }
 
         /// <summary>

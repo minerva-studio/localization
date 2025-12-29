@@ -169,7 +169,7 @@ namespace Minerva.Localizations.Tests
                         GetLocalParam(m.Groups[3], ref localParam, ref localOptions);
                     // if defined, then use it, otherwise ask context
                     if (!localOptions.TryGetValue(key, out string replacement) && context != null)
-                        replacement = context.GetEscapeValue(key, localParam).ToString();
+                        replacement = context.GetEscapeValue(key, L10nParams.FromStrings(localParam)).ToString();
                     replacement = ReplaceKeyEscape(replacement);
                     return m.Value.Replace(m.Groups[1].Value, replacement);
                 });
