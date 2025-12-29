@@ -288,25 +288,6 @@ namespace Minerva.Localizations
             }
         }
 
-        /// <summary>
-        /// Split action parameter (legacy)
-        /// </summary>
-        /// <param name="param"></param>
-        /// <returns></returns>
-        [Obsolete("Use L10nParams.Variables instead")]
-        public static IEnumerable<KeyValuePair<ReadOnlyMemory<char>, ReadOnlyMemory<char>>> GetOpt(params string[] param)
-        {
-            foreach (var item in param)
-            {
-                int index = item.IndexOf("=");
-                if (index != -1)
-                {
-                    yield return new KeyValuePair<ReadOnlyMemory<char>, ReadOnlyMemory<char>>(item.AsMemory(..index), item.AsMemory((index + 1)..));
-                }
-                else yield return new KeyValuePair<ReadOnlyMemory<char>, ReadOnlyMemory<char>>(item.AsMemory(), null);
-            }
-        }
-
         #endregion
 
         #region Reflection Helpers
