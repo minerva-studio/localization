@@ -482,7 +482,7 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsValidChar(char c)
         {
-            return char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '+';
+            return char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '+' || c == '$';
         }
 
         #endregion
