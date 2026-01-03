@@ -1,4 +1,4 @@
-﻿namespace Minerva.Localizations
+namespace Minerva.Localizations
 {
-    public delegate string DynamicValueProvider(string name, params string[] options);
+    public delegate string DynamicValueProvider(string name, L10nParams parameters);
 }

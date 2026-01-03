@@ -99,13 +99,13 @@ namespace Minerva.Localizations
             // Check local dynamic providers
             if (HasLocalEscapeValue(escapeKey, out var local))
             {
-                return local(escapeKey, parameters.ToLegacy());
+                return local(escapeKey, parameters);
             }
 
             // Check global dynamic providers
             if (HasGlobalEscapeValue(escapeKey, out var global))
             {
-                return global(escapeKey, parameters.ToLegacy());
+                return global(escapeKey, parameters);
             }
 
             // Try get from base value object
