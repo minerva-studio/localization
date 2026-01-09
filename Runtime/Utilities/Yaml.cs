@@ -72,7 +72,27 @@ namespace Minerva.Localizations
         private static void WriteLevel(Module.TriesSegment<string> trie, int indent = 0, StringBuilder stringBuilder = null)
         {
             var keys = trie.FirstLayerKeys.ToArray();
-            Array.Sort(keys);
+            Array.Sort(keys, (a, b) =>
+            {
+                int minLength = Math.Min(a.Length, b.Length);
+
+                for (int i = 0; i < minLength; i++)
+                {
+                    char charA = a[i];
+                    char charB = b[i];
+
+                    if (charA == charB)
+                        continue;
+
+                    // Convert to comparison value: lowercase < uppercase
+                    int valueA = char.IsLower(charA) ? charA - 32 : charA + 26;
+                    int valueB = char.IsLower(charB) ? charB - 32 : charB + 26;
+
+                    return valueA.CompareTo(valueB);
+                }
+
+                return a.Length.CompareTo(b.Length);
+            });
             foreach (var key in keys)
             {
                 stringBuilder.Append(' ', indent);
