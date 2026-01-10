@@ -60,39 +60,22 @@ namespace Minerva.Localizations
 
         }
 
-        public static string Export(Dictionary<string, string> keyValuePairs)
+        public static string Export(Dictionary<string, string> keyValuePairs) => Export(keyValuePairs, StringComparer.Ordinal.Compare);
+
+        public static string Export(Dictionary<string, string> keyValuePairs, Comparison<string> comparison)
         {
             StringBuilder stringBuilder = new StringBuilder();
             Tries<string> trie = new Tries<string>(keyValuePairs);
-            WriteLevel(new Module.TriesSegment<string>(trie), 0, stringBuilder);
+            WriteLevel(new Module.TriesSegment<string>(trie), 0, stringBuilder, comparison);
 
             return stringBuilder.ToString();
         }
 
-        private static void WriteLevel(Module.TriesSegment<string> trie, int indent = 0, StringBuilder stringBuilder = null)
+        private static void WriteLevel(Module.TriesSegment<string> trie, int indent = 0, StringBuilder stringBuilder = null, Comparison<string> comparison = null)
         {
+            comparison ??= StringComparer.Ordinal.Compare;
             var keys = trie.FirstLayerKeys.ToArray();
-            Array.Sort(keys, (a, b) =>
-            {
-                int minLength = Math.Min(a.Length, b.Length);
-
-                for (int i = 0; i < minLength; i++)
-                {
-                    char charA = a[i];
-                    char charB = b[i];
-
-                    if (charA == charB)
-                        continue;
-
-                    // Convert to comparison value: lowercase < uppercase
-                    int valueA = char.IsLower(charA) ? charA - 32 : charA + 26;
-                    int valueB = char.IsLower(charB) ? charB - 32 : charB + 26;
-
-                    return valueA.CompareTo(valueB);
-                }
-
-                return a.Length.CompareTo(b.Length);
-            });
+            Array.Sort(keys, comparison);
             foreach (var key in keys)
             {
                 stringBuilder.Append(' ', indent);
@@ -116,7 +99,7 @@ namespace Minerva.Localizations
                 }
                 if (trie.TryGetSegment(key, out Module.TriesSegment<string> subTrie))
                 {
-                    WriteLevel(subTrie, indent + 2, stringBuilder);
+                    WriteLevel(subTrie, indent + 2, stringBuilder, comparison);
                 }
             }
 
