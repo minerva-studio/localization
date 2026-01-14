@@ -86,16 +86,16 @@ namespace Minerva.Localizations
                     // something below
                     if (trie.TryGetSegment(key, out Module.TriesSegment<string> t) && t.Count > 1)
                     {
-                        stringBuilder.AppendLine();
+                        stringBuilder.Append('\n');
                         stringBuilder.Append(' ', indent + 2);
                         stringBuilder.Append(Reader.ObjectSelf);
                         stringBuilder.Append(":");
                     }
-                    stringBuilder.AppendLine($" \"{ToProperString(trie[key])}\"");
+                    stringBuilder.Append($" \"{ToProperString(trie[key])}\"\n");
                 }
                 else
                 {
-                    stringBuilder.AppendLine();
+                    stringBuilder.Append('\n');
                 }
                 if (trie.TryGetSegment(key, out Module.TriesSegment<string> subTrie))
                 {

@@ -460,6 +460,49 @@ namespace Minerva.Localizations
             return value;
         }
 
+        public static L10nTranslationResult TryTrRaw(string rawContent, ILocalizableContext context, L10nParams parameters)
+        {
+            var translationResult = EscapePattern.TryEscape(rawContent, context, parameters);
+            var result = translationResult.TranslatedText;
+            OnTranslating?.Invoke(string.Empty, ref result);
+            translationResult.TranslatedText = result;
+            return translationResult;
+        }
+
+        /// <summary>
+        /// Try Direct localization from key with L10nParams
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
+        public static L10nTranslationResult TryTr(string key, L10nParams parameters)
+        {
+            var fullKey = Localizable.AppendKey(key, parameters.Options);
+            var rawString = GetRawContent(fullKey);
+            var translationResult = EscapePattern.TryEscape(rawString, null, parameters);
+            var result = translationResult.TranslatedText;
+            OnTranslating?.Invoke(fullKey, ref result);
+            translationResult.TranslatedText = result;
+            return translationResult;
+        }
+
+        /// <summary>
+        /// Try Direct localization from key with L10nParams
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
+        public static L10nTranslationResult TryTr(Key key, L10nParams parameters)
+        {
+            var fullKey = Key.Join(in key, parameters.Options);
+            var rawString = GetRawContent(fullKey);
+            var translationResult = EscapePattern.TryEscape(rawString, null, parameters);
+            var result = translationResult.TranslatedText;
+            OnTranslating?.Invoke(fullKey, ref result);
+            translationResult.TranslatedText = result;
+            return translationResult;
+        }
+
         #endregion
 
         #region Translation API - Legacy (string[])

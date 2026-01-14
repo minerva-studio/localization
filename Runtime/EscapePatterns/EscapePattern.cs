@@ -26,7 +26,7 @@ namespace Minerva.Localizations.EscapePatterns
             set => tokenize = !value;
         }
 
-        #region New API (Tokenizer-based, High Performance)
+        #region New API
 
         /// <summary>
         /// Escape with L10nParams
@@ -55,6 +55,18 @@ namespace Minerva.Localizations.EscapePatterns
                     evaluator = L10nObjectPool.RentEvaluator(evalContext);
 
                     string value = evaluator.Evaluate(rootToken);
+#if DEBUG || DEVELOPMENT_BUILD
+                    var diagnostics = evaluator.GetDiagnostics();
+
+                    if (diagnostics.HasErrors)
+                    {
+                        Debug.LogWarning(diagnostics.GetSummary());
+                        foreach (var err in diagnostics.Errors)
+                        {
+                            Debug.Log(err);
+                        }
+                    }
+#endif
 
                     if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always)
                         return SplitUnderlineByColor(value);
@@ -79,6 +91,54 @@ namespace Minerva.Localizations.EscapePatterns
                 Debug.LogException(e);
                 // Fallback to legacy on error
                 return EscapeLegacy(rawString, context, parameters.Depth, parameters.ToLegacy());
+            }
+        }
+
+        public static L10nTranslationResult TryEscape(string rawString, ILocalizableContext context, L10nParams parameters)
+        {
+            if (rawString == null) return L10nTranslationResult.Empty;
+            try
+            {
+                if (!tokenize)
+                {
+                    // Fallback to legacy implementation
+                    var result = EscapeLegacy(rawString, context, parameters.Depth, parameters.ToLegacy());
+                    return new L10nTranslationResult(result);
+                }
+
+                // Single-pass tokenization
+                var tokenizer = L10nObjectPool.RentTokenizer(rawString.AsMemory());
+                L10nToken rootToken = null;
+                L10nEvaluator evaluator = null;
+                try
+                {
+                    rootToken = tokenizer.Tokenize();
+                    var evalContext = new EvaluationContext(context, parameters);
+                    evaluator = L10nObjectPool.RentEvaluator(evalContext);
+                    string value = evaluator.Evaluate(rootToken);
+                    if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always)
+                        value = SplitUnderlineByColor(value);
+                    var diagnostics = evaluator.GetDiagnostics();
+                    return new L10nTranslationResult(value, diagnostics.Clone());
+                }
+                finally
+                {
+                    if (rootToken != null)
+                    {
+                        L10nObjectPool.ReturnToken(rootToken);
+                    }
+                    if (evaluator != null)
+                    {
+                        L10nObjectPool.ReturnEvaluator(evaluator);
+                    }
+                    L10nObjectPool.ReturnTokenizer(tokenizer);
+                }
+            }
+            catch (Exception e)
+            {
+                var diagnostics = new L10nEvaluationDiagnostics();
+                diagnostics.AddError(L10nErrorSeverity.Fatal, "EscapePattern.TryEscape", "Exception", e.Message, e);
+                return new L10nTranslationResult(rawString, diagnostics);
             }
         }
 
@@ -121,7 +181,7 @@ namespace Minerva.Localizations.EscapePatterns
 
         #endregion
 
-        #region Legacy Methods (Preserved for Compatibility)
+        #region Legacy Methods
 
         /// <summary>
         /// replace \\ to \

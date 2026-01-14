@@ -54,7 +54,7 @@ namespace Minerva.Localizations
         /// get the dictionary of the language file
         /// </summary>
         /// <returns></returns>
-        internal Dictionary<string, string> GetDictionary()
+        public Dictionary<string, string> GetDictionary()
         {
             var dictionary = new Dictionary<string, string>();
             GetDictionary(dictionary);
@@ -915,7 +915,7 @@ namespace Minerva.Localizations
         public void ImportFromYaml(string[] lines)
         {
             var dictionary = Yaml.Import(string.Join("\n", lines));
-            entries.AddRange(dictionary.Select(d => new Entry(d.Key, d.Value)));
+            ImportFromDictiontary(dictionary);
             //for (int i = 0; i < lines.Length; i++)
             //{
             //    if (string.IsNullOrWhiteSpace(lines[i])) continue;
@@ -930,6 +930,11 @@ namespace Minerva.Localizations
             //    string value = ParseValue(item[(spliter + 1)..]);//.Trim()[1..^1];
             //    entries.Add(new Entry(key, value));
             //}
+        }
+
+        public void ImportFromDictiontary(Dictionary<string, string> dictionary)
+        {
+            entries.AddRange(dictionary.Select(d => new Entry(d.Key, d.Value)));
         }
 
         private string ParseValue(string raw)

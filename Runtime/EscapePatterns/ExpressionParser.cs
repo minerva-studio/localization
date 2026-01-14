@@ -53,15 +53,21 @@ namespace Minerva.Localizations.EscapePatterns
         {
             private readonly ReadOnlyMemory<char> _input;
             private int _position;
+            private readonly L10nEvaluationDiagnostics _diagnostics;
+            private readonly string _expressionContext;
 
-            public Lexer(string input)
+            public Lexer(string input, L10nEvaluationDiagnostics diagnostics = null, string expressionContext = null)
             {
                 _input = input.AsMemory();
+                _diagnostics = diagnostics;
+                _expressionContext = expressionContext ?? input;
             }
 
-            public Lexer(ReadOnlyMemory<char> input)
+            public Lexer(ReadOnlyMemory<char> input, L10nEvaluationDiagnostics diagnostics = null, string expressionContext = null)
             {
                 _input = input;
+                _diagnostics = diagnostics;
+                _expressionContext = expressionContext ?? input.ToString();
             }
 
             public Token GetNextToken()
@@ -92,7 +98,14 @@ namespace Minerva.Localizations.EscapePatterns
                 if (current == ')')
                     return CreateToken(TokenType.RightParen, ")");
 
-                throw new Exception($"Unexpected character: {current}");
+                var ex = new Exception($"Unexpected character '{current}' at position {_position}");
+                _diagnostics?.AddError(
+                    L10nErrorSeverity.Error,
+                    _expressionContext,
+                    "LexerError",
+                    ex.Message,
+                    ex);
+                throw ex;
             }
 
             private bool IsNumer(char current)
@@ -120,7 +133,6 @@ namespace Minerva.Localizations.EscapePatterns
                 return false;
             }
 
-
             private void SkipWhitespace()
             {
                 while (_position < _input.Length && char.IsWhiteSpace(_input.Span[_position]))
@@ -139,7 +151,16 @@ namespace Minerva.Localizations.EscapePatterns
                     if (_position + 1 < _input.Length && (char.IsDigit(_input.Span[_position + 1]) || _input.Span[_position + 1] == '.'))
                         _position++;
                     else
-                        throw new Exception($"Unexpected '-' at position {start}");
+                    {
+                        var ex = new Exception($"Unexpected '-' at position {start}");
+                        _diagnostics?.AddError(
+                            L10nErrorSeverity.Error,
+                            _expressionContext,
+                            "NumberFormatError",
+                            ex.Message,
+                            ex);
+                        throw ex;
+                    }
                 }
 
                 while (_position < _input.Length && (char.IsDigit(_input.Span[_position]) || _input.Span[_position] == '.'))
@@ -147,7 +168,16 @@ namespace Minerva.Localizations.EscapePatterns
                     if (_input.Span[_position] == '.')
                     {
                         if (hasDot) // Multiple dots are invalid
-                            throw new Exception($"Invalid number format at position {start}");
+                        {
+                            var ex = new Exception($"Invalid number format at position {start}");
+                            _diagnostics?.AddError(
+                                L10nErrorSeverity.Error,
+                                _expressionContext,
+                                "NumberFormatError",
+                                ex.Message,
+                                ex);
+                            throw ex;
+                        }
                         hasDot = true;
                     }
                     _position++;
@@ -166,7 +196,16 @@ namespace Minerva.Localizations.EscapePatterns
                 var span = _input[start.._position];
                 // Validate against the dynamic value argument pattern
                 if (!DYNAMIC_ARG_PATTERN.IsMatch(span.ToString()))
-                    throw new Exception($"Invalid variable format '{span}' at position {start}");
+                {
+                    var ex = new Exception($"Invalid variable format '{span}' at position {start}");
+                    _diagnostics?.AddError(
+                        L10nErrorSeverity.Error,
+                        _expressionContext,
+                        "InvalidVariableFormat",
+                        ex.Message,
+                        ex);
+                    throw ex;
+                }
 
                 return new Token(TokenType.Variable, span, start);
             }
@@ -202,16 +241,22 @@ namespace Minerva.Localizations.EscapePatterns
         {
             private readonly Lexer _lexer;
             private Token _currentToken;
+            private readonly L10nEvaluationDiagnostics _diagnostics;
+            private readonly string _expressionContext;
 
-            public Parser(string input)
+            public Parser(string input, L10nEvaluationDiagnostics diagnostics = null)
             {
-                _lexer = new Lexer(input);
+                _diagnostics = diagnostics;
+                _expressionContext = input;
+                _lexer = new Lexer(input, diagnostics, input);
                 _currentToken = _lexer.GetNextToken();
             }
 
-            public Parser(ReadOnlyMemory<char> input)
+            public Parser(ReadOnlyMemory<char> input, L10nEvaluationDiagnostics diagnostics = null)
             {
-                _lexer = new Lexer(input);
+                _diagnostics = diagnostics;
+                _expressionContext = input.ToString();
+                _lexer = new Lexer(input, diagnostics, input.ToString());
                 _currentToken = _lexer.GetNextToken();
             }
 
@@ -277,12 +322,28 @@ namespace Minerva.Localizations.EscapePatterns
                     AdvanceToken();
                     Node node = ParseExpression();
                     if (_currentToken.Type != TokenType.RightParen)
-                        throw new Exception($"Missing closing parenthesis at position {_currentToken.Position}");
+                    {
+                        var ex = new Exception($"Missing closing parenthesis at position {_currentToken.Position}");
+                        _diagnostics?.AddError(
+                            L10nErrorSeverity.Error,
+                            _expressionContext,
+                            "SyntaxError",
+                            ex.Message,
+                            ex);
+                        throw ex;
+                    }
                     AdvanceToken();
                     return node;
                 }
 
-                throw new Exception($"Invalid syntax at position {_currentToken.Position} ({_currentToken})");
+                var syntaxEx = new Exception($"Invalid syntax at position {_currentToken.Position} ({_currentToken})");
+                _diagnostics?.AddError(
+                    L10nErrorSeverity.Error,
+                    _expressionContext,
+                    "SyntaxError",
+                    syntaxEx.Message,
+                    syntaxEx);
+                throw syntaxEx;
             }
 
             private void AdvanceToken()
@@ -402,7 +463,7 @@ namespace Minerva.Localizations.EscapePatterns
                     default:
                         throw new InvalidOperationException(Operator.Type.ToString());
                 }
-                throw new InvalidOperationException($"{Operator.Type} between {a.GetType().FullName} and {b.GetType().FullName} (Position {Left.Position})");
+                throw new InvalidOperationException($"{Operator.Type} between {a.GetType().FullName} and {b.GetType().FullName} at position {Position}");
             }
 
             public bool IsNumeric(object value, out float f)
