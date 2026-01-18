@@ -404,14 +404,14 @@ namespace Minerva.Localizations.EscapePatterns
             // No parameters - fast path (single allocation)
             if (angleIndex < 0)
             {
-                return context.Context.GetEscapeValue(varName.ToString(), L10nParams.Empty);
+                return context.Context.GetEscapeValue(varName.ToString(), L10nParams.FromVariables(context.Variables));
             }
 
             // Has parameters - parse carefully
             if (nameSpan[^1] != '>')
             {
                 // Malformed, fallback
-                return context.Context.GetEscapeValue(varName.ToString(), L10nParams.Empty);
+                return context.Context.GetEscapeValue(varName.ToString(), L10nParams.FromVariables(context.Variables));
             }
 
             var key = varName[..angleIndex].ToString();
@@ -420,7 +420,7 @@ namespace Minerva.Localizations.EscapePatterns
             // Empty parameters
             if (paramSpan.Length == 0)
             {
-                return context.Context.GetEscapeValue(key, L10nParams.Empty);
+                return context.Context.GetEscapeValue(key, L10nParams.FromVariables(context.Variables));
             }
 
             // Parse parameters directly to L10nParams (zero-allocation parsing)

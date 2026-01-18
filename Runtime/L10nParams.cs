@@ -514,6 +514,14 @@ namespace Minerva.Localizations
             return true;
         }
 
+        public static L10nParams FromVariables(IReadOnlyDictionary<string, object> variables)
+        {
+            if (variables == null || variables.Count == 0)
+                return Empty;
+
+            return new L10nParams(null, 0, new Dictionary<string, object>(variables));
+        }
+
         #endregion
     }
 }
