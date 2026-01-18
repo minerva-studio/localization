@@ -22,7 +22,8 @@ namespace Minerva.Localizations.EscapePatterns
         }
 
         public static void Register(IFormatHandler handler) => formatters.Add(handler);
-        public static string TryFormat(object value, string format)
+        public static string TryFormat(object value, string format) => TryFormat<object>(value, format);
+        public static string TryFormat<T>(T value, string format)
         {
             foreach (var f in formatters)
             {
