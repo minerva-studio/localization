@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 using UnityEngine;
 using static Minerva.Localizations.EscapePatterns.Regexes;
@@ -5,7 +6,7 @@ using static Minerva.Localizations.EscapePatterns.Regexes;
 
 namespace Minerva.Localizations.Editor
 {
-    [SerializeField]
+    [Serializable]
     public class LocalizationTextEditor
     {
         public bool showTools;
