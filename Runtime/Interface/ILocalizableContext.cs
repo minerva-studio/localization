@@ -43,7 +43,8 @@ namespace Minerva.Localizations
         /// <returns></returns>
         string GetRawContentWithKey(string key, L10nParams parameters)
         {
-            var rawString = L10n.GetRawContent(key);
+            var fullKey = Localizable.AppendKey(key, parameters.Options);
+            var rawString = L10n.GetRawContent(fullKey);
             return rawString;
         }
 
