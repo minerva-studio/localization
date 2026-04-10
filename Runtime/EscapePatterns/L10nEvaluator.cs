@@ -395,6 +395,12 @@ namespace Minerva.Localizations.EscapePatterns
 
             if (context.Context == null)
             {
+                // check global variables
+                string varNameStr = varName.ToString();
+                if (L10nContext.GlobalEscapeValue.TryGetValue(varNameStr, out var globalValue))
+                {
+                    return globalValue(varNameStr, L10nParams.FromVariables(context.Variables));
+                }
                 return varName.ToString();
             }
 
