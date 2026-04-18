@@ -360,13 +360,10 @@ namespace Minerva.Localizations.EscapePatterns
         private void EvaluateColorTag(L10nToken token, StringBuilder output)
         {
             var colorCode = token.Metadata.ToString();
+            string resolvedHex = ResolveColorCode(colorCode);
+            bool wrap = !string.IsNullOrEmpty(resolvedHex);
 
-            if (colorCode.Length == 1)
-            {
-                colorCode = ColorCode.GetColorHex(colorCode[0]);
-            }
-
-            output.Append($"<color={colorCode}>");
+            if (wrap) output.Append($"<color={resolvedHex}>");
 
             if (token.Children != null && token.Children.Count > 0)
             {
@@ -380,7 +377,36 @@ namespace Minerva.Localizations.EscapePatterns
                 output.Append(token.Content.Span);
             }
 
-            output.Append("</color>");
+            if (wrap) output.Append("</color>");
+        }
+
+        /// <summary>
+        /// Convert a colour code from a <c>§</c>-escape into a TMP-compatible hex string,
+        /// or <c>null</c> if it cannot be resolved (caller should then emit plain text).
+        /// Supported forms:
+        /// <list type="bullet">
+        /// <item><c>#RRGGBB</c> — passed through.</item>
+        /// <item>Single letter (<c>R</c>/<c>G</c>/<c>B</c>/…) — resolved via <see cref="ColorCode"/>.</item>
+        /// <item><c>&lt;Keyword&gt;</c> — delegated to <see cref="ColorResolvers.Resolve"/>.</item>
+        /// </list>
+        /// </summary>
+        private static string ResolveColorCode(string colorCode)
+        {
+            if (string.IsNullOrEmpty(colorCode)) return null;
+
+            if (colorCode.Length == 1)
+                return ColorCode.GetColorHex(colorCode[0]);
+
+            if (colorCode[0] == '#')
+                return colorCode;
+
+            if (colorCode[0] == '<' && colorCode[colorCode.Length - 1] == '>')
+            {
+                var name = colorCode.Substring(1, colorCode.Length - 2);
+                return ColorResolvers.Resolve(name);
+            }
+
+            return colorCode;
         }
 
         private object VariableResolver(ReadOnlyMemory<char> varName)

@@ -203,6 +203,14 @@ namespace Minerva.Localizations.EscapePatterns
         public static string ReplaceColorEscape(string rawString)
         {
             if (rawString == null) return string.Empty;
+            // §<Keyword>...§ – resolved via ColorResolvers.Resolve (host plugs in)
+            rawString = KEYWORD_COLOR_PATTERN.Replace(rawString, (m) =>
+            {
+                var keyword = m.Groups[1].Value;
+                var entry = m.Groups[2].Value;
+                var hex = ColorResolvers.Resolve(keyword);
+                return string.IsNullOrEmpty(hex) ? entry : entry.UGUIColor(hex);
+            });
             rawString = COLOR_CODE_PATTERN.Replace(rawString, (m) =>
             {
                 var colorCode = m.Groups[1].Value;//.Result("$1");
