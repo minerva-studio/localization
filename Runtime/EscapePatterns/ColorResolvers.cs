@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Minerva.Localizations.EscapePatterns
 {
@@ -10,14 +11,14 @@ namespace Minerva.Localizations.EscapePatterns
     /// </summary>
     public static class ColorResolvers
     {
-        private static readonly List<Func<string, string>> resolvers = new();
+        private static readonly List<Func<string, Color?>> resolvers = new();
 
         /// <summary>
         /// Register a resolver that maps a case-sensitive identifier (e.g. <c>Fire</c>,
         /// <c>Legendary</c>) to a TMP hex colour such as <c>#RRGGBB</c>. Return
         /// <c>null</c> when the identifier is not recognised by this resolver.
         /// </summary>
-        public static void Register(Func<string, string> resolver)
+        public static void Register(Func<string, Color?> resolver)
         {
             if (resolver == null) throw new ArgumentNullException(nameof(resolver));
             resolvers.Add(resolver);
@@ -31,8 +32,9 @@ namespace Minerva.Localizations.EscapePatterns
         {
             for (int i = 0; i < resolvers.Count; i++)
             {
-                var hex = resolvers[i]?.Invoke(name);
-                if (!string.IsNullOrEmpty(hex)) return hex;
+                var color = resolvers[i]?.Invoke(name);
+                if (color == null) continue;
+                return $"#{ColorUtility.ToHtmlStringRGB(color.Value)}";
             }
             return null;
         }
