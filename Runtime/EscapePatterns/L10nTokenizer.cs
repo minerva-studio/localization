@@ -242,6 +242,34 @@ namespace Minerva.Localizations.EscapePatterns
 
                 colorCode = source.Slice(hexStart - 1, 7);
             }
+            // Try read element tag: <ElementName> (first char uppercase, >=2 letters)
+            else if (Peek() == '<')
+            {
+                int tagStart = position; // position of '<'
+                position++;               // Skip '<'
+                if (IsAtEnd() || !char.IsUpper(Peek()))
+                {
+                    position = start;
+                    token = null;
+                    return false;
+                }
+                position++;
+                int letterCount = 1;
+                while (!IsAtEnd() && char.IsLetter(Peek()))
+                {
+                    position++;
+                    letterCount++;
+                }
+                if (letterCount < 2 || IsAtEnd() || Peek() != '>')
+                {
+                    position = start;
+                    token = null;
+                    return false;
+                }
+                position++; // Skip '>'
+                // Include angle brackets so evaluator can recognise this form
+                colorCode = source.Slice(tagStart, position - tagStart);
+            }
             // Try read single char color: R, G, B, etc.
             else if (!IsAtEnd() && char.IsLetter(Peek()))
             {
