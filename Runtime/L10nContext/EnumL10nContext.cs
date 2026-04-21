@@ -9,7 +9,8 @@ namespace Minerva.Localizations
     /// </summary>
     public class EnumL10nContext : L10nContext
     {
-        string path;
+        private string path;
+        private bool isL10nFlagEnum;
 
         public EnumL10nContext() { }
 
@@ -18,15 +19,20 @@ namespace Minerva.Localizations
         protected override void Parse(object value)
         {
             path = L10nAlias.GetTypeName(value.GetType());
-            BaseKey = new Key(path, value.ToString());
+            isL10nFlagEnum = Attribute.GetCustomAttribute(BaseValue.GetType(), typeof(L10nFlagEnumAttribute)) is L10nFlagEnumAttribute;
+
+            if (isL10nFlagEnum)
+                BaseKey = new Key(path);
+            else
+                BaseKey = new Key(path, value.ToString());
         }
 
         public override string GetRawContent(L10nParams parameters)
         {
-            if (Attribute.GetCustomAttribute(BaseValue.GetType(), typeof(L10nFlagEnumAttribute)) is L10nFlagEnumAttribute)
+            if (isL10nFlagEnum)
             {
                 var flags = FlagEnumSplit(BaseValue.GetType(), BaseValue as Enum);
-                return string.Join(L10n.ListDelimiter, flags.Select(s => Localizable.AppendKey($"{path}.{s}", parameters.Options)));
+                return string.Join(L10n.ListDelimiter, flags.Select(s => $"${Localizable.AppendKey($"{path}.{s}", parameters.Options)}$"));
             }
             else return base.GetRawContent(parameters);
         }
