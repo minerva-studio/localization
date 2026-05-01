@@ -123,7 +123,33 @@ namespace Minerva.Localizations
 
         static string ToProperString(string str)
         {
-            return str.Replace("\n", "\\n").Replace("\r", "");
+            StringBuilder stringBuilder = null;
+            for (int i = 0; i < str.Length; i++)
+            {
+                string replacement = str[i] switch
+                {
+                    '\\' => "\\\\",
+                    '"' => "\\\"",
+                    '\n' => "\\n",
+                    '\r' => string.Empty,
+                    _ => null,
+                };
+
+                if (replacement == null)
+                {
+                    stringBuilder?.Append(str[i]);
+                    continue;
+                }
+
+                if (stringBuilder == null)
+                {
+                    stringBuilder = new StringBuilder(str.Length + 8);
+                    stringBuilder.Append(str, 0, i);
+                }
+                stringBuilder.Append(replacement);
+            }
+
+            return stringBuilder?.ToString() ?? str;
         }
     }
 }
