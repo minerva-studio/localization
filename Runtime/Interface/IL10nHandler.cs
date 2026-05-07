@@ -23,6 +23,8 @@ namespace Minerva.Localizations
 
         string GetRawContent(Key key);
         string GetRawContent(string key);
+        string GetDefaultRawContent(Key key);
+        string GetDefaultRawContent(string key);
 
         bool Write(Key key, string value);
         bool Write(string key, string value);

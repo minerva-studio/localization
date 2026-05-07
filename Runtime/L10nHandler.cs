@@ -170,6 +170,62 @@ namespace Minerva.Localizations
             return entry.value;
         }
 
+        /// <summary>
+        /// Gets the matched display language from the default localization file by key.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <returns>The default localization value when present; otherwise null.</returns>
+        public string GetDefaultRawContent(string key)
+        {
+            if (!loaded)
+            {
+                Debug.LogWarning($"L10n not initialize");
+                return null;
+            }
+
+            if (!fallback.TryGetValue(key, out var entry))
+            {
+                return null;
+            }
+
+            if (!entry.colorReplaced)
+            {
+                entry.value = EscapePattern.ReplaceColorEscape(entry.value);
+                entry.colorReplaced = true;
+                fallback[key] = entry;
+            }
+
+            return entry.value;
+        }
+
+        /// <summary>
+        /// Gets the matched display language from the default localization file by key.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <returns>The default localization value when present; otherwise null.</returns>
+        public string GetDefaultRawContent(Key key)
+        {
+            if (!loaded)
+            {
+                Debug.LogWarning($"L10n not initialize");
+                return null;
+            }
+
+            if (!fallback.TryGetValue(key, out var entry))
+            {
+                return null;
+            }
+
+            if (!entry.colorReplaced)
+            {
+                entry.value = EscapePattern.ReplaceColorEscape(entry.value);
+                entry.colorReplaced = true;
+                fallback[key] = entry;
+            }
+
+            return entry.value;
+        }
+
 
 
         public bool Contains(string key, bool fallback)

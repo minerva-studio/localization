@@ -205,6 +205,60 @@ namespace Minerva.Localizations
             return ValidateValue(key, result, solution ?? missingKeySolution);
         }
 
+        /// <summary>
+        /// Directly gets the value by key from the default localization region.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <param name="solution">The optional missing-key resolution policy.</param>
+        /// <returns>The default-region raw content when available.</returns>
+        internal static string GetDefaultRawContent(Key key, MissingKeySolution? solution = null)
+        {
+            if (instance == null)
+            {
+                return key;
+            }
+
+            if (!instance.IsLoaded)
+            {
+                return key;
+            }
+
+            var result = instance.GetDefaultRawContent(key);
+            if (!string.IsNullOrEmpty(result))
+            {
+                return result;
+            }
+
+            return ValidateValue(key, result, solution ?? missingKeySolution);
+        }
+
+        /// <summary>
+        /// Directly gets the value by key from the default localization region.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <param name="solution">The optional missing-key resolution policy.</param>
+        /// <returns>The default-region raw content when available.</returns>
+        internal static string GetDefaultRawContent(string key, MissingKeySolution? solution = null)
+        {
+            if (instance == null)
+            {
+                return key;
+            }
+
+            if (!instance.IsLoaded)
+            {
+                return key;
+            }
+
+            var result = instance.GetDefaultRawContent(key);
+            if (!string.IsNullOrEmpty(result))
+            {
+                return result;
+            }
+
+            return ValidateValue(key, result, solution ?? missingKeySolution);
+        }
+
         private static string ValidateValue(string key, string result, MissingKeySolution missingKeySolution)
         {
             if (string.IsNullOrEmpty(key) || result == null)
@@ -502,6 +556,70 @@ namespace Minerva.Localizations
             translationResult.TranslatedText = result;
             return translationResult;
         }
+
+        #endregion
+
+        #region Default Region Translation API
+
+        /// <summary>
+        /// Direct localization from the default region with L10nParams.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <param name="parameters">Localization parameters.</param>
+        /// <returns>The default-region localized value.</returns>
+        public static string TrDefault(string key, L10nParams parameters) => TrDefault(key, missingKeySolution, parameters);
+
+        /// <summary>
+        /// Direct localization from the default region with L10nParams and custom solution.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <param name="solution">Missing-key solution.</param>
+        /// <param name="parameters">Localization parameters.</param>
+        /// <returns>The default-region localized value.</returns>
+        public static string TrDefault(string key, MissingKeySolution solution, L10nParams parameters)
+        {
+            var fullKey = Localizable.AppendKey(key, parameters.Options);
+            var rawString = GetDefaultRawContent(fullKey, solution);
+            return EscapePattern.Escape(rawString, null, parameters);
+        }
+
+        /// <summary>
+        /// Direct localization from the default region with L10nParams.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <param name="parameters">Localization parameters.</param>
+        /// <returns>The default-region localized value.</returns>
+        public static string TrDefault(Key key, L10nParams parameters)
+        {
+            var fullKey = Key.Join(in key, parameters.Options);
+            var rawString = GetDefaultRawContent(fullKey);
+            return EscapePattern.Escape(rawString, null, parameters);
+        }
+
+        /// <summary>
+        /// Direct localization from the default region.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <param name="param">Legacy localization parameters.</param>
+        /// <returns>The default-region localized value.</returns>
+        public static string TrDefault(string key, params string[] param) => TrDefault(key, missingKeySolution, L10nParams.FromStrings(param));
+
+        /// <summary>
+        /// Direct localization from the default region with custom solution.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <param name="solution">Missing-key solution.</param>
+        /// <param name="param">Legacy localization parameters.</param>
+        /// <returns>The default-region localized value.</returns>
+        public static string TrDefault(string key, MissingKeySolution solution, params string[] param) => TrDefault(key, solution, L10nParams.FromStrings(param));
+
+        /// <summary>
+        /// Direct localization from the default region.
+        /// </summary>
+        /// <param name="key">Localization key.</param>
+        /// <param name="param">Legacy localization parameters.</param>
+        /// <returns>The default-region localized value.</returns>
+        public static string TrDefault(Key key, params string[] param) => TrDefault(key, L10nParams.FromStrings(param));
 
         #endregion
 
