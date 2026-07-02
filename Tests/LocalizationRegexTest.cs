@@ -1,5 +1,5 @@
 using Minerva.Localizations.EscapePatterns;
-using Minerva.Module;
+using Minerva.Localizations.Utilities;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;

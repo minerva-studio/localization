@@ -5,6 +5,31 @@ namespace Minerva.Localizations.Utilities
 {
     public static class TextStringExtensions
     {
+        public static string UGUIMark(this string str, string colorCode)
+        {
+            return $"<mark={colorCode}>{str}</mark>";
+        }
+
+        public static string UGUIUnderline(this string str)
+        {
+            return $"<u>{str}</u>";
+        }
+
+        public static string UGUIItalic(this string str)
+        {
+            return $"<i>{str}</i>";
+        }
+
+        public static string UGUIBold(this string str)
+        {
+            return $"<b>{str}</b>";
+        }
+
+        public static string UGUIStringSize(this string str, string percentage)
+        {
+            return $"<size={percentage}>{str}</size>";
+        }
+
         public static string UGUIColor(this string str, string colorCode)
         {
             return $"<color={colorCode}>{str}</color>";
