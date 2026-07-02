@@ -1,4 +1,4 @@
-﻿using Minerva.Module;
+using Minerva.Localizations.Utilities;
 using Minerva.Localizations.Collections;
 using System.Collections;
 using System.Collections.Generic;

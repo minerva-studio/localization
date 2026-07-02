@@ -1,4 +1,3 @@
-﻿using Minerva.Module.Editor;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -54,8 +53,10 @@ namespace Minerva.Localizations.Components
             {
                 color = Color.red;
             }
-            using (new GizmosColor(color))
+            Color previousColor = Gizmos.color;
+            try
             {
+                Gizmos.color = color;
                 Vector3 size;
                 if (transform is RectTransform rectTransform)
                 {
@@ -70,6 +71,10 @@ namespace Minerva.Localizations.Components
                     size = Vector3.one;
                 }
                 Gizmos.DrawWireCube(transform.position, size);
+            }
+            finally
+            {
+                Gizmos.color = previousColor;
             }
         }
 #endif

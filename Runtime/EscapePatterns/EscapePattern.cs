@@ -1,4 +1,4 @@
-using Minerva.Module;
+using Minerva.Localizations.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -203,7 +203,7 @@ namespace Minerva.Localizations.EscapePatterns
         public static string ReplaceColorEscape(string rawString)
         {
             if (rawString == null) return string.Empty;
-            // §<Keyword>...§ – resolved via ColorResolvers.Resolve (host plugs in)
+            // §<Keyword>...§ �?resolved via ColorResolvers.Resolve (host plugs in)
             rawString = KEYWORD_COLOR_PATTERN.Replace(rawString, (m) =>
             {
                 var keyword = m.Groups[1].Value;

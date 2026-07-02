@@ -1,10 +1,8 @@
-﻿using Minerva.Module;
 using Minerva.Localizations.Collections;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using ArrayUtility = Minerva.Module.ArrayUtility;
 using Trie = Minerva.Localizations.Collections.Trie;
 using TrieSegment = Minerva.Localizations.Collections.TrieSegment;
 
@@ -49,13 +47,22 @@ namespace Minerva.Localizations
         public void Add(string key)
         {
             keyTrie.Add(key);
-            if (indexed != null) ArrayUtility.Add(ref indexed, key);
+            if (indexed != null)
+            {
+                Array.Resize(ref indexed, indexed.Length + 1);
+                indexed[^1] = key;
+            }
         }
 
         public bool Remove(string key)
         {
             bool v = keyTrie.Remove(key);
-            if (v && indexed != null) ArrayUtility.Remove(ref indexed, key);
+            if (v && indexed != null)
+            {
+                var list = new List<string>(indexed);
+                list.Remove(key);
+                indexed = list.ToArray();
+            }
             return v;
         }
 
