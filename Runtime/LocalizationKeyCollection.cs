@@ -1,9 +1,12 @@
 ﻿using Minerva.Module;
+using Minerva.Localizations.Collections;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using ArrayUtility = Minerva.Module.ArrayUtility;
+using Trie = Minerva.Localizations.Collections.Trie;
+using TrieSegment = Minerva.Localizations.Collections.TrieSegment;
 
 namespace Minerva.Localizations
 {

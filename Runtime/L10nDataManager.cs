@@ -1,4 +1,5 @@
 ﻿using Minerva.Module;
+using Minerva.Localizations.Collections;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -6,6 +7,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using Trie = Minerva.Localizations.Collections.Trie;
+using TrieSegment = Minerva.Localizations.Collections.TrieSegment;
 #if UNITY_EDITOR
 using PropertyTable = System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, UnityEditor.SerializedProperty>>;
 #endif

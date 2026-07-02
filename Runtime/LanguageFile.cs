@@ -1,10 +1,12 @@
 ﻿using Minerva.Module;
+using Minerva.Localizations.Collections;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using TriesString = Minerva.Localizations.Collections.Tries<string>;
 
 namespace Minerva.Localizations
 {
@@ -43,9 +45,9 @@ namespace Minerva.Localizations
         /// Get a trie of the language file
         /// </summary>
         /// <returns></returns>
-        public Tries<string> GetTrie()
+        public TriesString GetTrie()
         {
-            var dictionary = new Tries<string>();
+            var dictionary = new TriesString();
             GetDictionary(dictionary);
             return dictionary;
         }

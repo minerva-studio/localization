@@ -1,4 +1,4 @@
-using Minerva.Module;
+using Minerva.Localizations.Collections;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -66,12 +66,12 @@ namespace Minerva.Localizations
         {
             StringBuilder stringBuilder = new StringBuilder();
             Tries<string> trie = new Tries<string>(keyValuePairs);
-            WriteLevel(new Module.TriesSegment<string>(trie), 0, stringBuilder, comparison);
+            WriteLevel(new Minerva.Localizations.Collections.TriesSegment<string>(trie), 0, stringBuilder, comparison);
 
             return stringBuilder.ToString();
         }
 
-        private static void WriteLevel(Module.TriesSegment<string> trie, int indent = 0, StringBuilder stringBuilder = null, Comparison<string> comparison = null)
+        private static void WriteLevel(Minerva.Localizations.Collections.TriesSegment<string> trie, int indent = 0, StringBuilder stringBuilder = null, Comparison<string> comparison = null)
         {
             comparison ??= StringComparer.Ordinal.Compare;
             var keys = trie.FirstLayerKeys.ToArray();
@@ -84,7 +84,7 @@ namespace Minerva.Localizations
                 if (trie.ContainsKey(key))
                 {
                     // something below
-                    if (trie.TryGetSegment(key, out Module.TriesSegment<string> t) && t.Count > 1)
+                    if (trie.TryGetSegment(key, out Minerva.Localizations.Collections.TriesSegment<string> t) && t.Count > 1)
                     {
                         stringBuilder.Append('\n');
                         stringBuilder.Append(' ', indent + 2);
@@ -97,7 +97,7 @@ namespace Minerva.Localizations
                 {
                     stringBuilder.Append('\n');
                 }
-                if (trie.TryGetSegment(key, out Module.TriesSegment<string> subTrie))
+                if (trie.TryGetSegment(key, out Minerva.Localizations.Collections.TriesSegment<string> subTrie))
                 {
                     WriteLevel(subTrie, indent + 2, stringBuilder, comparison);
                 }
