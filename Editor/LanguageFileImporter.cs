@@ -1,4 +1,3 @@
-using Minerva.Module;
 using System.IO;
 using UnityEditor.AssetImporters;
 using UnityEngine;
@@ -11,7 +10,6 @@ namespace Minerva.Localizations
     [ScriptedImporter(1, "lang")]
     public class LanguageFileImporter : ScriptedImporter
     {
-        [DisplayIf(nameof(masterFile), result = false)]
         public string region;
         public string tag;
         public LanguageFile masterFile;

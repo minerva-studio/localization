@@ -1,5 +1,4 @@
 using Minerva.Localizations.Utilities;
-using Minerva.Module;
 using Minerva.Localizations.Collections;
 using System;
 using System.Collections.Generic;
@@ -23,8 +22,8 @@ namespace Minerva.Localizations
         public const string ENTRIES_NAME = nameof(entries);
 
         [SerializeField] private string tag;
-        [ReadOnly, SerializeField] private bool isReadOnly;
-        [ReadOnly, SerializeField] private string path;
+        [SerializeField] private bool isReadOnly;
+        [SerializeField] private string path;
         [SerializeField] private bool isMasterFile;
         [SerializeField] private LanguageFile masterFile;
         [SerializeField] private List<LanguageFile> childFiles = new();

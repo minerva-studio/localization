@@ -4,9 +4,7 @@
     "displayName": "Localization",
     "description": "A fully customized localization system written in C# for Unity project",
     "unity": "2021.3",
-    "dependencies": {
-        "com.minervagamestudio.inspector": "0.1.0"
-    },
+    "dependencies": {},
     "keywords": [
         "external",
         "utilities",
