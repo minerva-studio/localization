@@ -1,10 +1,9 @@
-﻿using Minerva.Module.Editor;
+﻿using Minerva.Localizations.Editor.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using static Minerva.Module.Editor.EditorFieldDrawers;
 
 namespace Minerva.Localizations.Editor
 {
@@ -275,23 +274,20 @@ namespace Minerva.Localizations.Editor
                 GUILayout.BeginHorizontal();
                 GUILayout.Label((++val).ToString(), maxWidthNum);
                 bool keyExist = fileManager.HasKey(item);
-                using (GUIEnable.By(!keyExist))
+                using (new EditorGUI.DisabledScope(keyExist))
                     if (GUILayout.Button("Add", maxWidth))
                     {
                         index = i;
                         add = item;
                     }
 
-                GUI.enabled = true;
-                using (GUIEnable.By(true))
-                    if (GUILayout.Button("X", maxWidthX))
-                    {
-                        index = i;
-                        remove = item;
-                    }
+                if (GUILayout.Button("X", maxWidthX))
+                {
+                    index = i;
+                    remove = item;
+                }
 
-                GUI.enabled = !keyExist;
-                using (GUIEnable.By(!keyExist))
+                using (new EditorGUI.DisabledScope(keyExist))
                     if (keyExist) GUILayout.Label(item + " \t(Key exist in the files already)");
                     else GUILayout.Label(item);
                 GUILayout.EndHorizontal();
@@ -477,7 +473,7 @@ namespace Minerva.Localizations.Editor
                 GUILayout.Label("Files", keyEntrykeyWidth);
                 foreach (var file in fileManager.files)
                 {
-                    using (GUIEnable.By(false))
+                    using (new EditorGUI.DisabledScope(true))
                         EditorGUILayout.ObjectField(file, typeof(LanguageFile), false, keyEntryWidth);
                 }
                 GUILayout.EndHorizontal();
@@ -489,7 +485,7 @@ namespace Minerva.Localizations.Editor
                 string key = fileManager.LocalizationKeyCollection[i];
                 GUILayout.BeginHorizontal(keyEntryHeight);
                 var dictionary = table[key];
-                using (GUIEnable.By(dictionary.Values.All(e => e != null && e.editable)))
+                using (new EditorGUI.DisabledScope(!dictionary.Values.All(e => e != null && e.editable)))
                     // try remove
                     if (GUILayout.Button("x", GUILayout.Width(EditorGUIUtility.singleLineHeight)))
                     {
@@ -649,7 +645,7 @@ namespace Minerva.Localizations.Editor
             if (selectClass == EntryDrawMode.entry || isAtButtomLevel)
             {
                 GUILayout.Label(file.Region.ToString(), EditorStyles.boldLabel);
-                pageList ??= DrawListPage(possibleKeys, (possibleKey) => drawEntry.Draw(possibleKey));
+                pageList ??= new GenericListPageList<string>(possibleKeys, possibleKey => drawEntry.Draw(possibleKey));
                 drawEntry.Initialize(setting, key, fileManager, region);
                 ((GenericListPageList<string>)pageList).entryList = possibleKeys;
                 pageList.LinesPerPage = setting.LinePerPage;
@@ -754,7 +750,7 @@ namespace Minerva.Localizations.Editor
                     EditorGUILayout.LabelField(labelName, "(not exist)");
                 }
                 DrawTableEntry(new GUIContent(labelName), property);
-                using (new GUIEnable(property?.editable == true))
+                using (new EditorGUI.DisabledScope(property?.editable != true))
                 {
                     if (changingKey != key)
                     {
@@ -823,7 +819,7 @@ namespace Minerva.Localizations.Editor
                     GUILayout.BeginHorizontal();
                     addKey = !GUILayout.Button("Close");
                     bool add;
-                    using (GUIEnable.By(canAddNewKey))
+                    using (new EditorGUI.DisabledScope(!canAddNewKey))
                     {
                         add = GUILayout.Button("Add");
                     }

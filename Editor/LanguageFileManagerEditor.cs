@@ -1,5 +1,4 @@
-﻿using Minerva.Module.Editor;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace Minerva.Localizations.Editor
@@ -7,9 +6,6 @@ namespace Minerva.Localizations.Editor
     [CustomEditor(typeof(L10nDataManager))]
     public class LocalizationManagerEditor : UnityEditor.Editor
     {
-        EditorFieldDrawers.SerializedPropertyPageList pageList;
-        EditorFieldDrawers.SerializedPropertyPageList missingPageList;
-
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
@@ -30,22 +26,6 @@ namespace Minerva.Localizations.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.files)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.sources)));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(file.regions)));
-
-            //SerializedProperty serializedProperty = serializedObject.FindProperty(nameof(file.keyList));
-            //pageList ??= EditorFieldDrawers.DrawListPage(serializedProperty);
-            //pageList.entryList = serializedProperty;
-            //pageList.OnSortList = () =>
-            //{
-            //    file.keyList.Sort();
-            //    serializedObject.Update();
-            //    EditorUtility.SetDirty(file);
-            //};
-            //pageList.Draw("Keys");
-
-            //SerializedProperty serializedProperty1 = serializedObject.FindProperty(nameof(file.missingKeys));
-            //missingPageList ??= EditorFieldDrawers.DrawListPage(serializedProperty1);
-            //missingPageList.entryList = serializedProperty1;
-            //missingPageList.Draw("Missing Keys");
 
             if (serializedObject.hasModifiedProperties)
             {

@@ -1,5 +1,5 @@
 using Minerva.Localizations.Components;
-using Minerva.Module.Editor;
+using Minerva.Localizations.Editor.Utilities;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;

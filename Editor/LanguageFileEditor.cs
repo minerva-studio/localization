@@ -1,4 +1,4 @@
-﻿using Minerva.Module.Editor;
+﻿using Minerva.Localizations.Editor.Utilities;
 using UnityEditor;
 using UnityEngine;
 
@@ -8,7 +8,7 @@ namespace Minerva.Localizations.Editor
     public class LanguageFileEditor : UnityEditor.Editor
     {
         bool debugFold;
-        EditorFieldDrawers.SerializedPropertyPageList pageList;
+        SerializedPropertyPageList pageList;
 
 
         public override void OnInspectorGUI()
@@ -17,9 +17,9 @@ namespace Minerva.Localizations.Editor
             var height = GUILayout.Height(27);
 
             GUILayout.FlexibleSpace();
-            using (GUIEnable.By(false))
+            using (new EditorGUI.DisabledScope(true))
                 EditorGUILayout.ObjectField("Script", MonoScript.FromScriptableObject(file), typeof(MonoScript), false);
-            using (GUIEnable.By(file.IsMasterFile))
+            using (new EditorGUI.DisabledScope(!file.IsMasterFile))
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("region"));
 
             if (file.IsMasterFile)
@@ -41,12 +41,11 @@ namespace Minerva.Localizations.Editor
 
 
             var entryList = serializedObject.FindProperty(LanguageFile.ENTRIES_NAME);
-            pageList ??= EditorFieldDrawers.DrawListPage(entryList);
+            pageList ??= new SerializedPropertyPageList(entryList);
             pageList.OnDrawHeader = () =>
             {
                 if (GUILayout.Button("Import from Yaml", height)) file.ImportFromYaml();
-                using (GUIEnable.By(true))
-                    if (GUILayout.Button("Export as Yaml", height)) file.ExportToYaml();
+                if (GUILayout.Button("Export as Yaml", height)) file.ExportToYaml();
                 //if (GUILayout.Button("Export as Source Yaml", height)) file.ExportToYamlAsSource();
             };
             pageList.OnSortList = () =>
@@ -60,7 +59,7 @@ namespace Minerva.Localizations.Editor
             EditorGUI.indentLevel++;
             if (debugFold)
             {
-                using (GUIEnable.By(false))
+                using (new EditorGUI.DisabledScope(true))
                     EditorGUILayout.ObjectField("Editor", MonoScript.FromScriptableObject(this), typeof(MonoScript), false);
                 EditorGUILayout.PropertyField(entryList, true);
             }
