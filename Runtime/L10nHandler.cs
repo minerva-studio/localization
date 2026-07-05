@@ -1,356 +1,206 @@
-using Minerva.Localizations.EscapePatterns;
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Minerva.Localizations
 {
+    /// <summary>
+    /// Legacy handler adapter backed by the shared multi-region runtime.
+    /// </summary>
     public class L10nHandler : IL10nHandler
     {
-        [SerializeField]
-        private bool loaded = false;
+        #region State
 
-        [SerializeField]
-        private L10nDataManager manager;
-        [SerializeField]
-        private string region;
+        private L10nRuntime runtime;
 
+        public L10nDataManager Manager => runtime?.Manager;
+        public bool IsLoaded => runtime?.HasMainRegion == true;
+        public string Region => runtime?.MainRegion ?? string.Empty;
+        internal L10nRuntime Runtime => runtime;
+        internal string ListDelimiter => runtime?.CurrentData?.ListDelimiter ?? string.Empty;
+        internal string WordSpace => runtime?.CurrentData?.WordSpace ?? string.Empty;
 
+        #endregion
 
-        // dictionary is for fast-lookup
-        private Dictionary<string, TranslationEntry> dictionary;
-        private Dictionary<string, TranslationEntry> fallback;
-        // trie is for hierachy search
-        private L10nTries<TranslationEntry> trie;
-
-        public L10nDataManager Manager => manager;
-        public bool IsLoaded => loaded;
-        public string Region => region;
-
-
-        internal L10nTries<TranslationEntry> Trie { get => trie ??= new(dictionary); }
-
-
+        #region Lifecycle
 
         /// <summary>
-        /// Construct a localization handler
+        /// Constructs a localization handler adapter.
         /// </summary>
-        /// <param name="region"></param>
         public L10nHandler()
         {
         }
 
-
-
-
         /// <summary>
-        /// Init L10n
+        /// Initializes the shared runtime for this handler.
         /// </summary>
-        /// <param name="manager"></param>
         public void Init(L10nDataManager manager)
         {
-            this.manager = manager;
-
-            LanguageFile defaultRegion = manager.GetLanguageFile(manager.defaultRegion);
-            if (defaultRegion)
-            {
-                this.fallback = defaultRegion.GetTranslationDictionary();
-            }
-            else
-            {
-                this.fallback = new();
-                Debug.LogException(new NullReferenceException("Default region not found"));
-            }
+            runtime = new L10nRuntime(manager);
         }
 
+        #endregion
+
+        #region Region Loading
+
         /// <summary>
-        /// Load given type of language
-        /// <para>
-        /// If the given language is not found in manager, then <see cref="DEFAULT_REGION"/> would be used
-        /// </para>
+        /// Loads a region as background data unless no main region exists yet.
         /// </summary>
-        /// <param name="region"></param>
-        /// <exception cref="NullReferenceException"></exception>
         public void Load(string region)
         {
-            this.region = region;
-            if (!manager) throw new NullReferenceException("The localization manager has not yet initialized");
-
-            LanguageFile languageFile = manager.GetLanguageFile(this.region);
-            if (!languageFile) throw new NullReferenceException("The localization manager has initialized, but given language type could not be found and default region is not available");
-
-            dictionary = languageFile.GetTranslationDictionary();
-            trie = null;
-            //string[] items = Dictionary.Keys.ToArray();
-            //foreach (var item in items) dictionary[item] = EscapePattern.ReplaceKeyEscape(dictionary[item], null);
-            loaded = true;
-            Debug.Log($"Localization Loaded. (Region: {region}, Entry Count: {dictionary.Count})");
+            Load(region, false);
         }
 
         /// <summary>
-        /// reload current localization
+        /// Loads a region and optionally selects it as the main region.
+        /// </summary>
+        internal L10nRegionLoadResult Load(string region, bool asMainRegion)
+        {
+            EnsureRuntime();
+            var result = runtime.Load(region, asMainRegion);
+            if (result.RegionLoaded)
+            {
+                UnityEngine.Debug.Log($"Localization Loaded. (Region: {region}, Entry Count: {runtime.ForRegionData(region).EntryCount})");
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Reloads the current main region.
         /// </summary>
         public void Reload()
         {
-            Load(region);
+            EnsureRuntime();
+            runtime.ReloadMain();
         }
 
+        #endregion
 
-
-
-
-
-
+        #region Raw Content
 
         /// <summary>
-        /// Get the matched display language from dictionary by key
+        /// Gets raw content from the main region with shared fallback support.
         /// </summary>
-        /// <param name="key"></param> 
-        /// <returns></returns>
         public string GetRawContent(string key)
         {
-            if (!loaded)
-            {
-                Debug.LogWarning($"L10n not initialize");
-                return null;
-            }
-
-            bool isPrimitive;
-            bool hasValue = isPrimitive = dictionary.TryGetValue(key, out var entry);
-            if (!hasValue) hasValue = dictionary.TryGetValue(key, out entry);
-            if (!hasValue) hasValue = fallback.TryGetValue(key, out entry);
-            if (!hasValue) return null;
-
-            // late replace
-            if (!entry.colorReplaced)
-            {
-                entry.value = EscapePattern.ReplaceColorEscape(entry.value);
-                entry.colorReplaced = true;
-            }
-            // write back
-            if (isPrimitive)
-            {
-                dictionary[key] = entry;
-                Trie[key] = entry;
-            }
-            return entry.value;
+            EnsureRuntime();
+            return runtime.GetMainRawContent(key);
         }
 
         /// <summary>
-        /// Get the matched display language from dictionary by key
+        /// Gets raw content from the main region with shared fallback support.
         /// </summary>
-        /// <param name="key"></param> 
-        /// <returns></returns>
         public string GetRawContent(Key key)
         {
-            if (!loaded)
-            {
-                Debug.LogWarning($"L10n not initialize");
-                return null;
-            }
-
-            bool isPrimitive;
-            bool hasValue = isPrimitive = Trie.TryGetValue(key, out var entry);
-            if (!hasValue) hasValue = dictionary.TryGetValue(key, out entry);
-            if (!hasValue) hasValue = fallback.TryGetValue(key, out entry);
-            if (!hasValue) return null;
-
-            // late replace
-            if (!entry.colorReplaced)
-            {
-                entry.value = EscapePattern.ReplaceColorEscape(entry.value);
-                entry.colorReplaced = true;
-            }
-            // write back
-            if (isPrimitive)
-            {
-                dictionary[key] = entry;
-                Trie[key] = entry;
-            }
-            return entry.value;
+            EnsureRuntime();
+            return runtime.GetMainRawContent(key);
         }
 
         /// <summary>
-        /// Gets the matched display language from the default localization file by key.
+        /// Gets raw content from the shared fallback region.
         /// </summary>
-        /// <param name="key">Localization key.</param>
-        /// <returns>The default localization value when present; otherwise null.</returns>
         public string GetDefaultRawContent(string key)
         {
-            if (!loaded)
-            {
-                Debug.LogWarning($"L10n not initialize");
-                return null;
-            }
-
-            if (!fallback.TryGetValue(key, out var entry))
-            {
-                return null;
-            }
-
-            if (!entry.colorReplaced)
-            {
-                entry.value = EscapePattern.ReplaceColorEscape(entry.value);
-                entry.colorReplaced = true;
-                fallback[key] = entry;
-            }
-
-            return entry.value;
+            EnsureRuntime();
+            return runtime.FallbackData?.GetRawContent(key, null);
         }
 
         /// <summary>
-        /// Gets the matched display language from the default localization file by key.
+        /// Gets raw content from the shared fallback region.
         /// </summary>
-        /// <param name="key">Localization key.</param>
-        /// <returns>The default localization value when present; otherwise null.</returns>
         public string GetDefaultRawContent(Key key)
         {
-            if (!loaded)
-            {
-                Debug.LogWarning($"L10n not initialize");
-                return null;
-            }
-
-            if (!fallback.TryGetValue(key, out var entry))
-            {
-                return null;
-            }
-
-            if (!entry.colorReplaced)
-            {
-                entry.value = EscapePattern.ReplaceColorEscape(entry.value);
-                entry.colorReplaced = true;
-                fallback[key] = entry;
-            }
-
-            return entry.value;
+            EnsureRuntime();
+            return runtime.FallbackData?.GetRawContent(key, null);
         }
 
+        #endregion
 
+        #region Key Lookup & Overrides
 
+        /// <summary>
+        /// Checks whether the main region contains the key.
+        /// </summary>
         public bool Contains(string key, bool fallback)
         {
-            return dictionary.ContainsKey(key) || (fallback && this.fallback.ContainsKey(key));
+            EnsureRuntime();
+            return runtime.ContainsMain(key, fallback);
         }
 
+        /// <summary>
+        /// Checks whether the main region contains the key.
+        /// </summary>
         public bool Contains(Key key, bool fallback)
         {
-            return Trie.ContainsKey(key) || (fallback && this.fallback.ContainsKey(key));
+            EnsureRuntime();
+            return runtime.ContainsMain(key, fallback);
         }
 
-
-
-
-
         /// <summary>
-        /// Override given key's entry to value, written value will be lost if localization reloaded
+        /// Writes an in-memory override into the main region.
         /// </summary>
-        /// <param name="key"></param>
-        /// <param name="value"></param>
         public bool Write(string key, string value)
         {
-            dictionary[key] = value;
-            Trie[key] = value;
-            return true;
+            EnsureRuntime();
+            return runtime.WriteMain(key, value);
         }
 
         /// <summary>
-        /// Override given key's entry to value, written value will be lost if localization reloaded
+        /// Writes an in-memory override into the main region.
         /// </summary>
-        /// <param name="key"></param>
-        /// <param name="value"></param>
         public bool Write(Key key, string value)
         {
-            dictionary[key] = value;
-            Trie[key] = value;
-            return true;
+            EnsureRuntime();
+            return runtime.WriteMain(key, value);
         }
 
-
-
-
-
         /// <summary>
-        /// Get all options (possible complete key) of the partial key
+        /// Gets matching key options from the main region.
         /// </summary>
-        /// <param name="partialKey"></param>
-        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
-        /// <returns></returns>
         public bool OptionOf(string partialKey, out string[] result, bool firstLevelOnly = false)
         {
-            result = Array.Empty<string>();
-            if (!loaded) { return false; }
-            if (!Trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
-                return false;
-            if (firstLevelOnly)
-                result = subTrie.FirstLayerKeys.ToArray();
-            else
-            {
-                result = new string[subTrie.Count];
-                subTrie.Keys.CopyTo(result, 0);
-            }
-            return true;
+            EnsureRuntime();
+            return runtime.OptionOfMain(partialKey, out result, firstLevelOnly);
         }
 
         /// <summary>
-        /// Get all options (possible complete key) of the partial key
+        /// Gets matching key options from the main region.
         /// </summary>
-        /// <param name="partialKey"></param>
-        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
-        /// <returns></returns>
         public bool OptionOf(Key partialKey, out string[] result, bool firstLevelOnly = false)
         {
-            result = Array.Empty<string>();
-            if (!loaded) { return false; }
-            if (!Trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
-                return false;
-            if (firstLevelOnly)
-                result = subTrie.FirstLayerKeys.ToArray();
-            else
-            {
-                result = new string[subTrie.Count];
-                subTrie.Keys.CopyTo(result, 0);
-            }
-            return true;
+            EnsureRuntime();
+            return runtime.OptionOfMain(partialKey, out result, firstLevelOnly);
         }
 
-
-
-
         /// <summary>
-        /// Get all options (possible complete key) of the partial key
+        /// Copies matching key options from the main region.
         /// </summary>
-        /// <param name="partialKey"></param>
-        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
-        /// <returns></returns>
         public bool CopyOptions(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (!loaded) { return false; }
-            if (!Trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
-                return false;
-            if (firstLevelOnly)
-                strings.AddRange(subTrie.FirstLayerKeys);
-            else
-                strings.AddRange(subTrie.Keys);
-            return true;
+            EnsureRuntime();
+            return runtime.CopyOptionsMain(partialKey, strings, firstLevelOnly);
         }
 
         /// <summary>
-        /// Get all options (possible complete key) of the partial key
+        /// Copies matching key options from the main region.
         /// </summary>
-        /// <param name="partialKey"></param>
-        /// <param name="firstLevelOnly">Whether returning full key or next class only</param>
-        /// <returns></returns>
         public bool CopyOptions(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (!loaded) { return false; }
-            if (!Trie.TryGetSegment(partialKey, out TriesSegment<TranslationEntry> subTrie))
-                return false;
-            if (firstLevelOnly)
-                strings.AddRange(subTrie.FirstLayerKeys);
-            else
-                strings.AddRange(subTrie.Keys);
-            return true;
+            EnsureRuntime();
+            return runtime.CopyOptionsMain(partialKey, strings, firstLevelOnly);
         }
+
+        #endregion
+
+        #region Private Helpers
+
+        private void EnsureRuntime()
+        {
+            if (runtime == null)
+            {
+                throw new NullReferenceException("The localization manager has not yet initialized.");
+            }
+        }
+
+        #endregion
     }
 }

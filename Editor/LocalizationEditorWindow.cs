@@ -1,4 +1,4 @@
-﻿using Minerva.Localizations.Editor.Utilities;
+using Minerva.Localizations.Editor.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -144,32 +144,14 @@ namespace Minerva.Localizations.Editor
             {
                 tempEditorRegionIndex = EditorGUILayout.Popup("Region", tempEditorRegionIndex, fileManager.regions.ToArray());
                 tempEditorRegionIndex = Mathf.Max(tempEditorRegionIndex, 0);
-                tempEditorRegionIndex = Mathf.Min(fileManager.regions.Count, tempEditorRegionIndex);
+                tempEditorRegionIndex = Mathf.Min(fileManager.regions.Count - 1, tempEditorRegionIndex);
             }
 
             string region = fileManager.regions[tempEditorRegionIndex];
-            if (useEnvironment && (L10n.Region != region || !L10n.IsInitialized || !L10n.IsLoaded || L10n.Manager != this.fileManager))
+            RegionL10n regionContext = null;
+            if (useEnvironment)
             {
-                if (L10n.IsInitialized && L10n.Manager != this.fileManager)
-                {
-                    L10n.DeInitialize();
-                }
-                if (!L10n.IsInitialized)
-                {
-                    L10n.InitAndLoad(this.fileManager, region);
-                }
-                else if (!L10n.IsLoaded)
-                {
-                    L10n.Load(region);
-                }
-                else if (L10n.Region != region)
-                {
-                    L10n.Load(region);
-                }
-            }
-            if (!useEnvironment && L10n.IsLoaded)
-            {
-                L10n.DeInitialize();
+                regionContext = GetPreviewRegionContext(region);
             }
 
             var rawContext = new RawContentL10nContext();
@@ -181,7 +163,7 @@ namespace Minerva.Localizations.Editor
             }
             EditorGUILayout.Space(20);
             EditorGUILayout.LabelField("Result");
-            EditorGUILayout.SelectableLabel(L10n.Tr(dynamicContext));
+            EditorGUILayout.SelectableLabel(regionContext != null ? regionContext.Tr(dynamicContext, L10nParams.Empty) : L10n.Tr(dynamicContext));
             EditorGUILayout.Space(20);
 
             SerializedObject obj = new SerializedObject(this);
@@ -192,6 +174,20 @@ namespace Minerva.Localizations.Editor
                 obj.ApplyModifiedProperties();
                 obj.Update();
             }
+        }
+
+        /// <summary>
+        /// Gets a preview-only region context without changing the global main region.
+        /// </summary>
+        private RegionL10n GetPreviewRegionContext(string region)
+        {
+            if (!L10n.IsInitialized || L10n.Manager != fileManager)
+            {
+                L10n.Init(fileManager);
+            }
+
+            L10n.Load(region);
+            return L10n.ForRegion(region);
         }
 
         public override void SaveChanges()
