@@ -478,11 +478,37 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
+        /// Enters a temporary region context for static localization lookups.
+        /// </summary>
+        /// <param name="region">Region to use until the returned scope is disposed.</param>
+        /// <returns>A scope that restores the previous region context on dispose.</returns>
+        public static IDisposable InRegion(string region)
+        {
+            return UseRegionContext(ForRegion(region));
+        }
+
+        /// <summary>
         /// Checks whether a region is loaded or is the shared fallback.
         /// </summary>
         public static bool IsRegionLoaded(string region)
         {
             return RequireRuntime().IsRegionLoaded(region);
+        }
+
+        /// <summary>
+        /// Gets raw content through an explicit region.
+        /// </summary>
+        public static string GetRawContentIn(string region, string key, MissingKeySolution? solution = null)
+        {
+            return ForRegion(region).GetRawContent(key, solution);
+        }
+
+        /// <summary>
+        /// Gets raw content through an explicit region.
+        /// </summary>
+        public static string GetRawContentIn(string region, Key key, MissingKeySolution? solution = null)
+        {
+            return ForRegion(region).GetRawContent(key, solution);
         }
 
         /// <summary>
@@ -507,6 +533,62 @@ namespace Minerva.Localizations
         public static string TrIn(string region, Key key, L10nParams parameters)
         {
             return ForRegion(region).Tr(key, parameters);
+        }
+
+        /// <summary>
+        /// Translates a localizable context through an explicit region.
+        /// </summary>
+        public static string TrIn(string region, ILocalizableContext context, L10nParams parameters)
+        {
+            return ForRegion(region).Tr(context, parameters);
+        }
+
+        /// <summary>
+        /// Translates a localizable context with an override key through an explicit region.
+        /// </summary>
+        public static string TrKeyIn(string region, string key, ILocalizableContext context, L10nParams parameters)
+        {
+            return ForRegion(region).TrKey(key, context, parameters);
+        }
+
+        /// <summary>
+        /// Translates raw content through an explicit region.
+        /// </summary>
+        public static string TrRawIn(string region, string rawContent, ILocalizableContext context, L10nParams parameters)
+        {
+            return ForRegion(region).TrRaw(rawContent, context, parameters);
+        }
+
+        /// <summary>
+        /// Translates a key through an explicit region and returns parser diagnostics.
+        /// </summary>
+        public static L10nTranslationResult TryTrIn(string region, string key, L10nParams parameters)
+        {
+            return ForRegion(region).TryTr(key, parameters);
+        }
+
+        /// <summary>
+        /// Translates a key through an explicit region and returns parser diagnostics.
+        /// </summary>
+        public static L10nTranslationResult TryTrIn(string region, Key key, L10nParams parameters)
+        {
+            return ForRegion(region).TryTr(key, parameters);
+        }
+
+        /// <summary>
+        /// Translates a localizable context through an explicit region and returns parser diagnostics.
+        /// </summary>
+        public static L10nTranslationResult TryTrIn(string region, ILocalizableContext context, L10nParams parameters)
+        {
+            return ForRegion(region).TryTr(context, parameters);
+        }
+
+        /// <summary>
+        /// Translates raw content through an explicit region and returns parser diagnostics.
+        /// </summary>
+        public static L10nTranslationResult TryTrRawIn(string region, string rawContent, ILocalizableContext context, L10nParams parameters)
+        {
+            return ForRegion(region).TryTrRaw(rawContent, context, parameters);
         }
 
         /// <summary>
@@ -912,6 +994,7 @@ namespace Minerva.Localizations
         private sealed class RegionL10nScope : IDisposable
         {
             private readonly RegionL10n previous;
+            private bool disposed;
 
             /// <summary>
             /// Stores the previous scoped translator so it can be restored.
@@ -926,6 +1009,13 @@ namespace Minerva.Localizations
             /// </summary>
             public void Dispose()
             {
+                if (disposed)
+                {
+                    return;
+                }
+
+                // Dispose is intentionally idempotent so a stale nested scope cannot restore over a newer context.
+                disposed = true;
                 scopedRegionL10n.Value = previous;
             }
         }

@@ -203,6 +203,25 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
+        /// Translates a localizable context and returns parser diagnostics.
+        /// </summary>
+        public L10nTranslationResult TryTr(ILocalizableContext context, L10nParams parameters)
+        {
+            L10nTranslationResult translationResult;
+            using (L10n.UseRegionContext(this))
+            {
+                var rawString = context.GetRawContent(parameters);
+                translationResult = EscapePattern.TryEscape(rawString, context, parameters.IncreaseDepth());
+            }
+
+            var key = context.GetLocalizationKey(parameters);
+            var result = translationResult.TranslatedText;
+            L10n.InvokeOnTranslating(key, ref result);
+            translationResult.TranslatedText = result;
+            return translationResult;
+        }
+
+        /// <summary>
         /// Translates a localization key and returns parser diagnostics.
         /// </summary>
         public L10nTranslationResult TryTr(string key, L10nParams parameters)
