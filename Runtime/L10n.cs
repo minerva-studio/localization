@@ -27,8 +27,8 @@ namespace Minerva.Localizations
         public static event Action<string> OnRegionUnloaded;
         public static event Action<string> OnMainRegionChanged;
 
-        private static L10nDataManager manager;
-        private static IL10nHandler instance;
+        // This is the single authoritative owner of loaded localization state.
+        private static L10nRuntime runtime;
         private static readonly AsyncLocal<RegionL10n> scopedRegionL10n = new();
         private static bool disableEmptyEntries;
         private static ReferenceImportOption tooltipImportOption;
@@ -39,24 +39,22 @@ namespace Minerva.Localizations
         private static string listDelimiter;
 
 
-        /// <summary> instance of localization model </summary>
-        public static IL10nHandler Instance => instance ??= new L10nHandler();
         /// <summary> manager </summary>
-        public static L10nDataManager Manager => instance?.Manager;
+        public static L10nDataManager Manager => runtime?.Manager;
         /// <summary> whether any localization is loaded </summary>
-        public static bool IsLoaded => instance?.IsLoaded == true;
+        public static bool IsLoaded => runtime?.HasMainRegion == true;
         /// <summary> whether a manager is provided </summary>
-        public static bool IsInitialized => instance?.Manager != null;
+        public static bool IsInitialized => runtime?.Manager != null;
         /// <summary> Region </summary>
-        public static string Region => instance?.Region ?? string.Empty;
+        public static string Region => runtime?.MainRegion ?? string.Empty;
         /// <summary> Main region used by legacy translation APIs. </summary>
         public static string MainRegion => Region;
         /// <summary> Whether a non-fallback main region is currently selected. </summary>
-        public static bool HasMainRegion => GetRuntime()?.HasMainRegion == true;
+        public static bool HasMainRegion => runtime?.HasMainRegion == true;
         /// <summary> Regions </summary>
-        public static string[] Regions => instance?.Manager != null ? instance.Manager.regions.ToArray() : Array.Empty<string>();
+        public static string[] Regions => runtime?.Manager != null ? runtime.Manager.regions.ToArray() : Array.Empty<string>();
         /// <summary> Non-fallback regions currently loaded in memory. </summary>
-        public static string[] LoadedRegions => GetRuntime()?.LoadedRegions ?? Array.Empty<string>();
+        public static string[] LoadedRegions => runtime?.LoadedRegions ?? Array.Empty<string>();
         /// <summary> Should discard empty entries? </summary>
         public static bool DisableEmptyEntries { get { return disableEmptyEntries; } set { disableEmptyEntries = value; } }
         /// <summary> Missing key solution </summary>
@@ -85,13 +83,12 @@ namespace Minerva.Localizations
         /// <param name="manager"></param>
         public static void Init(L10nDataManager manager)
         {
-            L10n.manager = manager;
             disableEmptyEntries = manager.disableEmptyEntry;
             missingKeySolution = manager.missingKeySolution;
             tooltipImportOption = manager.tooltipImportOption;
             referenceImportOption = manager.referenceImportOption;
             useUnderlineResolver = manager.useUnderlineResolver;
-            Instance.Init(manager);
+            runtime = new L10nRuntime(manager);
         }
 
         /// <summary>
@@ -108,21 +105,8 @@ namespace Minerva.Localizations
 
         public static void ReloadIfInitialized()
         {
-            if (instance == null || !instance.IsLoaded) return;
+            if (runtime?.HasMainRegion != true) return;
             Reload();
-        }
-
-        /// <summary>
-        /// Set the custom l10n handler
-        /// </summary>
-        /// <param name="handler"></param>
-        public static void SetHandler(IL10nHandler handler)
-        {
-            instance = handler;
-            if (manager)
-            {
-                Instance.Init(manager);
-            }
         }
 
         /// <summary>
@@ -132,9 +116,10 @@ namespace Minerva.Localizations
         {
             Debug.Log("deinit");
             // Clear static runtime state so the next load starts from a fresh manager.
-            instance = null;
-            manager = null;
+            runtime = null;
             scopedRegionL10n.Value = null;
+            wordSpace = null;
+            listDelimiter = null;
         }
 
         #endregion
@@ -155,25 +140,23 @@ namespace Minerva.Localizations
         /// <param name="asMainRegion">Whether the loaded region should become the main region.</param>
         public static void Load(string region, bool asMainRegion)
         {
-            if (Instance is L10nHandler handler)
+            if (runtime == null)
             {
-                var result = handler.Load(region, asMainRegion);
-                if (result.RegionLoaded)
-                {
-                    OnRegionLoaded?.Invoke(result.Region);
-                }
-                if (result.MainRegionChanged)
-                {
-                    ApplyMainRegionSettings();
-                    OnMainRegionChanged?.Invoke(Region);
-                    OnLocalizationLoaded?.Invoke();
-                }
-                return;
+                throw new NullReferenceException("The localization manager has not yet initialized.");
             }
 
-            // Custom handlers keep legacy behavior because they do not expose multi-region state.
-            Instance.Load(region);
-            OnLocalizationLoaded?.Invoke();
+            var result = runtime.Load(region, asMainRegion);
+            if (result.RegionLoaded)
+            {
+                Debug.Log($"Localization Loaded. (Region: {region}, Entry Count: {runtime.ForRegionData(region).EntryCount})");
+                OnRegionLoaded?.Invoke(result.Region);
+            }
+            if (result.MainRegionChanged)
+            {
+                ApplyMainRegionSettings();
+                OnMainRegionChanged?.Invoke(Region);
+                OnLocalizationLoaded?.Invoke();
+            }
         }
 
         /// <summary>
@@ -181,18 +164,11 @@ namespace Minerva.Localizations
         /// </summary>
         public static void Reload()
         {
-            if (GetRuntime() != null)
+            if (runtime?.ReloadMain() == true)
             {
-                if (GetRuntime().ReloadMain())
-                {
-                    ApplyMainRegionSettings();
-                    OnLocalizationLoaded?.Invoke();
-                }
-                return;
+                ApplyMainRegionSettings();
+                OnLocalizationLoaded?.Invoke();
             }
-
-            instance?.Reload();
-            OnLocalizationLoaded?.Invoke();
         }
 
         /// <summary>
@@ -274,12 +250,12 @@ namespace Minerva.Localizations
             }
 
             // localization not loaded
-            if (instance == null)
+            if (runtime == null)
             {
                 return key;
             }
 
-            var result = instance.GetRawContent(key);
+            var result = runtime.GetMainRawContent(key);
             if (!string.IsNullOrEmpty(result))
             {
                 return result;
@@ -300,12 +276,12 @@ namespace Minerva.Localizations
             }
 
             // localization not loaded
-            if (instance == null)
+            if (runtime == null)
             {
                 return key;
             }
 
-            var result = instance.GetRawContent(key);
+            var result = runtime.GetMainRawContent(key);
             if (!string.IsNullOrEmpty(result))
             {
                 return result;
@@ -321,12 +297,12 @@ namespace Minerva.Localizations
         /// <returns>The default-region raw content when available.</returns>
         internal static string GetDefaultRawContent(Key key, MissingKeySolution? solution = null)
         {
-            if (instance == null)
+            if (runtime == null)
             {
                 return key;
             }
 
-            var result = instance.GetDefaultRawContent(key);
+            var result = runtime.FallbackData?.GetRawContent(key, null);
             if (!string.IsNullOrEmpty(result))
             {
                 return result;
@@ -343,12 +319,12 @@ namespace Minerva.Localizations
         /// <returns>The default-region raw content when available.</returns>
         internal static string GetDefaultRawContent(string key, MissingKeySolution? solution = null)
         {
-            if (instance == null)
+            if (runtime == null)
             {
                 return key;
             }
 
-            var result = instance.GetDefaultRawContent(key);
+            var result = runtime.FallbackData?.GetRawContent(key, null);
             if (!string.IsNullOrEmpty(result))
             {
                 return result;
@@ -366,28 +342,28 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public static bool Contains(string key) => Instance?.Contains(key, false) == true;
+        public static bool Contains(string key) => runtime?.ContainsMain(key, false) == true;
 
         /// <summary>
         /// Check whether given key is present in any localization file
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public static bool Exist(string key) => Instance?.Contains(key, true) == true;
+        public static bool Exist(string key) => runtime?.ContainsMain(key, true) == true;
 
         /// <summary>
         /// Check whether given key is present in current localization file (without fallback)
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public static bool Contains(Key key) => Instance?.Contains(key, false) == true;
+        public static bool Contains(Key key) => runtime?.ContainsMain(key, false) == true;
 
         /// <summary>
         /// Check whether given key is present in any localization file
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        public static bool Exist(Key key) => Instance?.Contains(key, true) == true;
+        public static bool Exist(Key key) => runtime?.ContainsMain(key, true) == true;
 
 
 
@@ -397,14 +373,14 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
-        public static bool Write(string key, string value) => instance != null && instance.IsLoaded && instance.Write(key, value);
+        public static bool Write(string key, string value) => runtime?.HasMainRegion == true && runtime.WriteMain(key, value);
 
         /// <summary>
         /// Override given key's entry to value, written value will be lost if localization reloaded
         /// </summary>
         /// <param name="key"></param>
         /// <param name="value"></param>
-        public static bool Write(Key key, string value) => instance != null && instance.IsLoaded && instance.Write(key, value);
+        public static bool Write(Key key, string value) => runtime?.HasMainRegion == true && runtime.WriteMain(key, value);
 
 
 
@@ -418,8 +394,8 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string[] OptionOf(string partialKey, bool firstLevelOnly = false)
         {
-            if (instance == null || !instance.IsLoaded) { return Array.Empty<string>(); }
-            instance.OptionOf(partialKey, out var result, firstLevelOnly);
+            if (runtime?.HasMainRegion != true) { return Array.Empty<string>(); }
+            runtime.OptionOfMain(partialKey, out var result, firstLevelOnly);
             return result;
         }
 
@@ -431,8 +407,8 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static string[] OptionOf(Key partialKey, bool firstLevelOnly = false)
         {
-            if (instance == null || !instance.IsLoaded) { return Array.Empty<string>(); }
-            instance.OptionOf(partialKey, out var result, firstLevelOnly);
+            if (runtime?.HasMainRegion != true) { return Array.Empty<string>(); }
+            runtime.OptionOfMain(partialKey, out var result, firstLevelOnly);
             return result;
         }
 
@@ -447,8 +423,8 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static bool CopyOptions(string partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (instance == null || !instance.IsLoaded) { return false; }
-            return instance.CopyOptions(partialKey, strings, firstLevelOnly);
+            if (runtime?.HasMainRegion != true) { return false; }
+            return runtime.CopyOptionsMain(partialKey, strings, firstLevelOnly);
         }
 
         /// <summary>
@@ -459,8 +435,8 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public static bool CopyOptions(Key partialKey, List<string> strings, bool firstLevelOnly = false)
         {
-            if (instance == null || !instance.IsLoaded) { return false; }
-            return instance.CopyOptions(partialKey, strings, firstLevelOnly);
+            if (runtime?.HasMainRegion != true) { return false; }
+            return runtime.CopyOptionsMain(partialKey, strings, firstLevelOnly);
         }
 
         #endregion
@@ -956,39 +932,27 @@ namespace Minerva.Localizations
             return value;
         }
 
-        private static L10nRuntime GetRuntime()
-        {
-            return (instance as L10nHandler)?.Runtime;
-        }
-
         private static L10nRuntime RequireRuntime()
         {
-            if (GetRuntime() != null)
+            if (runtime != null)
             {
-                return GetRuntime();
+                return runtime;
             }
 
-            if (!manager)
-            {
-                Init();
-            }
-            else
-            {
-                Instance.Init(manager);
-            }
+            Init();
 
-            return GetRuntime() ?? throw new NullReferenceException("The localization manager has not yet initialized.");
+            return runtime ?? throw new NullReferenceException("The localization manager has not yet initialized.");
         }
 
         private static void ApplyMainRegionSettings()
         {
-            if (GetRuntime()?.MainData == null)
+            if (runtime?.MainData == null)
             {
                 return;
             }
 
-            wordSpace = GetRuntime().MainData.WordSpace;
-            listDelimiter = GetRuntime().MainData.ListDelimiter;
+            wordSpace = runtime.MainData.WordSpace;
+            listDelimiter = runtime.MainData.ListDelimiter;
         }
 
         private sealed class RegionL10nScope : IDisposable

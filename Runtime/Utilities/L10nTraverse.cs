@@ -52,7 +52,6 @@ namespace Minerva.Localizations
         /// <returns></returns>
         public List<string> GetOptions()
         {
-            if (L10n.Instance == null) throw new InvalidOperationException();
             options ??= UpdateOptions();
             if (options == null) return new();
             return new(options);

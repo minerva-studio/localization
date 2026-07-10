@@ -46,6 +46,55 @@ namespace Minerva.Localizations.Tests
             Assert.That(L10n.Region, Is.EqualTo("ZH-CN"));
         }
 
+        /// <summary>
+        /// Verifies that the public static facade delegates main-region operations to the shared runtime.
+        /// </summary>
+        [Test]
+        public void StaticFacade_DelegatesMainRegionOperationsToRuntime()
+        {
+            var manager = CreateManager();
+
+            L10n.Init(manager);
+            Assert.That(L10n.Manager, Is.SameAs(manager));
+            Assert.That(L10n.IsInitialized, Is.True);
+            Assert.That(L10n.IsLoaded, Is.False);
+
+            L10n.Load("EN-US", asMainRegion: true);
+            Assert.That(L10n.Contains("Term"), Is.True);
+            Assert.That(L10n.Contains("FallbackOnly"), Is.False);
+            Assert.That(L10n.Exist("FallbackOnly"), Is.True);
+            Assert.That(L10n.OptionOf("Group"), Is.EquivalentTo(new[] { "One", "Two" }));
+
+            var copiedOptions = new List<string>();
+            Assert.That(L10n.CopyOptions("Group", copiedOptions), Is.True);
+            Assert.That(copiedOptions, Is.EquivalentTo(new[] { "One", "Two" }));
+            Assert.That(L10n.Write("Term", "Changed"), Is.True);
+            Assert.That(L10n.Tr("Term"), Is.EqualTo("Changed"));
+        }
+
+        /// <summary>
+        /// Verifies that deinitialization clears the runtime and main-region-derived formatting state.
+        /// </summary>
+        [Test]
+        public void DeInitialize_ClearsRuntimeAndMainRegionSettings()
+        {
+            var manager = CreateManager();
+
+            L10n.InitAndLoad(manager, "EN-US");
+            Assert.That(L10n.WordSpace, Is.EqualTo(" "));
+            Assert.That(L10n.ListDelimiter, Is.EqualTo(", "));
+
+            L10n.DeInitialize();
+
+            Assert.That(L10n.Manager, Is.Null);
+            Assert.That(L10n.IsInitialized, Is.False);
+            Assert.That(L10n.IsLoaded, Is.False);
+            Assert.That(L10n.Region, Is.Empty);
+            Assert.That(L10n.LoadedRegions, Is.Empty);
+            Assert.That(L10n.WordSpace, Is.Empty);
+            Assert.That(L10n.ListDelimiter, Is.Empty);
+        }
+
         [Test]
         public void ForRegion_ResolvesReferencesWithinExplicitRegion()
         {
@@ -175,7 +224,11 @@ namespace Minerva.Localizations.Tests
                 ["Sentence"] = "$Term$",
                 ["ScopedSentence"] = "EN $Term$",
                 ["Term"] = "Apple",
+                ["Group.One"] = "One",
+                ["Group.Two"] = "Two",
             });
+            en.listDelimiter = ", ";
+            en.wordSpace = " ";
             var zh = CreateLanguageFile("ZH-CN", new()
             {
                 ["Sentence"] = "$Term$",
