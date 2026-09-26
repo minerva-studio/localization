@@ -337,6 +337,21 @@ namespace Minerva.Localizations.EscapePatterns
             object VariableParser(ReadOnlyMemory<char> expr)
             {
                 string input = expr.ToString();
+                if (input.IndexOf('[') >= 0)
+                {
+                    try
+                    {
+                        var values = GetGlobalValue();
+                        if (values.TryGetValue(input, out string indexedReplacement))
+                            return ReplaceKeyEscape(indexedReplacement, context, depth + 1, param);
+                        return context?.GetEscapeValue(input, L10nParams.FromStrings(param)) ?? input;
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogException(e);
+                        return input;
+                    }
+                }
                 var m = DYNAMIC_ARG_PATTERN.Match(input);
                 // we can't really guarantee context can correctly provide replacements
                 try

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Minerva.Localizations.Utilities;
 using static Minerva.Localizations.EscapePatterns.ExpressionParser;
 
 namespace Minerva.Localizations.EscapePatterns
@@ -417,6 +418,21 @@ namespace Minerva.Localizations.EscapePatterns
             if (context.Variables != null && context.Variables.TryGetValue(varName.ToString(), out var value))
             {
                 return value;
+            }
+
+            if (context.Variables != null && (nameSpan.IndexOf('[') >= 0 || nameSpan.IndexOf('.') >= 0))
+            {
+                string fullPath = varName.ToString();
+                for (int boundary = fullPath.Length - 1; boundary > 0; boundary--)
+                {
+                    if (fullPath[boundary] != '.' && fullPath[boundary] != '[') continue;
+                    if (!context.Variables.TryGetValue(fullPath.Substring(0, boundary), out var root)) continue;
+                    string suffix = fullPath.Substring(boundary);
+                    object nested = Reflection.GetIndexedPath(root, suffix.AsSpan());
+                    if (nested != null)
+                        return L10nContext.DynamicValueOf(nested, L10nParams.FromVariables(context.Variables));
+                    break;
+                }
             }
 
             if (context.Context == null)

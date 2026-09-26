@@ -25,6 +25,9 @@ namespace Minerva.Localizations.EscapePatterns
             Power,
             LeftParen,
             RightParen,
+            LeftBracket,
+            RightBracket,
+            Dot,
             End
         }
 
@@ -81,6 +84,8 @@ namespace Minerva.Localizations.EscapePatterns
                 if (IsNumer(current))
                     return NumberToken();
 
+                if (current == '.' && (_position + 1 >= _input.Length || !char.IsDigit(_input.Span[_position + 1])))
+                    return CreateToken(TokenType.Dot, ".");
                 if (IsValidTokenInVariable(current))
                     return VariableToken();
                 if (current == '+')
@@ -97,6 +102,10 @@ namespace Minerva.Localizations.EscapePatterns
                     return CreateToken(TokenType.LeftParen, "(");
                 if (current == ')')
                     return CreateToken(TokenType.RightParen, ")");
+                if (current == '[')
+                    return CreateToken(TokenType.LeftBracket, "[");
+                if (current == ']')
+                    return CreateToken(TokenType.RightBracket, "]");
 
                 var ex = new Exception($"Unexpected character '{current}' at position {_position}");
                 _diagnostics?.AddError(
@@ -111,7 +120,7 @@ namespace Minerva.Localizations.EscapePatterns
             private bool IsNumer(char current)
             {
                 // plain number or "."
-                if (char.IsDigit(current) || current == '.') return true;
+                if (char.IsDigit(current) || (current == '.' && _position + 1 < _input.Length && char.IsDigit(_input.Span[_position + 1]))) return true;
 
                 // possible signed literal: only treat '-' as part of number in *unary* contexts
                 if (current == '-')
@@ -262,7 +271,10 @@ namespace Minerva.Localizations.EscapePatterns
 
             public Node ParseExpression()
             {
-                return ParseBinaryExpression(1); // 最低优先级从 1 开始
+                Node expression = ParseBinaryExpression(1);
+                if (_currentToken.Type != TokenType.End)
+                    throw SyntaxError($"Unexpected token {_currentToken} after expression");
+                return expression;
             }
 
             private Node ParseBinaryExpression(int minPrecedence)
@@ -300,7 +312,40 @@ namespace Minerva.Localizations.EscapePatterns
                     var negOne = new NumberNode(new Token(TokenType.Number, "-1".AsMemory(), minus.Position));
                     return new BinaryOperationNode(negOne, new Token(TokenType.Multiply, "*".AsMemory(), minus.Position), ParseUnary());
                 }
-                return ParsePrimary();
+                return ParsePostfix(ParsePrimary());
+            }
+
+            private Node ParsePostfix(Node node)
+            {
+                if (node is not VariableNode variable) return node;
+                AccessNode access = new RootAccessNode(variable.Name, variable.Position);
+                bool hasPostfix = false;
+                while (_currentToken.Type == TokenType.LeftBracket || _currentToken.Type == TokenType.Dot)
+                {
+                    hasPostfix = true;
+                    if (_currentToken.Type == TokenType.LeftBracket)
+                    {
+                        AdvanceToken();
+                        Node index = ParseBinaryExpression(1);
+                        if (_currentToken.Type != TokenType.RightBracket)
+                            throw SyntaxError($"Missing closing index bracket at position {_currentToken.Position}");
+                        AdvanceToken();
+                        access = new IndexAccessNode(access, index, access.Position);
+                    }
+                    else
+                    {
+                        AdvanceToken();
+                        if (_currentToken.Type != TokenType.Variable)
+                            throw SyntaxError($"Expected member name at position {_currentToken.Position}");
+                        string[] members = _currentToken.Value.ToString().Split('.');
+                        if (members.Any(string.IsNullOrEmpty))
+                            throw SyntaxError($"Invalid member path at position {_currentToken.Position}");
+                        foreach (string member in members)
+                            access = new MemberAccessNode(access, member, _currentToken.Position);
+                        AdvanceToken();
+                    }
+                }
+                return hasPostfix ? access : node;
             }
 
             private Node ParsePrimary()
@@ -320,7 +365,7 @@ namespace Minerva.Localizations.EscapePatterns
                 else if (_currentToken.Type == TokenType.LeftParen)
                 {
                     AdvanceToken();
-                    Node node = ParseExpression();
+                    Node node = ParseBinaryExpression(1);
                     if (_currentToken.Type != TokenType.RightParen)
                     {
                         var ex = new Exception($"Missing closing parenthesis at position {_currentToken.Position}");
@@ -349,6 +394,13 @@ namespace Minerva.Localizations.EscapePatterns
             private void AdvanceToken()
             {
                 _currentToken = _lexer.GetNextToken();
+            }
+
+            private Exception SyntaxError(string message)
+            {
+                var ex = new Exception(message);
+                _diagnostics?.AddError(L10nErrorSeverity.Error, _expressionContext, "SyntaxError", ex.Message, ex);
+                return ex;
             }
 
             private static int GetPrecedence(TokenType t, out bool rightAssociative)
@@ -406,6 +458,96 @@ namespace Minerva.Localizations.EscapePatterns
             public override object Run(VariableValueProvider variableValueProvider)
             {
                 return variableValueProvider(Name);
+            }
+        }
+
+        internal abstract class AccessNode : Node
+        {
+            protected AccessNode(int position) : base(position) { }
+
+            public sealed override object Run(VariableValueProvider variableValueProvider)
+            {
+                return variableValueProvider(MaterializePath(variableValueProvider).AsMemory());
+            }
+
+            internal string MaterializePath(VariableValueProvider resolveIndexSymbol)
+            {
+                var builder = new System.Text.StringBuilder();
+                AppendPath(builder, resolveIndexSymbol);
+                return builder.ToString();
+            }
+
+            internal abstract void AppendPath(System.Text.StringBuilder builder, VariableValueProvider resolveIndexSymbol);
+        }
+
+        private sealed class RootAccessNode : AccessNode
+        {
+            private readonly ReadOnlyMemory<char> _name;
+            public RootAccessNode(ReadOnlyMemory<char> name, int position) : base(position) => _name = name;
+            internal override void AppendPath(System.Text.StringBuilder builder, VariableValueProvider resolveIndexSymbol) => builder.Append(_name.Span);
+        }
+
+        private sealed class MemberAccessNode : AccessNode
+        {
+            private readonly AccessNode _target;
+            private readonly string _member;
+            public MemberAccessNode(AccessNode target, string member, int position) : base(position)
+            {
+                _target = target;
+                _member = member;
+            }
+            internal override void AppendPath(System.Text.StringBuilder builder, VariableValueProvider resolveIndexSymbol)
+            {
+                _target.AppendPath(builder, resolveIndexSymbol);
+                builder.Append('.').Append(_member);
+            }
+        }
+
+        private sealed class IndexAccessNode : AccessNode
+        {
+            private readonly AccessNode _target;
+            private readonly Node _index;
+            public IndexAccessNode(AccessNode target, Node index, int position) : base(position)
+            {
+                _target = target;
+                _index = index;
+            }
+            internal override void AppendPath(System.Text.StringBuilder builder, VariableValueProvider resolveIndexSymbol)
+            {
+                object value = _index.Run(resolveIndexSymbol);
+                if (!TryConvertIndex(value, out int index))
+                    throw new FormatException($"Index expression at position {Position} must evaluate to an integer.");
+                _target.AppendPath(builder, resolveIndexSymbol);
+                builder.Append('[').Append(index.ToString(CultureInfo.InvariantCulture)).Append(']');
+            }
+
+            private static bool TryConvertIndex(object value, out int index)
+            {
+                index = 0;
+                switch (value)
+                {
+                    case int i: index = i; return true;
+                    case sbyte sb: index = sb; return true;
+                    case short s: index = s; return true;
+                    case byte b: index = b; return true;
+                    case ushort us: index = us; return true;
+                    case long l when l >= int.MinValue && l <= int.MaxValue: index = (int)l; return true;
+                    case uint ui when ui <= int.MaxValue: index = (int)ui; return true;
+                    case ulong ul when ul <= int.MaxValue: index = (int)ul; return true;
+                    case float f when !float.IsNaN(f) && !float.IsInfinity(f) && (double)f >= int.MinValue && (double)f <= int.MaxValue && Math.Truncate(f) == f: index = (int)f; return true;
+                    case double d when !double.IsNaN(d) && !double.IsInfinity(d) && d >= int.MinValue && d <= int.MaxValue && Math.Truncate(d) == d: index = (int)d; return true;
+                    case decimal m when m >= int.MinValue && m <= int.MaxValue && decimal.Truncate(m) == m: index = (int)m; return true;
+                    case string text:
+                        if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out index)) return true;
+                        if (decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal parsed) &&
+                            parsed >= int.MinValue && parsed <= int.MaxValue && decimal.Truncate(parsed) == parsed)
+                        {
+                            index = (int)parsed;
+                            return true;
+                        }
+                        return false;
+                    default: return false;
+                }
             }
         }
 

@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Minerva.Localizations.EscapePatterns;
 using UnityEngine;
 using static System.Linq.Expressions.Expression;
 
@@ -63,28 +64,12 @@ namespace Minerva.Localizations.Utilities
         private readonly struct PathEntry : IEquatable<PathEntry>
         {
             public readonly ReadOnlyMemory<char> Name;
-            public readonly int Index;
-            public readonly bool HasIndex;
 
-            public PathEntry(ReadOnlyMemory<char> name, int index)
-            {
-                Name = name;
-                Index = index;
-                HasIndex = true;
-            }
-
-            public PathEntry(ReadOnlyMemory<char> name)
-            {
-                Name = name;
-                Index = -1;
-                HasIndex = false;
-            }
+            public PathEntry(ReadOnlyMemory<char> name) => Name = name;
 
             public bool Equals(PathEntry other)
             {
-                return Name.Span.SequenceEqual(other.Name.Span) &&
-                       Index == other.Index &&
-                       HasIndex == other.HasIndex;
+                return Name.Span.SequenceEqual(other.Name.Span);
             }
 
             public override int GetHashCode()
@@ -93,8 +78,6 @@ namespace Minerva.Localizations.Utilities
                 {
                     int hash = 17;
                     hash = hash * 31 + GetSpanHashCode(Name.Span);
-                    hash = hash * 31 + Index;
-                    hash = hash * 31 + (HasIndex ? 1 : 0);
                     return hash;
                 }
             }
@@ -178,6 +161,14 @@ namespace Minerva.Localizations.Utilities
 
                 var span = path.Span;
 
+                if (span.Contains("[", StringComparison.Ordinal))
+                {
+                    var parsed = new ExpressionParser.Parser(path).ParseExpression();
+                    if (!(parsed is ExpressionParser.AccessNode access)) return null;
+                    string materialized = access.MaterializePath(symbol => GetObjectNullPropagation(obj, symbol));
+                    return GetIndexedPath(obj, materialized.AsSpan());
+                }
+
                 // Fast path: single property/field access (no '.' or '[')
                 if (!span.Contains(".", StringComparison.Ordinal) && !span.Contains("[", StringComparison.Ordinal))
                 {
@@ -185,32 +176,23 @@ namespace Minerva.Localizations.Utilities
                 }
 
                 // Parse path to determine complexity
-                var entries = ParsePath(obj, path);
+                var entries = ParsePath(path);
 
                 // Fast path: two-level access without indexer (most common)
-                if (entries.Length == 2 && !entries[0].HasIndex && !entries[1].HasIndex)
+                if (entries.Length == 2)
                 {
                     return GetTwoLevelMember(obj, entries);
                 }
 
                 // Fast path: static path (cacheable)
-                if (IsStaticPath(span))
+                var pathStr = path.ToString();
+                var key = new CacheKey(obj.GetType(), pathStr);
+                var entry = s_cache.GetOrAdd(key, k =>
                 {
-                    var pathStr = path.ToString();
-                    var key = new CacheKey(obj.GetType(), pathStr);
-
-                    var entry = s_cache.GetOrAdd(key, k =>
-                    {
-                        var getter = BuildOptimizedGetter(k.Type, entries);
-                        return new CacheEntry(getter);
-                    });
-
-                    return entry.Getter?.Invoke(obj);
-                }
-
-                // Dynamic path (with dynamic indices) - no cache
-                var dynamicGetter = BuildOptimizedGetter(obj.GetType(), entries);
-                return dynamicGetter?.Invoke(obj);
+                    var getter = BuildOptimizedGetter(k.Type, entries);
+                    return new CacheEntry(getter);
+                });
+                return entry.Getter?.Invoke(obj);
             }
             catch (Exception e)
             {
@@ -221,9 +203,43 @@ namespace Minerva.Localizations.Utilities
 
         #endregion
 
+        /// <summary>Reads a normalized member and IList path, including paths beginning with an index.</summary>
+        internal static object GetIndexedPath(object root, ReadOnlySpan<char> path)
+        {
+            object current = root;
+            int position = 0;
+            while (position < path.Length)
+            {
+                if (current == null) return null;
+                if (path[position] == '.')
+                {
+                    position++;
+                    continue;
+                }
+                if (path[position] == '[')
+                {
+                    int close = path[position..].IndexOf(']');
+                    if (close < 0 || !(current is IList list) ||
+                        !int.TryParse(path.Slice(position + 1, close - 1), System.Globalization.NumberStyles.Integer,
+                            System.Globalization.CultureInfo.InvariantCulture, out int index) ||
+                        index < 0 || index >= list.Count)
+                        return null;
+                    current = list[index];
+                    position += close + 1;
+                    continue;
+                }
+                int end = position;
+                while (end < path.Length && path[end] != '.' && path[end] != '[') end++;
+                if (end == position) return null;
+                current = GetObject(current, path.Slice(position, end - position).ToString().AsMemory());
+                position = end;
+            }
+            return current;
+        }
+
         #region Path Parsing (Zero Allocation)
 
-        private static PathEntry[] ParsePath(object obj, ReadOnlyMemory<char> path)
+        private static PathEntry[] ParsePath(ReadOnlyMemory<char> path)
         {
             var span = path.Span;
 
@@ -244,70 +260,12 @@ namespace Minerva.Localizations.Utilities
                 if (i == span.Length || span[i] == '.')
                 {
                     var segment = path.Slice(start, i - start);
-                    entries[entryIndex++] = ParseSegment(obj, segment);
+                    entries[entryIndex++] = new PathEntry(segment);
                     start = i + 1;
                 }
             }
 
             return entries;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static PathEntry ParseSegment(object obj, ReadOnlyMemory<char> segment)
-        {
-            var span = segment.Span;
-
-            // Check for indexer: name[index]
-            int bracketStart = span.IndexOf('[');
-            if (bracketStart == -1)
-                return new PathEntry(segment);
-
-            int bracketEnd = span.IndexOf(']');
-            if (bracketEnd == -1 || bracketEnd <= bracketStart)
-                return new PathEntry(segment);
-
-            // Extract name and index
-            var name = segment[..bracketStart];
-            var indexSpan = span.Slice(bracketStart + 1, bracketEnd - bracketStart - 1);
-
-            // Try parse as integer
-            if (int.TryParse(indexSpan, out int index))
-            {
-                return new PathEntry(name, index);
-            }
-
-            // Dynamic index: resolve it
-            var indexObj = GetObjectNullPropagation(obj, segment.Slice(bracketStart + 1, bracketEnd - bracketStart - 1));
-            if (TryConvertToInt(indexObj, out int dynamicIndex))
-            {
-                return new PathEntry(name, dynamicIndex);
-            }
-
-            // Failed to parse index
-            return new PathEntry(segment);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool TryConvertToInt(object value, out int result)
-        {
-            switch (value)
-            {
-                case int i:
-                    result = i;
-                    return true;
-                case long l:
-                    result = (int)l;
-                    return true;
-                case float f:
-                    result = (int)f;
-                    return true;
-                case double d:
-                    result = (int)d;
-                    return true;
-                default:
-                    result = 0;
-                    return false;
-            }
         }
 
         #endregion
@@ -320,13 +278,13 @@ namespace Minerva.Localizations.Utilities
                 return static o => o;
 
             // Fast path: single member
-            if (entries.Length == 1 && !entries[0].HasIndex)
+            if (entries.Length == 1)
             {
                 return GetOrCreateGetter(rootType, entries[0].Name.ToString());
             }
 
             // Fast path: two-level access
-            if (entries.Length == 2 && !entries[0].HasIndex && !entries[1].HasIndex)
+            if (entries.Length == 2)
             {
                 return BuildTwoLevelGetter(rootType, entries);
             }
@@ -511,25 +469,6 @@ namespace Minerva.Localizations.Utilities
                 current = memberExpr;
                 currentType = GetMemberType(currentType, nameStr);
 
-                // Apply indexer if needed
-                if (entry.HasIndex)
-                {
-                    // Check if it's IList
-                    if (typeof(IList).IsAssignableFrom(currentType))
-                    {
-                        // current = ((IList)current)[index]
-                        var listExpr = Convert(current, typeof(IList));
-                        var indexExpr = Constant(entry.Index);
-                        current = Property(listExpr, "Item", indexExpr);
-                        currentType = typeof(object); // IList returns object
-                    }
-                    else
-                    {
-                        // Not indexable
-                        return static _ => null;
-                    }
-                }
-
                 // Null check
                 if (i < entries.Length - 1 && !currentType.IsValueType)
                 {
@@ -627,41 +566,6 @@ namespace Minerva.Localizations.Utilities
         private static Type GetMemberType(Type type, ReadOnlyMemory<char> nameMem)
         {
             return GetMemberType(type, nameMem.ToString());
-        }
-
-        #endregion
-
-        #region Path Analysis
-
-        /// <summary>
-        /// Check if path is static (contains only literal indices)
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsStaticPath(ReadOnlySpan<char> span)
-        {
-            for (int i = 0; i < span.Length; i++)
-            {
-                if (span[i] == '[')
-                {
-                    i++; // Skip '['
-                    if (i >= span.Length) return false;
-
-                    // Allow optional sign
-                    if (span[i] == '-' || span[i] == '+')
-                        i++;
-
-                    bool hasDigit = false;
-                    while (i < span.Length && char.IsDigit(span[i]))
-                    {
-                        hasDigit = true;
-                        i++;
-                    }
-
-                    if (!hasDigit || i >= span.Length || span[i] != ']')
-                        return false;
-                }
-            }
-            return true;
         }
 
         #endregion
