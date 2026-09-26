@@ -57,11 +57,11 @@ namespace Minerva.Localizations
             return base.GetRawContent(parameters);
         }
 
-        public override bool TryGetEscapeValue(string escapeKey, L10nParams param, out object value)
+        public override bool TryGetEscapeValue(string escapeKey, L10nParams param, out L10nValue value)
         {
             if (dynamicValues.TryGetValue(escapeKey, out var dynamicValue))
             {
-                value = dynamicValue;
+                value = L10nValue.FromObject(dynamicValue);
                 return true;
             }
             if (parentContext != null && parentContext.TryGetEscapeValue(escapeKey, param, out value)) return true;

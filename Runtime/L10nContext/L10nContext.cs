@@ -93,22 +93,22 @@ namespace Minerva.Localizations
         /// </summary>
         /// <param name="escapeKey">The complete canonical escape key.</param>
         /// <param name="parameters">Lookup parameters.</param>
-        /// <param name="value">The raw value when found; otherwise null.</param>
+        /// <param name="value">The raw value when found; otherwise <see langword="default"/>.</param>
         /// <returns>Whether a provider or the base object resolved the key.</returns>
-        public virtual bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
+        public virtual bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
         {
             // Check local dynamic providers
             if (HasLocalEscapeValue(escapeKey, out var local))
             {
-                value = local(escapeKey, parameters);
-                return true;
+                value = L10nValue.FromObject(local(escapeKey, parameters));
+                return !value.IsNull;
             }
 
             // Check global dynamic providers
             if (HasGlobalEscapeValue(escapeKey, out var global))
             {
-                value = global(escapeKey, parameters);
-                return true;
+                value = L10nValue.FromObject(global(escapeKey, parameters));
+                return !value.IsNull;
             }
 
             // Try get from base value object
@@ -286,6 +286,18 @@ namespace Minerva.Localizations
             {
                 return value is int or float or double or decimal or long or short;
             }
+        }
+
+        /// <summary>Resolves a tagged escape value without boxing numeric values.</summary>
+        public static L10nValue DynamicValueOf(in L10nValue value, L10nParams parameters)
+        {
+            L10nValue.ValueKind kind = value.Kind;
+            return kind switch
+            {
+                L10nValue.ValueKind.Null => L10nValue.FromString(string.Empty),
+                L10nValue.ValueKind.Number or L10nValue.ValueKind.String => value,
+                _ => L10nValue.FromObject(DynamicValueOf(value.GetReference(kind), parameters))
+            };
         }
 
         #endregion

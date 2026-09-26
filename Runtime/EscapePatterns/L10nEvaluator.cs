@@ -3,7 +3,6 @@ using System.Collections;
 using System.Globalization;
 using System.Text;
 using Minerva.Localizations.Utilities;
-using UnityEngine;
 
 namespace Minerva.Localizations.EscapePatterns
 {
@@ -154,17 +153,18 @@ namespace Minerva.Localizations.EscapePatterns
             try
             {
                 L10nValue result = EvaluateExpression(expression, 0, 0);
-                if (result.Kind == L10nValue.ValueKind.Number)
+                L10nValue.ValueKind kind = result.Kind;
+                if (kind == L10nValue.ValueKind.Number)
                 {
-                    output.Append(EscapePattern.FormatNumeric(result.Number, format));
+                    output.Append(EscapePattern.FormatNumber(result.Number, format));
                     return;
                 }
-                if (EscapePattern.TryFormatNumber(result.Object, out string formatted, format))
+                if (kind == L10nValue.ValueKind.String && EscapePattern.TryFormatNumber(result.GetReference(kind), out string formatted, format))
                 {
                     output.Append(formatted);
                     return;
                 }
-                AppendResult(result.Object, output);
+                AppendResult(result, output);
             }
             catch (Exception e)
             {
@@ -186,13 +186,13 @@ namespace Minerva.Localizations.EscapePatterns
                         break;
                     case L10nOp.OpCode.LoadPath:
                     {
-                        object loaded = LoadPath(expression.Paths[op.Operand], stackBase + top, indexBase);
-                        stack[stackBase + top++] = L10nValue.FromObject(loaded);
+                        L10nValue loaded = LoadPath(expression.Paths[op.Operand], stackBase + top, indexBase);
+                        stack[stackBase + top++] = loaded;
                         break;
                     }
                     case L10nOp.OpCode.Negate:
                     {
-                        if (!stack[stackBase + top - 1].TryGetNumber(out float unary)) throw new InvalidOperationException("Unary '-' requires a numeric value.");
+                        if (!stack[stackBase + top - 1].TryGetNumber(out double unary)) throw new InvalidOperationException("Unary '-' requires a numeric value.");
                         stack[stackBase + top - 1] = L10nValue.FromNumber(-unary);
                         break;
                     }
@@ -210,7 +210,9 @@ namespace Minerva.Localizations.EscapePatterns
 
         private L10nValue Apply(L10nOp.OpCode code, L10nValue left, L10nValue right)
         {
-            if (left.TryGetNumber(out float a) && right.TryGetNumber(out float b))
+            L10nValue.ValueKind leftKind = left.Kind;
+            L10nValue.ValueKind rightKind = right.Kind;
+            if (left.TryGetNumber(leftKind, out double a) && right.TryGetNumber(rightKind, out double b))
             {
                 return code switch
                 {
@@ -218,24 +220,25 @@ namespace Minerva.Localizations.EscapePatterns
                     L10nOp.OpCode.Subtract => L10nValue.FromNumber(a - b),
                     L10nOp.OpCode.Multiply => L10nValue.FromNumber(a * b),
                     L10nOp.OpCode.Divide => L10nValue.FromNumber(a / b),
-                    L10nOp.OpCode.Power => L10nValue.FromNumber(Mathf.Pow(a, b)),
+                    L10nOp.OpCode.Power => L10nValue.FromNumber(Math.Pow(a, b)),
                     _ => throw new InvalidOperationException(code.ToString())
                 };
             }
-            if (code == L10nOp.OpCode.Add && left.Object is string first && right.Object is string second)
-                return L10nValue.FromObject(string.Concat(first, second));
-            if (code == L10nOp.OpCode.Multiply && left.Object is string repeated && right.TryGetNumber(out float count))
+            if (code == L10nOp.OpCode.Add && leftKind == L10nValue.ValueKind.String && rightKind == L10nValue.ValueKind.String)
+                return L10nValue.FromString(string.Concat(left.GetReference(leftKind), right.GetReference(rightKind)));
+            if (code == L10nOp.OpCode.Multiply && leftKind == L10nValue.ValueKind.String && right.TryGetNumber(rightKind, out double count))
             {
-                int length = Mathf.RoundToInt(count);
+                int length = checked((int)Math.Round(count));
                 if (length < 0) throw new ArgumentOutOfRangeException(nameof(count));
+                string repeated = (string)left.GetReference(leftKind);
                 var builder = new StringBuilder(repeated.Length * length);
                 for (int i = 0; i < length; i++) builder.Append(repeated);
-                return L10nValue.FromObject(builder.ToString());
+                return L10nValue.FromString(builder.ToString());
             }
-            throw new InvalidOperationException($"Operator {code} is not defined for {left.Object?.GetType().FullName ?? "null"} and {right.Object?.GetType().FullName ?? "null"}.");
+            throw new InvalidOperationException($"Operator {code} is not defined for {left.ToObject()?.GetType().FullName ?? "null"} and {right.ToObject()?.GetType().FullName ?? "null"}.");
         }
 
-        private object LoadPath(L10nPath path, int stackBase, int indexBase)
+        private L10nValue LoadPath(L10nPath path, int stackBase, int indexBase)
         {
             EnsureIndices(indexBase + path.SegmentCount * 2 + 8);
             EnsurePathNodes(path.SegmentCount);
@@ -277,55 +280,46 @@ namespace Minerva.Localizations.EscapePatterns
                 {
                     string key = pathKeys[i];
                     if (!providers.TryGetValue(key, out var provider)) continue;
-                    object root = provider(key, lookupParameters);
+                    L10nValue root = L10nValue.FromObject(provider(key, lookupParameters));
                     if (path.TryWalk(root, i + 1, indices.AsSpan(indexBase), out var resolved)) return ResolveValue(resolved, lookupParameters);
                 }
             }
 
             string unresolved = pathKeys[path.SegmentCount - 1];
             diagnostics.AddError(L10nErrorSeverity.Warning, unresolved, "UnresolvedPath", $"Could not resolve localization path '{unresolved}'.");
-            return unresolved;
+            return L10nValue.FromString(unresolved);
         }
 
-        private static object ResolveValue(object value, L10nParams lookupParameters) => L10nContext.DynamicValueOf(value, lookupParameters);
+        private static L10nValue ResolveValue(in L10nValue value, L10nParams lookupParameters) => L10nContext.DynamicValueOf(value, lookupParameters);
 
         private static bool TryConvertIndex(L10nValue value, out int index)
         {
             index = 0;
-            if (value.Kind == L10nValue.ValueKind.Number)
+            L10nValue.ValueKind kind = value.Kind;
+            if (kind == L10nValue.ValueKind.Number)
             {
-                float number = value.Number;
-                if (!float.IsNaN(number) && !float.IsInfinity(number) && (double)number >= int.MinValue && (double)number <= int.MaxValue && Math.Truncate(number) == number)
+                double number = value.Number;
+                if (!double.IsNaN(number) && !double.IsInfinity(number) && number >= int.MinValue && number <= int.MaxValue && Math.Truncate(number) == number)
                 {
                     index = (int)number;
                     return true;
                 }
                 return false;
             }
-            switch (value.Object)
+            if (kind == L10nValue.ValueKind.String)
             {
-                case int i: index = i; return true;
-                case sbyte i: index = i; return true;
-                case short i: index = i; return true;
-                case byte i: index = i; return true;
-                case ushort i: index = i; return true;
-                case float f when !float.IsNaN(f) && !float.IsInfinity(f) && (double)f >= int.MinValue && (double)f <= int.MaxValue && Math.Truncate(f) == f: index = (int)f; return true;
-                case long i when i >= int.MinValue && i <= int.MaxValue: index = (int)i; return true;
-                case uint i when i <= int.MaxValue: index = (int)i; return true;
-                case ulong i when i <= int.MaxValue: index = (int)i; return true;
-                case double d when !double.IsNaN(d) && !double.IsInfinity(d) && d >= int.MinValue && d <= int.MaxValue && Math.Truncate(d) == d: index = (int)d; return true;
-                case decimal m when m >= int.MinValue && m <= int.MaxValue && decimal.Truncate(m) == m: index = (int)m; return true;
-                case string text:
+                string text = (string)value.GetReference(kind);
                     if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out index)) return true;
                     if (decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && parsed >= int.MinValue && parsed <= int.MaxValue && decimal.Truncate(parsed) == parsed)
                     { index = (int)parsed; return true; }
                     return false;
-                default: return false;
             }
+            return false;
         }
 
-        private void AppendResult(object result, StringBuilder output)
+        private void AppendResult(L10nValue value, StringBuilder output)
         {
+            object result = value.ToObject();
             if (result is string str)
             {
                 if (str.IndexOfAny(NestedMarkers) < 0 || !context.CanRecurse())

@@ -125,7 +125,7 @@ namespace Minerva.Localizations.Tests
         {
             public OverrideContext(object value) : base(value) { }
 
-            public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
+            public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
             {
                 if (escapeKey == "Items[0].Name") { value = "override"; return true; }
                 return base.TryGetEscapeValue(escapeKey, parameters, out value);
@@ -141,9 +141,9 @@ namespace Minerva.Localizations.Tests
                 this.items = items;
             }
 
-            public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
+            public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
             {
-                if (escapeKey == "Items") { value = items; return true; }
+                if (escapeKey == "Items") { value = L10nValue.FromObject(items); return true; }
                 return base.TryGetEscapeValue(escapeKey, parameters, out value);
             }
         }
@@ -391,7 +391,8 @@ namespace Minerva.Localizations.Tests
                 evaluator.Evaluate(template, output);
                 Assert.That(output.ToString(), Is.EqualTo("one"));
                 output.Clear();
-                Assert.That(evaluator.EvaluateExpression(arithmeticExpression).Number, Is.EqualTo(7));
+                Assert.That(evaluator.EvaluateExpression(arithmeticExpression).TryGet<double>(out var number), Is.True);
+                Assert.That(number, Is.EqualTo(7));
                 Assert.That(() =>
                 {
                     output.Clear();
@@ -404,6 +405,169 @@ namespace Minerva.Localizations.Tests
                 L10nObjectPool.ReturnStringBuilder(output);
                 L10nEvaluator.Return(evaluator);
             }
+        }
+
+        private sealed class NumberDisplayContext : L10nContext
+        {
+            public NumberDisplayContext(object value) : base(value) { }
+        }
+
+        private sealed class NumericFields
+        {
+            public int Integer = 3;
+            public float Single = 3f;
+            public float Rounded = 2.26f;
+        }
+
+        [Test]
+        public void NumberDisplay_ShouldUseCompactDefaultAndExplicitFormat()
+        {
+            var context = new NumberDisplayContext(new NumericFields());
+            Assert.That(L10n.TrRaw("{Integer}", context, L10nParams.Empty), Is.EqualTo("3"));
+            Assert.That(L10n.TrRaw("{Single}", context, L10nParams.Empty), Is.EqualTo("3"));
+            Assert.That(L10n.TrRaw("{Rounded}", context, L10nParams.Empty), Is.EqualTo("2.3"));
+            Assert.That(L10n.TrRaw("{level+1}", context, L10nParams.Empty.With("level", 3)), Is.EqualTo("4"));
+            Assert.That(L10n.TrRaw("{x:F1}", context, L10nParams.Empty.With("x", 3)), Is.EqualTo("3.0"));
+        }
+
+        [Test]
+        public void BooleanParameter_ShouldRoundTripAsNumber()
+        {
+            var parameters = L10nParams.Empty.With("Generic", true);
+            Assert.That(parameters.TryGetVariable("Generic", out bool value), Is.True);
+            Assert.That(value, Is.True);
+            Assert.That(L10nValue.FromNumber(2.5).TryGet<int>(out _), Is.False);
+            Assert.That(L10nValue.FromObject((short)3).TryGet<double>(out var normalized), Is.True);
+            Assert.That(normalized, Is.EqualTo(3));
+        }
+
+        private sealed class StateWithIndex
+        {
+            public int Index { get; set; } = 4;
+        }
+
+        private sealed class FloatOverrideContext : L10nContext
+        {
+            public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
+            {
+                if (escapeKey == "Value") { value = 2.5f; return true; }
+                value = default;
+                return false;
+            }
+        }
+
+        [Test]
+        public void TypedPropertyGetterAndContextOverride_ShouldNotBoxDuringExpressionEvaluation()
+        {
+            var parameters = L10nParams.Empty.With("State", new StateWithIndex());
+            var evaluator = L10nEvaluator.Rent(new EvaluationContext(null, parameters));
+            var propertyExpression = L10nExpressionCompiler.Compile("State.Index * 2");
+            try
+            {
+                Assert.That(evaluator.EvaluateExpression(propertyExpression).TryGet<double>(out var result), Is.True);
+                Assert.That(result, Is.EqualTo(8));
+                Assert.That(() => { _ = evaluator.EvaluateExpression(propertyExpression); }, UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(NUnit.Framework.Is.Not));
+            }
+            finally { L10nEvaluator.Return(evaluator); }
+
+            evaluator = L10nEvaluator.Rent(new EvaluationContext(new FloatOverrideContext(), L10nParams.Empty));
+            var overrideExpression = L10nExpressionCompiler.Compile("Value * 2");
+            try
+            {
+                Assert.That(evaluator.EvaluateExpression(overrideExpression).TryGet<double>(out var result), Is.True);
+                Assert.That(result, Is.EqualTo(5));
+                Assert.That(() => { _ = evaluator.EvaluateExpression(overrideExpression); }, UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(NUnit.Framework.Is.Not));
+            }
+            finally { L10nEvaluator.Return(evaluator); }
+        }
+    }
+
+    public class L10nValueTests
+    {
+        private sealed class TestAsset : UnityEngine.ScriptableObject { }
+
+        private sealed class Holder
+        {
+            public UnityEngine.Object Target { get; set; }
+        }
+
+        [Test]
+        public void TryGet_ShouldReturnFalseForNullValue()
+        {
+            Assert.That(default(L10nValue).TryGet<string>(out var value), Is.False);
+            Assert.That(value, Is.Null);
+            Assert.That(L10nValue.FromString(null).TryGet<object>(out _), Is.False);
+        }
+
+        [Test]
+        public void DestroyedUnityObject_ShouldBecomeNullAndEqualDefault()
+        {
+            TestAsset asset = UnityEngine.ScriptableObject.CreateInstance<TestAsset>();
+            try
+            {
+                L10nValue value = L10nValue.FromObject(asset);
+                Assert.That(value.Kind, Is.EqualTo(L10nValue.ValueKind.Object));
+
+                UnityEngine.Object.DestroyImmediate(asset);
+                asset = null;
+
+                Assert.That(value.IsNull, Is.True);
+                Assert.That(value.Kind, Is.EqualTo(L10nValue.ValueKind.Null));
+                Assert.That(value.ToObject(), Is.Null);
+                Assert.That(value.Reference, Is.Null);
+                Assert.That(value, Is.EqualTo(default(L10nValue)));
+            }
+            finally
+            {
+                if (asset != null) UnityEngine.Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void DestroyedUnityObjectInParameterPath_ShouldFallBackToCanonicalKey()
+        {
+            TestAsset asset = UnityEngine.ScriptableObject.CreateInstance<TestAsset>();
+            try
+            {
+                var parameters = L10nParams.Empty.With("Holder", new Holder { Target = asset });
+                UnityEngine.Object.DestroyImmediate(asset);
+                asset = null;
+
+                Assert.That(L10n.TrRaw("{Holder.Target.name}", L10nContext.None(), parameters), Is.EqualTo("Holder.Target.name"));
+            }
+            finally
+            {
+                if (asset != null) UnityEngine.Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void CorruptedPayloadCombinations_ShouldHaveDeterministicValueKind()
+        {
+            var type = typeof(L10nValue);
+            var numberTag = type.GetField("isNumber", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var numberField = type.GetField("number", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var referenceField = type.GetField("reference", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(numberTag, Is.Not.Null);
+            Assert.That(numberField, Is.Not.Null);
+            Assert.That(referenceField, Is.Not.Null);
+
+            object missingPayload = default(L10nValue);
+            numberTag.SetValue(missingPayload, false);
+            referenceField.SetValue(missingPayload, null);
+            L10nValue missing = (L10nValue)missingPayload;
+            Assert.That(missing, Is.EqualTo(default(L10nValue)));
+            Assert.That(missing.IsNull, Is.True);
+
+            object numberWithReference = default(L10nValue);
+            numberTag.SetValue(numberWithReference, true);
+            numberField.SetValue(numberWithReference, 12.5d);
+            referenceField.SetValue(numberWithReference, "ignored");
+            L10nValue number = (L10nValue)numberWithReference;
+            Assert.That(number.Kind, Is.EqualTo(L10nValue.ValueKind.Number));
+            Assert.That(number.Reference, Is.Null);
+            Assert.That(number.TryGet<double>(out var value), Is.True);
+            Assert.That(value, Is.EqualTo(12.5));
         }
     }
 }

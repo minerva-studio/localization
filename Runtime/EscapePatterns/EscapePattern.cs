@@ -549,17 +549,17 @@ namespace Minerva.Localizations.EscapePatterns
 
         public static string FormatNumeric<T>(T v, string format)
         {
-            if (string.IsNullOrEmpty(format))
-            {
-                return v switch
-                {
-                    int or uint or long or ulong or short or ushort => v.ToString(),
-                    _ when v is IFormattable f => f.ToString("F1", null),
-                    _ => Convert.ToDouble(v).ToString("F1")
-                };
-            }
-            // with formatter
-            return FormatHandlerRegistry.TryFormat(v, format);
+            if (string.IsNullOrEmpty(format) && (v is byte or sbyte or short or ushort or int or uint or long or ulong))
+                return v.ToString();
+            return FormatNumber(Convert.ToDouble(v), format);
+        }
+
+        /// <summary>Formats localization numbers using the shared display rule.</summary>
+        public static string FormatNumber(double value, string format)
+        {
+            return string.IsNullOrEmpty(format)
+                ? value.ToString("0.#", null)
+                : FormatHandlerRegistry.TryFormat(value, format);
         }
 
         /// <summary>

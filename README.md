@@ -387,13 +387,13 @@ public sealed class ItemL10nContext : ILocalizableContext
 
     public string BaseKeyString => $"Game.Item.{item.ID}";
 
-    public bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
+    public bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
     {
         switch (escapeKey)
         {
             case "level": value = item.Level; return true;
-            case "rarity": value = item.Rarity; return true;
-            default: value = null; return false;
+            case "rarity": value = L10nValue.FromObject(item.Rarity); return true;
+            default: value = default; return false;
         }
     }
 }
@@ -444,7 +444,7 @@ If `itemData.amount` exists, `{amount}` can be resolved from `BaseValue`.
 You can also override `TryGetEscapeValue`:
 
 ```csharp
-public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
+    public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
 {
     switch (escapeKey)
     {
@@ -454,7 +454,7 @@ public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, 
 
         case "power":
             int level = parameters.GetVariableOrDefault("level", 0);
-            value = item.GetPower(level);
+            value = L10nValue.FromObject(item.GetPower(level));
             return true;
 
         default:
@@ -573,7 +573,7 @@ public sealed class SkillL10nContext : L10nContext
         BaseValue = skill;
     }
 
-    public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
+public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
     {
         int level = parameters.GetVariableOrDefault("level", skill.Level);
 

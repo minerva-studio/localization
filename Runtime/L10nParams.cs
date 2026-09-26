@@ -14,7 +14,7 @@ namespace Minerva.Localizations
     {
         public static readonly L10nParams Empty = Create();
 
-        private readonly Dictionary<string, object>? variables;
+        private readonly Dictionary<string, L10nValue>? variables;
         private readonly string[]? options;
 
         /// <summary>
@@ -30,13 +30,13 @@ namespace Minerva.Localizations
         /// <summary>
         /// Variables dictionary (read-only view)
         /// </summary>
-        public IReadOnlyDictionary<string, object>? Variables => variables;
+        public IReadOnlyDictionary<string, L10nValue>? Variables => variables;
 
         public bool IsEmpty => (options == null || options.Length == 0) && (variables == null || variables.Count == 0);
 
         #region Constructors
 
-        private L10nParams(string[]? options, int depth, Dictionary<string, object>? vars)
+        private L10nParams(string[]? options, int depth, Dictionary<string, L10nValue>? vars)
         {
             this.options = options;
             Depth = depth;
@@ -75,14 +75,18 @@ namespace Minerva.Localizations
         /// <summary>
         /// Add a variable to parameters
         /// </summary>
-        public L10nParams With(string key, object value)
+        public L10nParams With(string key, object? value)
+            => With(key, L10nValue.FromObject(value));
+
+        /// <summary>Add a value without boxing supported scalar values.</summary>
+        public L10nParams With(string key, L10nValue value)
         {
             if (string.IsNullOrEmpty(key))
                 return this;
 
             var vars = variables != null
-                ? new Dictionary<string, object>(variables)
-                : new Dictionary<string, object>(4);
+                ? new Dictionary<string, L10nValue>(variables)
+                : new Dictionary<string, L10nValue>(4);
             vars[key] = value;
             return new L10nParams(options, Depth, vars);
         }
@@ -90,7 +94,16 @@ namespace Minerva.Localizations
         /// <summary>
         /// Add multiple variables at once
         /// </summary>
-        public L10nParams With(params (string key, object value)[] keyValues)
+        public L10nParams With(params (string key, object? value)[] keyValues)
+        {
+            var result = this;
+            foreach (var (key, value) in keyValues)
+                result = result.With(key, value);
+            return result;
+        }
+
+        /// <summary>Add multiple values without boxing supported scalar values.</summary>
+        public L10nParams With(params (string key, L10nValue value)[] keyValues)
         {
             var result = this;
             foreach (var (key, value) in keyValues)
@@ -174,22 +187,12 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetVariable<T>(string key, [NotNullWhen(true)] out T? value)
         {
-            if (variables != null && variables.TryGetValue(key, out var obj))
+            if (variables != null && variables.TryGetValue(key, out var stored))
             {
-                if (obj is T typed)
+                if (stored.TryGet<T>(out var typed))
                 {
                     value = typed;
                     return true;
-                }
-                try
-                {
-                    value = (T)Convert.ChangeType(obj, typeof(T));
-                    return true;
-                }
-                catch
-                {
-                    value = default;
-                    return false;
                 }
             }
             value = default;
@@ -202,9 +205,9 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetVariable(string key, [NotNullWhen(true)] out string? value)
         {
-            if (variables != null && variables.TryGetValue(key, out var obj))
+            if (variables != null && variables.TryGetValue(key, out var stored))
             {
-                value = obj?.ToString() ?? string.Empty;
+                value = stored.ToString();
                 return true;
             }
             value = null;
@@ -217,7 +220,7 @@ namespace Minerva.Localizations
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T GetVariableOrDefault<T>(string key, T defaultValue = default!)
         {
-            return TryGetVariable<T>(key, out var value) ? value : defaultValue;
+            return TryGetVariable<T>(key, out var value) ? value! : defaultValue;
         }
 
         /// <summary>
@@ -269,7 +272,7 @@ namespace Minerva.Localizations
             }
 
             List<string>? optionList = null;
-            Dictionary<string, object>? vars = null;
+            Dictionary<string, L10nValue>? vars = null;
 
             int start = 0;
             for (int i = 0; i <= span.Length; i++)
@@ -284,7 +287,7 @@ namespace Minerva.Localizations
                         int eqIndex = segment.IndexOf('=');
                         if (eqIndex > 0)
                         {
-                            vars ??= new Dictionary<string, object>(commaCount);
+                            vars ??= new Dictionary<string, L10nValue>(commaCount);
                             var key = new string(segment[..eqIndex]);
                             var value = new string(segment[(eqIndex + 1)..]);
                             vars[key] = value;
@@ -340,7 +343,7 @@ namespace Minerva.Localizations
                 return Create();
 
             var optionList = new List<string>(param.Length);
-            var vars = new Dictionary<string, object>(param.Length);
+            var vars = new Dictionary<string, L10nValue>(param.Length);
 
             foreach (var p in param)
             {
@@ -370,7 +373,7 @@ namespace Minerva.Localizations
                 return new L10nParams(null, depth, null);
 
             var optionList = new List<string>(param.Length);
-            var vars = new Dictionary<string, object>(param.Length);
+            var vars = new Dictionary<string, L10nValue>(param.Length);
 
             foreach (var p in param)
             {
@@ -405,7 +408,7 @@ namespace Minerva.Localizations
             {
                 var key = str[..idx];
                 var value = str[(idx + 1)..];
-                var vars = new Dictionary<string, object>(1)
+                var vars = new Dictionary<string, L10nValue>(1)
                 {
                     [key] = value
                 };
@@ -435,7 +438,7 @@ namespace Minerva.Localizations
             {
                 foreach (var kv in variables)
                 {
-                    result.Add($"{kv.Key}={kv.Value}");
+                    result.Add($"{kv.Key}={kv.Value.ToString()}");
                 }
             }
 
@@ -504,7 +507,7 @@ namespace Minerva.Localizations
             }
         }
 
-        private static bool DictionaryEquals(Dictionary<string, object>? a, Dictionary<string, object>? b)
+        private static bool DictionaryEquals(Dictionary<string, L10nValue>? a, Dictionary<string, L10nValue>? b)
         {
             if (a == null && b == null) return true;
             if (a == null || b == null) return false;
@@ -514,18 +517,18 @@ namespace Minerva.Localizations
             {
                 if (!b.TryGetValue(kv.Key, out var bVal))
                     return false;
-                if (!Equals(kv.Value, bVal))
+                if (!kv.Value.Equals(bVal))
                     return false;
             }
             return true;
         }
 
-        public static L10nParams FromVariables(IReadOnlyDictionary<string, object> variables)
+        public static L10nParams FromVariables(IReadOnlyDictionary<string, L10nValue> variables)
         {
             if (variables == null || variables.Count == 0)
                 return Empty;
 
-            return new L10nParams(null, 0, new Dictionary<string, object>(variables));
+            return new L10nParams(null, 0, new Dictionary<string, L10nValue>(variables));
         }
 
         #endregion

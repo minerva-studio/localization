@@ -320,11 +320,11 @@ namespace Minerva.Localizations.Tests
                 { "innerVar", "inner" },
             };
 
-            public bool TryGetEscapeValue(string escapeKey, L10nParams param, out object value)
+            public bool TryGetEscapeValue(string escapeKey, L10nParams param, out L10nValue value)
             {
                 if (variables.TryGetValue(escapeKey, out var found))
                 {
-                    value = found;
+                    value = L10nValue.FromObject(found);
                     return true;
                 }
 

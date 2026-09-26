@@ -108,30 +108,42 @@ namespace Minerva.Localizations.EscapePatterns
             }
         }
 
-        public bool TryWalk(object current, int fromSegment, ReadOnlySpan<int> indices, out object value)
+        public bool TryWalk(L10nValue current, int fromSegment, ReadOnlySpan<int> indices, out L10nValue value)
         {
             if (fromSegment >= segments.Length)
             {
                 value = current;
-                return true;
+                return !value.IsNull;
             }
             for (int i = fromSegment; i < segments.Length; i++)
             {
-                if (current == null) { value = null; return false; }
+                if (current.IsNull) { value = default; return false; }
                 Segment segment = segments[i];
                 if (segment.Kind == SegmentKind.Member)
                 {
-                    if (!Minerva.Localizations.Utilities.Reflection.TryGetMember(current, segment.Name, out current)) { value = null; return false; }
+                    if (current.Kind == L10nValue.ValueKind.Number || !Minerva.Localizations.Utilities.Reflection.TryGetMember(current.ToObject(), segment.Name, out current)) { value = default; return false; }
                 }
                 else
                 {
                     int index = segment.Kind == SegmentKind.LiteralIndex ? segment.Index : indices[i];
-                    if (current is not IList list || index < 0 || index >= list.Count) { value = null; return false; }
-                    current = list[index];
+                    if (!TryGetIndex(current, index, out current)) { value = default; return false; }
                 }
             }
             value = current;
-            return value != null;
+            return !value.IsNull;
+        }
+
+        private static bool TryGetIndex(L10nValue current, int index, out L10nValue value)
+        {
+            object target = current.ToObject();
+            switch (target)
+            {
+                case IList<int> list when index >= 0 && index < list.Count: value = L10nValue.FromNumber(list[index]); return true;
+                case IList<float> list when index >= 0 && index < list.Count: value = L10nValue.FromNumber(list[index]); return true;
+                case IList<double> list when index >= 0 && index < list.Count: value = L10nValue.FromNumber(list[index]); return true;
+                case IList list when index >= 0 && index < list.Count: value = L10nValue.FromObject(list[index]); return !value.IsNull;
+                default: value = default; return false;
+            }
         }
 
         public static L10nPath ParseCanonical(string key)

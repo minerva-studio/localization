@@ -51,12 +51,11 @@ namespace Minerva.Localizations
         /// <summary>Tries to resolve an escape key to its raw value.</summary>
         /// <param name="escapeKey">The complete canonical escape key.</param>
         /// <param name="parameters">Lookup parameters, including variables and options.</param>
-        /// <param name="value">The raw value when found; otherwise null.</param>
+        /// <param name="value">The raw value when found; otherwise <see langword="default"/>.</param>
         /// <returns>Whether this context resolved the key.</returns>
-        virtual bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
+        virtual bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
         {
-            value = Reflection.TryGetObject(this, escapeKey, out var resolved) ? resolved : null;
-            return value != null;
+            return Reflection.TryGetObject(this, escapeKey, out value);
         }
     }
 
@@ -67,7 +66,7 @@ namespace Minerva.Localizations
         public static object GetEscapeValue(this ILocalizableContext context, string escapeKey, L10nParams parameters)
         {
             if (context != null && context.TryGetEscapeValue(escapeKey, parameters, out var value))
-                return L10nContext.DynamicValueOf(value, parameters);
+                return L10nContext.DynamicValueOf(value, parameters).ToObject();
             return escapeKey;
         }
     }

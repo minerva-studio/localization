@@ -20,17 +20,17 @@ namespace Minerva.Localizations.EscapePatterns
             }
             catch (CompileException e)
             {
-                return new L10nExpression(Array.Empty<L10nOp>(), Array.Empty<float>(), Array.Empty<L10nPath>(), 0, source, e.Message);
+                return new L10nExpression(Array.Empty<L10nOp>(), Array.Empty<double>(), Array.Empty<L10nPath>(), 0, source, e.Message);
             }
         }
 
         private sealed class Builder
         {
             public readonly List<L10nOp> Ops = new();
-            public readonly List<float> Numbers = new();
+            public readonly List<double> Numbers = new();
             public readonly List<L10nPath> Paths = new();
 
-            public int AddNumber(float value)
+            public int AddNumber(double value)
             {
                 Numbers.Add(value);
                 return Numbers.Count - 1;
@@ -155,7 +155,7 @@ namespace Minerva.Localizations.EscapePatterns
                     break;
                 }
                 if (digitCount == 0 || sawDot && fractionalDigits == 0) FailAt(start, "Invalid numeric literal");
-                if (!float.TryParse(source.Slice(start, position - start), NumberStyles.Float, CultureInfo.InvariantCulture, out float value))
+                if (!double.TryParse(source.Slice(start, position - start), NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
                     FailAt(start, "Invalid numeric literal");
                 int operand = builder.AddNumber(value);
                 builder.Ops.Add(new L10nOp(L10nOp.OpCode.PushNumber, operand));
@@ -186,9 +186,9 @@ namespace Minerva.Localizations.EscapePatterns
                         int expressionEnd = position;
                         if (!TryConsume(']')) Fail("Missing closing index bracket");
                         var indexExpression = nestedBuilder.Build(source.Slice(expressionStart, expressionEnd - expressionStart).ToString());
-                        if (IsSingleNumberLiteral(indexExpression, out float number))
+                        if (IsSingleNumberLiteral(indexExpression, out double number))
                         {
-                            if (float.IsNaN(number) || float.IsInfinity(number) || (double)number < int.MinValue || (double)number > int.MaxValue || Math.Truncate(number) != number)
+                            if (double.IsNaN(number) || double.IsInfinity(number) || number < int.MinValue || number > int.MaxValue || Math.Truncate(number) != number)
                                 FailAt(expressionStart, "Index literal must be a finite Int32 value");
                             segments.Add(L10nPath.Segment.LiteralIndex((int)number));
                         }
@@ -214,7 +214,7 @@ namespace Minerva.Localizations.EscapePatterns
                 builder.Ops.Add(new L10nOp(L10nOp.OpCode.LoadPath, pathIndex));
             }
 
-            private static bool IsSingleNumberLiteral(L10nExpression expression, out float value)
+            private static bool IsSingleNumberLiteral(L10nExpression expression, out double value)
             {
                 value = 0;
                 if (expression.Ops.Length != 1 || expression.Ops[0].Code != L10nOp.OpCode.PushNumber) return false;
