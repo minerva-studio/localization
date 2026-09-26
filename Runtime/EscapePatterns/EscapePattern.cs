@@ -43,18 +43,14 @@ namespace Minerva.Localizations.EscapePatterns
 
             try
             {
-                // Single-pass tokenization
-                var tokenizer = L10nObjectPool.RentTokenizer(rawString.AsMemory());
-                L10nToken rootToken = null;
                 L10nEvaluator evaluator = null;
+                var output = L10nObjectPool.RentStringBuilder();
                 try
                 {
-                    rootToken = tokenizer.Tokenize();
-
                     var evalContext = new EvaluationContext(context, parameters);
-                    evaluator = L10nObjectPool.RentEvaluator(evalContext);
-
-                    string value = evaluator.Evaluate(rootToken);
+                    evaluator = L10nEvaluator.Rent(evalContext);
+                    evaluator.Evaluate(L10nTemplateCache.Get(rawString), output);
+                    string value = output.ToString();
 #if DEBUG || DEVELOPMENT_BUILD
                     var diagnostics = evaluator.GetDiagnostics();
 
@@ -75,15 +71,11 @@ namespace Minerva.Localizations.EscapePatterns
                 }
                 finally
                 {
-                    if (rootToken != null)
-                    {
-                        L10nObjectPool.ReturnToken(rootToken);
-                    }
                     if (evaluator != null)
                     {
-                        L10nObjectPool.ReturnEvaluator(evaluator);
+                        L10nEvaluator.Return(evaluator);
                     }
-                    L10nObjectPool.ReturnTokenizer(tokenizer);
+                    L10nObjectPool.ReturnStringBuilder(output);
                 }
             }
             catch (Exception e)
@@ -106,16 +98,14 @@ namespace Minerva.Localizations.EscapePatterns
                     return new L10nTranslationResult(result);
                 }
 
-                // Single-pass tokenization
-                var tokenizer = L10nObjectPool.RentTokenizer(rawString.AsMemory());
-                L10nToken rootToken = null;
                 L10nEvaluator evaluator = null;
+                var output = L10nObjectPool.RentStringBuilder();
                 try
                 {
-                    rootToken = tokenizer.Tokenize();
                     var evalContext = new EvaluationContext(context, parameters);
-                    evaluator = L10nObjectPool.RentEvaluator(evalContext);
-                    string value = evaluator.Evaluate(rootToken);
+                    evaluator = L10nEvaluator.Rent(evalContext);
+                    evaluator.Evaluate(L10nTemplateCache.Get(rawString), output);
+                    string value = output.ToString();
                     if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always)
                         value = SplitUnderlineByColor(value);
                     var diagnostics = evaluator.GetDiagnostics();
@@ -123,15 +113,11 @@ namespace Minerva.Localizations.EscapePatterns
                 }
                 finally
                 {
-                    if (rootToken != null)
-                    {
-                        L10nObjectPool.ReturnToken(rootToken);
-                    }
                     if (evaluator != null)
                     {
-                        L10nObjectPool.ReturnEvaluator(evaluator);
+                        L10nEvaluator.Return(evaluator);
                     }
-                    L10nObjectPool.ReturnTokenizer(tokenizer);
+                    L10nObjectPool.ReturnStringBuilder(output);
                 }
             }
             catch (Exception e)
@@ -203,7 +189,7 @@ namespace Minerva.Localizations.EscapePatterns
         public static string ReplaceColorEscape(string rawString)
         {
             if (rawString == null) return string.Empty;
-            // §<Keyword>...§ �?resolved via ColorResolvers.Resolve (host plugs in)
+            // §<Keyword>...§ �?resolved via ColorResolvers.Resolve (host plugs in)
             rawString = KEYWORD_COLOR_PATTERN.Replace(rawString, (m) =>
             {
                 var keyword = m.Groups[1].Value;
@@ -337,21 +323,6 @@ namespace Minerva.Localizations.EscapePatterns
             object VariableParser(ReadOnlyMemory<char> expr)
             {
                 string input = expr.ToString();
-                if (input.IndexOf('[') >= 0)
-                {
-                    try
-                    {
-                        var values = GetGlobalValue();
-                        if (values.TryGetValue(input, out string indexedReplacement))
-                            return ReplaceKeyEscape(indexedReplacement, context, depth + 1, param);
-                        return context?.GetEscapeValue(input, L10nParams.FromStrings(param)) ?? input;
-                    }
-                    catch (System.Exception e)
-                    {
-                        Debug.LogException(e);
-                        return input;
-                    }
-                }
                 var m = DYNAMIC_ARG_PATTERN.Match(input);
                 // we can't really guarantee context can correctly provide replacements
                 try

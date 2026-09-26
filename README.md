@@ -387,14 +387,14 @@ public sealed class ItemL10nContext : ILocalizableContext
 
     public string BaseKeyString => $"Game.Item.{item.ID}";
 
-    public object GetEscapeValue(string escapeKey, L10nParams parameters)
+    public bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
     {
-        return escapeKey switch
+        switch (escapeKey)
         {
-            "level" => item.Level,
-            "rarity" => item.Rarity,
-            _ => escapeKey
-        };
+            case "level": value = item.Level; return true;
+            case "rarity": value = item.Rarity; return true;
+            default: value = null; return false;
+        }
     }
 }
 ```
@@ -441,22 +441,24 @@ Game.Item.HealthPotion.desc: "Restores {amount} HP."
 
 If `itemData.amount` exists, `{amount}` can be resolved from `BaseValue`.
 
-You can also override `GetEscapeValue`:
+You can also override `TryGetEscapeValue`:
 
 ```csharp
-public override object GetEscapeValue(string escapeKey, L10nParams parameters)
+public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
 {
     switch (escapeKey)
     {
         case "level":
-            return parameters.GetVariableOrDefault("level", 0);
+            value = parameters.GetVariableOrDefault("level", 0);
+            return true;
 
         case "power":
             int level = parameters.GetVariableOrDefault("level", 0);
-            return item.GetPower(level);
+            value = item.GetPower(level);
+            return true;
 
         default:
-            return base.GetEscapeValue(escapeKey, parameters);
+            return base.TryGetEscapeValue(escapeKey, parameters, out value);
     }
 }
 ```
@@ -571,20 +573,22 @@ public sealed class SkillL10nContext : L10nContext
         BaseValue = skill;
     }
 
-    public override object GetEscapeValue(string escapeKey, L10nParams parameters)
+    public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
     {
         int level = parameters.GetVariableOrDefault("level", skill.Level);
 
         switch (escapeKey)
         {
             case "duration":
-                return skill.GetDuration(level);
+                value = skill.GetDuration(level);
+                return true;
 
             case "cooldown":
-                return skill.GetCooldown(level);
+                value = skill.GetCooldown(level);
+                return true;
 
             default:
-                return base.GetEscapeValue(escapeKey, parameters);
+                return base.TryGetEscapeValue(escapeKey, parameters, out value);
         }
     }
 }

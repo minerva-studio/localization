@@ -16,9 +16,10 @@ namespace Minerva.Localizations
             BaseKeyString = (string)value;
         }
 
-        public override object GetEscapeValue(string escapeKey, L10nParams parameters)
+        public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
         {
-            return escapeKey;
+            value = null;
+            return false;
         }
     }
 }

@@ -43,6 +43,12 @@ namespace Minerva.Localizations
             variables = vars;
         }
 
+        internal L10nParams VariablesOnly() => variables == null || variables.Count == 0
+            ? Empty
+            : new L10nParams(null, 0, variables);
+
+        internal L10nParams WithDepth(int depth) => new(options, depth, variables);
+
         #endregion
 
         #region Builders

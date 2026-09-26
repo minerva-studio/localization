@@ -112,56 +112,6 @@ namespace Minerva.Localizations.Tests
             Assert.Throws<KeyNotFoundException>(() => EvalAny("x+1", new Dictionary<string, object>()));
         }
 
-        [Test]
-        public void IndexedPath_ShouldResolveArithmeticIndexBeforeCallingVariableProvider()
-        {
-            var requestedPath = string.Empty;
-            var parser = new ExpressionParser.Parser("Items[index + 1].Name");
-            var node = parser.ParseExpression();
-
-            var result = node.Run(path =>
-            {
-                var key = path.ToString();
-                if (key == "index") return 1;
-                requestedPath = key;
-                return "resolved";
-            });
-
-            Assert.That(requestedPath, Is.EqualTo("Items[2].Name"));
-            Assert.That(result, Is.EqualTo("resolved"));
-        }
-
-        [Test]
-        public void IndexedPath_ShouldAcceptWholeNumberString()
-        {
-            string requestedPath = null;
-            var node = new ExpressionParser.Parser("Items[index].Name").ParseExpression();
-            node.Run(path =>
-            {
-                if (path.ToString() == "index") return "2.0";
-                requestedPath = path.ToString();
-                return "resolved";
-            });
-
-            Assert.That(requestedPath, Is.EqualTo("Items[2].Name"));
-        }
-
-        [TestCase("Items[0].Name()")]
-        [TestCase("Items[0].Name trailing")]
-        [TestCase("Items[0.Name")]
-        [TestCase("(Items[0].Name")]
-        [TestCase("Items[0.5].Name")]
-        [TestCase("Items[index + 0.5].Name")]
-        [TestCase("Items[2147483648].Name")]
-        public void IndexedPath_ShouldRejectUnsupportedOrNonIntegerSyntax(string expression)
-        {
-            Assert.Catch<Exception>(() =>
-            {
-                var parser = new ExpressionParser.Parser(expression);
-                var node = parser.ParseExpression();
-                node.Run(_ => 1);
-            });
-        }
     }
 
     public class LocalizationIndexExpressionTests
@@ -175,10 +125,26 @@ namespace Minerva.Localizations.Tests
         {
             public OverrideContext(object value) : base(value) { }
 
-            public override object GetEscapeValue(string escapeKey, L10nParams parameters)
+            public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
             {
-                if (escapeKey == "Items[0].Name") return "override";
-                return base.GetEscapeValue(escapeKey, parameters);
+                if (escapeKey == "Items[0].Name") { value = "override"; return true; }
+                return base.TryGetEscapeValue(escapeKey, parameters, out value);
+            }
+        }
+
+        private sealed class RootPrefixContext : TestContext
+        {
+            private readonly Entry[] items;
+
+            public RootPrefixContext(Entry[] items) : base(null)
+            {
+                this.items = items;
+            }
+
+            public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
+            {
+                if (escapeKey == "Items") { value = items; return true; }
+                return base.TryGetEscapeValue(escapeKey, parameters, out value);
             }
         }
 
@@ -206,6 +172,12 @@ namespace Minerva.Localizations.Tests
             public State State { get; set; }
         }
 
+        private sealed class Aliased
+        {
+            [L10nReferAs("rate")] public int SpeedRate { get; set; }
+            public Aliased Child { get; set; }
+        }
+
         private static Root CreateRoot() => new()
         {
             Items = new[] { new Entry { Name = "zero" }, new Entry { Name = "one" } },
@@ -224,6 +196,15 @@ namespace Minerva.Localizations.Tests
             Assert.That(L10n.TrRaw("{Groups[State.Index].Items[0].Name}", context, L10nParams.Empty), Is.EqualTo("nested"));
             Assert.That(L10n.TrRaw("{Matrix[1][1]}", context, L10nParams.Empty), Is.EqualTo("9"));
             Assert.That(L10n.TrRaw("{EntryList[0].Name}", context, L10nParams.Empty), Is.EqualTo("list"));
+        }
+
+        [Test]
+        public void L10nReferAsAlias_ShouldResolveRootAndNestedMembers()
+        {
+            var context = new TestContext(new Aliased { SpeedRate = 3, Child = new Aliased { SpeedRate = 7 } });
+
+            Assert.That(L10n.TrRaw("{rate}", context, L10nParams.Empty), Is.EqualTo("3"));
+            Assert.That(L10n.TrRaw("{Child.rate}", context, L10nParams.Empty), Is.EqualTo("7"));
         }
 
         [Test]
@@ -299,6 +280,43 @@ namespace Minerva.Localizations.Tests
         }
 
         [Test]
+        public void ContextRootValue_ShouldBeWalkedWhenCompletePathIsNotResolved()
+        {
+            var context = new RootPrefixContext(new[]
+            {
+                new Entry { Name = "zero" },
+                new Entry { Name = "one" }
+            });
+
+            Assert.That(L10n.TrRaw("{Items[1].Name}", context, L10nParams.Empty), Is.EqualTo("one"));
+        }
+
+        [Test]
+        public void ParameterPrefix_ShouldTakePrecedenceOverContextPath()
+        {
+            var context = new DynamicContext(null);
+            context["Items[0].Name"] = "context";
+            var parameters = L10nParams.Empty.With("Items", new[] { new Entry { Name = "parameter" } });
+
+            Assert.That(L10n.TrRaw("{Items[0].Name}", context, parameters), Is.EqualTo("parameter"));
+        }
+
+        [Test]
+        public void PathArguments_ShouldReachProviderLookup()
+        {
+            var context = new TestContext(null);
+            L10nParams received = default;
+            context.LocalEscapeValue["Items[0].Name"] = (_, parameters) =>
+            {
+                received = parameters;
+                return "value";
+            };
+
+            Assert.That(L10n.TrRaw("{Items[0].Name<opt>}", context, L10nParams.Empty), Is.EqualTo("value"));
+            Assert.That(received.Options, Is.EqualTo(new[] { "opt" }));
+        }
+
+        [Test]
         public void MissingNullAndOutOfRangePaths_ShouldUseExistingKeyFallback()
         {
             var root = CreateRoot();
@@ -311,14 +329,80 @@ namespace Minerva.Localizations.Tests
             Assert.That(context.GetEscapeValue("Items[0].Missing", L10nParams.Empty), Is.EqualTo("Items[0].Missing"));
         }
 
-        [Test]
-        public void LegacyParser_ShouldResolveIndexedPath()
-        {
-            var context = new TestContext(CreateRoot());
+    }
 
-            using (new LegacyParserScope(true))
+    public class CompiledLocalizationExpressionTests
+    {
+        [TestCase("Items[0].Name()")]
+        [TestCase("Items[0].Name trailing")]
+        [TestCase("Items[0.Name")]
+        [TestCase("(Items[0].Name")]
+        [TestCase("Items[0.5].Name")]
+        [TestCase("Items[2147483648].Name")]
+        public void Compiler_ShouldStoreSyntaxErrorAndPosition(string source)
+        {
+            var expression = L10nExpressionCompiler.Compile(source);
+
+            Assert.That(expression.Error, Is.Not.Null.And.Contains("position"));
+        }
+
+        [Test]
+        public void DynamicIndexPath_ShouldResolveMoreThanFourIndices()
+        {
+            object nested = "leaf";
+            for (int i = 0; i < 5; i++) nested = new object[] { nested };
+            var context = L10nContext.None();
+            var parameters = L10nParams.Empty.With(
+                ("M", nested), ("a", 0), ("b", 0), ("c", 0), ("d", 0), ("e", 0));
+
+            Assert.That(L10n.TrRaw("{M[a][b][c][d][e]}", context, parameters), Is.EqualTo("leaf"));
+        }
+
+        [Test]
+        public void DynamicIndexArithmetic_ShouldProduceCanonicalPrefixKey()
+        {
+            var context = L10nContext.None();
+            var parameters = L10nParams.Empty.With("Items", new[] { "zero", "one", "two" }).With("index", 1);
+
+            Assert.That(L10n.TrRaw("{Items[index + 1]}", context, parameters), Is.EqualTo("two"));
+        }
+
+        [Test]
+        public void NonIntegerDynamicIndex_ShouldEmitOriginalExpression()
+        {
+            var context = L10nContext.None();
+            var parameters = L10nParams.Empty.With("Items", new[] { "zero" }).With("index", 0);
+
+            Assert.That(L10n.TrRaw("{Items[index + 0.5]}", context, parameters), Is.EqualTo("Items[index + 0.5]"));
+        }
+
+        [Test]
+        public void CachedExpressionEvaluation_ShouldNotAllocateAfterWarmup()
+        {
+            var names = new[] { "zero", "one", "two" };
+            var parameters = L10nParams.Empty.With("Names", names).With("index", 0).With("x", 3);
+            var evaluatorContext = new EvaluationContext(null, parameters);
+            var evaluator = L10nEvaluator.Rent(evaluatorContext);
+            var template = L10nTemplateCache.Get("{Names[index + 1]}");
+            var arithmeticExpression = L10nExpressionCompiler.Compile("x * 2 + 1");
+            var output = L10nObjectPool.RentStringBuilder();
+            try
             {
-                Assert.That(L10n.TrRaw("{Items[0].Name}", context, L10nParams.Empty), Is.EqualTo("zero"));
+                evaluator.Evaluate(template, output);
+                Assert.That(output.ToString(), Is.EqualTo("one"));
+                output.Clear();
+                Assert.That(evaluator.EvaluateExpression(arithmeticExpression).Number, Is.EqualTo(7));
+                Assert.That(() =>
+                {
+                    output.Clear();
+                    evaluator.Evaluate(template, output);
+                    _ = evaluator.EvaluateExpression(arithmeticExpression);
+                }, UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(NUnit.Framework.Is.Not));
+            }
+            finally
+            {
+                L10nObjectPool.ReturnStringBuilder(output);
+                L10nEvaluator.Return(evaluator);
             }
         }
     }

@@ -6,7 +6,7 @@ using System.Text;
 namespace Minerva.Localizations.EscapePatterns
 {
     /// <summary>
-    /// High-performance object pool for L10n tokenization and evaluation
+    /// Object pools for tokenization and output construction.
     /// </summary>
     internal static class L10nObjectPool
     {
@@ -174,49 +174,15 @@ namespace Minerva.Localizations.EscapePatterns
 
         #endregion
 
-        #region Evaluator Pool
-
-        private static readonly ConcurrentBag<L10nEvaluator> s_evaluatorPool = new();
-        private static int s_evaluatorPoolCount = 0;
-
-        public static L10nEvaluator RentEvaluator(EvaluationContext context)
-        {
-            if (s_evaluatorPool.TryTake(out var evaluator))
-            {
-                System.Threading.Interlocked.Decrement(ref s_evaluatorPoolCount);
-                evaluator.Reset(context);
-                return evaluator;
-            }
-
-            return new L10nEvaluator(context);
-        }
-
-        public static void ReturnEvaluator(L10nEvaluator evaluator)
-        {
-            if (evaluator == null) return;
-
-            evaluator.Clear();
-
-            // Return to pool if not full
-            if (s_evaluatorPoolCount < MAX_POOL_SIZE)
-            {
-                s_evaluatorPool.Add(evaluator);
-                System.Threading.Interlocked.Increment(ref s_evaluatorPoolCount);
-            }
-        }
-
-        #endregion
-
         #region Diagnostics
 
-        public static (int tokens, int tokenLists, int stringBuilders, int tokenizers, int evaluators) GetPoolStats()
+        public static (int tokens, int tokenLists, int stringBuilders, int tokenizers) GetPoolStats()
         {
             return (
                 s_tokenPoolCount,
                 s_tokenListPoolCount,
                 s_stringBuilderPoolCount,
-                s_tokenizerPoolCount,
-                s_evaluatorPoolCount
+                s_tokenizerPoolCount
             );
         }
 
@@ -226,13 +192,11 @@ namespace Minerva.Localizations.EscapePatterns
             while (s_tokenListPool.TryTake(out _)) { }
             while (s_stringBuilderPool.TryTake(out _)) { }
             while (s_tokenizerPool.TryTake(out _)) { }
-            while (s_evaluatorPool.TryTake(out _)) { }
 
             s_tokenPoolCount = 0;
             s_tokenListPoolCount = 0;
             s_stringBuilderPoolCount = 0;
             s_tokenizerPoolCount = 0;
-            s_evaluatorPoolCount = 0;
         }
 
         #endregion

@@ -48,17 +48,27 @@ namespace Minerva.Localizations
             return rawString;
         }
 
-        /// <summary>
-        /// Get escape value from the object
-        /// </summary>
-        /// <param name="escapeKey">The escape key</param>
-        /// <param name="parameters">Localization parameters</param>
-        /// <returns></returns>
-        virtual object GetEscapeValue(string escapeKey, L10nParams parameters)
+        /// <summary>Tries to resolve an escape key to its raw value.</summary>
+        /// <param name="escapeKey">The complete canonical escape key.</param>
+        /// <param name="parameters">Lookup parameters, including variables and options.</param>
+        /// <param name="value">The raw value when found; otherwise null.</param>
+        /// <returns>Whether this context resolved the key.</returns>
+        virtual bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
         {
-            var value = Reflection.GetObjectNullPropagation(this, escapeKey.AsMemory());
-            if (value == null) return escapeKey;
-            return value;
+            value = Reflection.TryGetObject(this, escapeKey, out var resolved) ? resolved : null;
+            return value != null;
+        }
+    }
+
+    /// <summary>Provides the legacy display-value behavior for escape lookups.</summary>
+    public static class LocalizableContextExtensions
+    {
+        /// <summary>Gets a localized escape value, returning the key when the context cannot resolve it.</summary>
+        public static object GetEscapeValue(this ILocalizableContext context, string escapeKey, L10nParams parameters)
+        {
+            if (context != null && context.TryGetEscapeValue(escapeKey, parameters, out var value))
+                return L10nContext.DynamicValueOf(value, parameters);
+            return escapeKey;
         }
     }
 }

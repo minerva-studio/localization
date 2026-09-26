@@ -320,14 +320,16 @@ namespace Minerva.Localizations.Tests
                 { "innerVar", "inner" },
             };
 
-            public object GetEscapeValue(string escapeKey, L10nParams param)
+            public bool TryGetEscapeValue(string escapeKey, L10nParams param, out object value)
             {
-                if (variables.TryGetValue(escapeKey, out var value))
+                if (variables.TryGetValue(escapeKey, out var found))
                 {
-                    return value;
+                    value = found;
+                    return true;
                 }
 
-                return $"[{escapeKey}]";
+                value = $"[{escapeKey}]";
+                return true;
             }
 
             public Key GetLocalizationKey(L10nParams param)

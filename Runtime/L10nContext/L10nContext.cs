@@ -89,30 +89,30 @@ namespace Minerva.Localizations
         }
 
         /// <summary>
-        /// Get escape value from the object
+        /// Tries to resolve a raw escape value from providers or the base object.
         /// </summary>
-        /// <param name="escapeKey">The escape key</param>
-        /// <param name="parameters">Localization parameters</param>
-        /// <returns></returns>
-        public virtual object GetEscapeValue(string escapeKey, L10nParams parameters)
+        /// <param name="escapeKey">The complete canonical escape key.</param>
+        /// <param name="parameters">Lookup parameters.</param>
+        /// <param name="value">The raw value when found; otherwise null.</param>
+        /// <returns>Whether a provider or the base object resolved the key.</returns>
+        public virtual bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out object value)
         {
             // Check local dynamic providers
             if (HasLocalEscapeValue(escapeKey, out var local))
             {
-                return local(escapeKey, parameters);
+                value = local(escapeKey, parameters);
+                return true;
             }
 
             // Check global dynamic providers
             if (HasGlobalEscapeValue(escapeKey, out var global))
             {
-                return global(escapeKey, parameters);
+                value = global(escapeKey, parameters);
+                return true;
             }
 
             // Try get from base value object
-            var value = GetObjectNullPropagation(this.value, escapeKey);
-            if (value == null)
-                return escapeKey;
-            return DynamicValueOf(value, parameters);
+            return Reflection.TryGetObject(this.value, escapeKey, out value);
         }
 
         #endregion 

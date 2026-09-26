@@ -1,32 +1,25 @@
-using System.Collections.Generic;
-
 namespace Minerva.Localizations.EscapePatterns
 {
-    internal sealed class EvaluationContext
+    internal readonly struct EvaluationContext
     {
         public int Depth { get; }
         public ILocalizableContext Context { get; }
-        public IReadOnlyDictionary<string, object> Variables { get; }
+        public L10nParams Parameters { get; }
+        public L10nParams LookupParameters { get; }
 
-        public EvaluationContext(int depth, ILocalizableContext context, IReadOnlyDictionary<string, object> variables)
+        public EvaluationContext(ILocalizableContext context, L10nParams parameters)
+            : this(parameters.Depth, context, parameters, parameters.VariablesOnly()) { }
+
+        private EvaluationContext(int depth, ILocalizableContext context, L10nParams parameters, L10nParams lookupParameters)
         {
             Depth = depth;
             Context = context;
-            Variables = variables ?? new Dictionary<string, object>();
-        }
-
-        public EvaluationContext(ILocalizableContext context, L10nParams parameters)
-        {
-            Depth = parameters.Depth;
-            Context = context;
-            Variables = parameters.Variables;
+            Parameters = parameters;
+            LookupParameters = lookupParameters;
         }
 
         public bool CanRecurse() => Depth < L10n.MAX_RECURSION;
 
-        public EvaluationContext IncreaseDepth()
-        {
-            return new EvaluationContext(Depth + 1, Context, Variables);
-        }
+        public EvaluationContext IncreaseDepth() => new(Depth + 1, Context, Parameters.WithDepth(Depth + 1), LookupParameters);
     }
 }
