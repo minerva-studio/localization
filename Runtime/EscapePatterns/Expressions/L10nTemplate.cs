@@ -42,7 +42,11 @@ namespace Minerva.Localizations.EscapePatterns
         public static L10nTemplate GetOrCompile(string source)
         {
             source ??= string.Empty;
-            if (cache.TryGetValue(source, out var template)) return template;
+            if (cache.TryGetValue(source, out var template))
+            {
+                return template;
+            }
+
             template = CompileSource(source);
             return cache.GetOrAdd(source, template);
         }
@@ -56,12 +60,19 @@ namespace Minerva.Localizations.EscapePatterns
                 root = tokenizer.Tokenize();
                 var ops = new List<Op>();
                 if (root.Children != null)
+                {
                     foreach (var token in root.Children) AppendToken(token, ops);
+                }
+
                 return new L10nTemplate(ops.ToArray());
             }
             finally
             {
-                if (root != null) L10nObjectPool.ReturnToken(root);
+                if (root != null)
+                {
+                    L10nObjectPool.ReturnToken(root);
+                }
+
                 L10nObjectPool.ReturnTokenizer(tokenizer);
             }
         }
@@ -71,13 +82,19 @@ namespace Minerva.Localizations.EscapePatterns
             switch (token.Type)
             {
                 case TokenType.Literal:
-                    if (token.Content.Length > 0) ops.Add(new Op(OpCode.Literal, token.Content.ToString()));
+                    if (token.Content.Length > 0)
+                    {
+                        ops.Add(new Op(OpCode.Literal, token.Content.ToString()));
+                    }
                     break;
                 case TokenType.KeyReference:
                     ops.Add(new Op(OpCode.KeyReference, token.Content.ToString(), token.IsTooltip));
                     break;
                 case TokenType.DynamicValue:
-                    ops.Add(new Op(OpCode.Expression, expression: L10nExpressionCompiler.Compile(token.Content.ToString()), format: token.Metadata.ToString()));
+                    ops.Add(new Op(
+                        OpCode.Expression,
+                        expression: L10nExpressionCompiler.Compile(token.Content.ToString()),
+                        format: token.Metadata.ToString()));
                     break;
                 case TokenType.ColorTag:
                     ops.Add(new Op(OpCode.ColorOpen, token.Metadata.ToString()));

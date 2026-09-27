@@ -143,6 +143,17 @@ namespace Minerva.Localizations.EscapePatterns
 
         #endregion
 
+        public static bool LoopCheck(int depth, in object context)
+        {
+            if (depth >= L10n.MAX_RECURSION)
+            {
+                Debug.LogException(new StackOverflowException(context?.ToString()));
+                return false;
+            }
+
+            return true;
+        }
+
         #region Legacy API (Regex-based, Backward Compatible)
 
         /// <summary>
@@ -224,7 +235,6 @@ namespace Minerva.Localizations.EscapePatterns
             });
             return rawString;
         }
-
 
         /// <summary>
         /// Replace $...$ with a content
@@ -372,7 +382,7 @@ namespace Minerva.Localizations.EscapePatterns
 
         #endregion
 
-        #region Shared Utilities
+        #region Underline Formatting
 
         public static string SplitUnderlineByColor(string input)
         {
@@ -404,24 +414,9 @@ namespace Minerva.Localizations.EscapePatterns
                 $"{m.Groups[1].Value}<u>{m.Groups[2].Value}</u>{m.Groups[3].Value}");
         }
 
+        #endregion
 
-
-
-
-        public static bool LoopCheck(int depth, in object context)
-        {
-            if (depth >= L10n.MAX_RECURSION)
-            {
-                Debug.LogException(new StackOverflowException(context?.ToString()));
-                return false;
-            }
-            return true;
-        }
-
-
-
-
-
+        #region Parameter Parsing
 
         private static (string[] localParam, Dictionary<string, string> localVariable) GetLocalParam(Group group, string[] globalParam, Dictionary<string, string> globalValue = null)
         {
@@ -494,6 +489,10 @@ namespace Minerva.Localizations.EscapePatterns
             }
             return dictionary;
         }
+
+        #endregion
+
+        #region Value Formatting
 
         /// <summary>
         /// Check whether the value is raw value to l10n dynamic value
@@ -574,6 +573,10 @@ namespace Minerva.Localizations.EscapePatterns
                 ? value.ToString("0.#", null)
                 : FormatHandlerRegistry.TryFormat(value, format);
         }
+
+        #endregion
+
+        #region Key Escape Construction
 
         /// <summary>
         /// Make given string as an content of given key as escape

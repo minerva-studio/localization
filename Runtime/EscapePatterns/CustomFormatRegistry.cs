@@ -40,7 +40,7 @@ namespace Minerva.Localizations.EscapePatterns
                     }
                 }
             }
-            // fallback 到 .NET 默认
+            // fallback to .NET formatting
             return value is IFormattable formattable
                 ? formattable.ToString(format, null)
                 : value?.ToString() ?? string.Empty;
@@ -49,6 +49,8 @@ namespace Minerva.Localizations.EscapePatterns
 
         class PermilleFormatHandler : IFormatHandler
         {
+            private const int PermilleScale = 1000;
+
             public bool IsHandlerFor(string format)
                 => format != null && format.StartsWith("permille", StringComparison.OrdinalIgnoreCase);
 
@@ -62,7 +64,7 @@ namespace Minerva.Localizations.EscapePatterns
                 if (parts.Length > 1 && int.TryParse(parts[1], out var parsed))
                     decimals = parsed;
 
-                return (d * 1000).ToString($"F{decimals}") + "‰";
+                return (d * PermilleScale).ToString($"F{decimals}") + "‰";
             }
         }
 
@@ -82,6 +84,8 @@ namespace Minerva.Localizations.EscapePatterns
 
         class BytesFormatHandler : IFormatHandler
         {
+            private const int BytesPerUnit = 1024;
+
             private static readonly string[] Units = { "B", "KB", "MB", "GB", "TB", "PB" };
 
             public bool IsHandlerFor(string format)
@@ -98,9 +102,9 @@ namespace Minerva.Localizations.EscapePatterns
                     decimals = parsed;
 
                 int i = 0;
-                while (size >= 1024 && i < Units.Length - 1)
+                while (size >= BytesPerUnit && i < Units.Length - 1)
                 {
-                    size /= 1024;
+                    size /= BytesPerUnit;
                     i++;
                 }
                 return size.ToString($"F{decimals}") + " " + Units[i];

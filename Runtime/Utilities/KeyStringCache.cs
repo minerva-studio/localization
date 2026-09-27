@@ -7,6 +7,7 @@ namespace Minerva.Localizations.Utilities
 {
     public sealed class KeyStringCache
     {
+        private const int MaximumStackAllocatedLength = 256;
         internal const int MaximumEntries = 16384;
         public static KeyStringCache Shared { get; } = new KeyStringCache();
 
@@ -25,7 +26,11 @@ namespace Minerva.Localizations.Utilities
                 return string.Empty;
             }
 
-            if (cache.TryGetValue(key, out var value)) return value;
+            if (cache.TryGetValue(key, out var value))
+            {
+                return value;
+            }
+
             return cache.GetOrAdd(key, BuildString(in key));
         }
 
@@ -42,7 +47,7 @@ namespace Minerva.Localizations.Utilities
                 totalLen += key.GetSegmentMemory(i).Length;
             }
 
-            if (totalLen <= 256)
+            if (totalLen <= MaximumStackAllocatedLength)
             {
                 Span<char> buffer = stackalloc char[totalLen];
                 int pos = 0;
@@ -65,7 +70,11 @@ namespace Minerva.Localizations.Utilities
             var sb = new StringBuilder(totalLen);
             for (int i = 0; i < key.Length; i++)
             {
-                if (i > 0) sb.Append(KEY_SEPARATOR);
+                if (i > 0)
+                {
+                    sb.Append(KEY_SEPARATOR);
+                }
+
                 sb.Append(key.GetSegmentSpan(i));
             }
             return sb.ToString();

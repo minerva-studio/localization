@@ -431,14 +431,7 @@ namespace Minerva.Localizations
             return new NoContext();
         }
 
-        private class NoContext : L10nContext
-        {
-            protected override void Parse(object value) { }
-        }
-
         #endregion
-
-        #region Registration
 
         /// <summary>
         /// Register given l10n context type to target type
@@ -451,6 +444,9 @@ namespace Minerva.Localizations
             ContextTable.Register<TContext, TTarget>(allowInheritance);
         }
 
-        #endregion
+        private class NoContext : L10nContext
+        {
+            protected override void Parse(object value) { }
+        }
     }
 }

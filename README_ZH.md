@@ -391,9 +391,15 @@ public sealed class ItemL10nContext : ILocalizableContext
     {
         switch (escapeKey)
         {
-            case "level": value = item.Level; return true;
-            case "rarity": value = L10nValue.FromObject(item.Rarity); return true;
-            default: value = default; return false;
+            case "level":
+                value = item.Level;
+                return true;
+            case "rarity":
+                value = L10nValue.FromObject(item.Rarity);
+                return true;
+            default:
+                value = default;
+                return false;
         }
     }
 }
@@ -444,7 +450,7 @@ Game.Item.HealthPotion.desc: "Restores {amount} HP."
 也可以重写 `TryGetEscapeValue`：
 
 ```csharp
-    public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
+public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
 {
     switch (escapeKey)
     {
@@ -573,7 +579,7 @@ public sealed class SkillL10nContext : L10nContext
         BaseValue = skill;
     }
 
-public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
+    public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
     {
         int level = parameters.GetVariableOrDefault("level", skill.Level);
 

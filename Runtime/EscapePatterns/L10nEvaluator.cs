@@ -9,6 +9,13 @@ namespace Minerva.Localizations.EscapePatterns
     internal sealed class L10nEvaluator
     {
         private const int InitialStackCapacity = 16;
+        private const int InitialEvaluatorPoolCapacity = 4;
+        private const int PathIndexScratchOffset = 4;
+        private const int IndexCapacityPerPathSegment = 2;
+        private const int AdditionalIndexCapacity = 8;
+        private const int ColorCloseTagLength = 8;
+        private const int InlineUnderlineCapacityHeadroom = 20;
+
         [ThreadStatic] private static L10nEvaluator[] evaluators;
         [ThreadStatic] private static int rentDepth;
 
@@ -18,14 +25,22 @@ namespace Minerva.Localizations.EscapePatterns
         private int[] indices = new int[InitialStackCapacity];
         private string[] pathKeys = new string[InitialStackCapacity];
         private bool[] colorStack = new bool[InitialStackCapacity];
+        private int colorDepth;
 
         private L10nEvaluator(in EvaluationContext context) => Reset(context);
 
+
+
+        #region Evaluator Pool
+
         public static L10nEvaluator Rent(in EvaluationContext context)
         {
-            evaluators ??= new L10nEvaluator[4];
+            evaluators ??= new L10nEvaluator[InitialEvaluatorPoolCapacity];
             int slot = rentDepth++;
-            if (slot >= evaluators.Length) Array.Resize(ref evaluators, evaluators.Length * 2);
+            if (slot >= evaluators.Length)
+            {
+                Array.Resize(ref evaluators, evaluators.Length * 2);
+            }
             var evaluator = evaluators[slot] ??= new L10nEvaluator(context);
             evaluator.Reset(context);
             return evaluator;
@@ -53,6 +68,12 @@ namespace Minerva.Localizations.EscapePatterns
             Array.Clear(pathKeys, 0, pathKeys.Length);
         }
 
+        #endregion
+
+
+
+        #region Evaluation
+
         public L10nEvaluationDiagnostics GetDiagnostics() => diagnostics;
 
         internal void Evaluate(L10nTemplate template, StringBuilder output)
@@ -78,14 +99,14 @@ namespace Minerva.Localizations.EscapePatterns
                         EvaluateExpressionOutput(op.Expression, op.Format, output);
                         break;
                     case L10nTemplate.OpCode.ColorOpen:
-                    {
-                        string color = ResolveColorCode(op.Text);
-                        bool wrap = !string.IsNullOrEmpty(color);
-                        PushColor(wrap);
-                        if (wrap) output.Append("<color=").Append(color).Append('>');
-                        colorBase++;
-                        break;
-                    }
+                        {
+                            string color = ResolveColorCode(op.Text);
+                            bool wrap = !string.IsNullOrEmpty(color);
+                            PushColor(wrap);
+                            if (wrap) output.Append("<color=").Append(color).Append('>');
+                            colorBase++;
+                            break;
+                        }
                     case L10nTemplate.OpCode.ColorClose:
                         if (colorBase > 0 && PopColor()) output.Append("</color>");
                         if (colorBase > 0) colorBase--;
@@ -187,24 +208,27 @@ namespace Minerva.Localizations.EscapePatterns
                         stack[stackBase + top++] = L10nValue.FromNumber(expression.Numbers[op.Operand]);
                         break;
                     case L10nOp.OpCode.LoadPath:
-                    {
-                        L10nValue loaded = LoadPath(expression.Paths[op.Operand], stackBase + top, indexBase);
-                        stack[stackBase + top++] = loaded;
-                        break;
-                    }
+                        {
+                            L10nValue loaded = LoadPath(expression.Paths[op.Operand], stackBase + top, indexBase);
+                            stack[stackBase + top++] = loaded;
+                            break;
+                        }
                     case L10nOp.OpCode.Negate:
-                    {
-                        if (!stack[stackBase + top - 1].TryGetNumber(out double unary)) throw new InvalidOperationException("Unary '-' requires a numeric value.");
-                        stack[stackBase + top - 1] = L10nValue.FromNumber(-unary);
-                        break;
-                    }
+                        {
+                            if (!stack[stackBase + top - 1].TryGetNumber(out double unary))
+                            {
+                                throw new InvalidOperationException("Unary '-' requires a numeric value.");
+                            }
+                            stack[stackBase + top - 1] = L10nValue.FromNumber(-unary);
+                            break;
+                        }
                     default:
-                    {
-                        L10nValue right = stack[stackBase + --top];
-                        L10nValue left = stack[stackBase + top - 1];
-                        stack[stackBase + top - 1] = Apply(op.Code, left, right);
-                        break;
-                    }
+                        {
+                            L10nValue right = stack[stackBase + --top];
+                            L10nValue left = stack[stackBase + top - 1];
+                            stack[stackBase + top - 1] = Apply(op.Code, left, right);
+                            break;
+                        }
                 }
             }
             return top == 0 ? L10nValue.FromObject(null) : stack[stackBase];
@@ -227,7 +251,9 @@ namespace Minerva.Localizations.EscapePatterns
                 };
             }
             if (code == L10nOp.OpCode.Add && leftKind == L10nValue.ValueKind.String && rightKind == L10nValue.ValueKind.String)
+            {
                 return L10nValue.FromString(string.Concat(left.GetReference(leftKind), right.GetReference(rightKind)));
+            }
             if (code == L10nOp.OpCode.Multiply && leftKind == L10nValue.ValueKind.String && right.TryGetNumber(rightKind, out double count))
             {
                 int length = checked((int)Math.Round(count));
@@ -242,14 +268,14 @@ namespace Minerva.Localizations.EscapePatterns
 
         private L10nValue LoadPath(L10nPath path, int stackBase, int indexBase)
         {
-            EnsureIndices(indexBase + path.SegmentCount * 2 + 8);
+            EnsureIndices(indexBase + path.SegmentCount * IndexCapacityPerPathSegment + AdditionalIndexCapacity);
             EnsurePathKeys(path.SegmentCount);
             for (int i = 0; i < path.SegmentCount; i++)
             {
                 // Dynamic subexpressions use a disjoint scratch range so they cannot overwrite indices already computed for this path.
                 var segment = path.GetSegment(i);
                 if (segment.Kind != L10nPath.SegmentKind.DynamicIndex) continue;
-                var value = EvaluateExpression(segment.Expression, stackBase, indexBase + path.SegmentCount + 4);
+                var value = EvaluateExpression(segment.Expression, stackBase, indexBase + path.SegmentCount + PathIndexScratchOffset);
                 if (!TryConvertIndex(value, out int index)) throw new FormatException($"Index at path segment {i} must be a finite Int32 value.");
                 indices[indexBase + i] = index;
             }
@@ -311,10 +337,17 @@ namespace Minerva.Localizations.EscapePatterns
             if (kind == L10nValue.ValueKind.String)
             {
                 string text = (string)value.GetReference(kind);
-                    if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out index)) return true;
-                    if (decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && parsed >= int.MinValue && parsed <= int.MaxValue && decimal.Truncate(parsed) == parsed)
-                    { index = (int)parsed; return true; }
-                    return false;
+                if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out index)) return true;
+                if (decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
+                    parsed >= int.MinValue &&
+                    parsed <= int.MaxValue &&
+                    decimal.Truncate(parsed) == parsed)
+                {
+                    index = (int)parsed;
+                    return true;
+                }
+
+                return false;
             }
             return false;
         }
@@ -338,20 +371,50 @@ namespace Minerva.Localizations.EscapePatterns
             output.Append(result?.ToString() ?? "null");
         }
 
+        #endregion
+
+        #region Scratch Storage
+
         private void PushColor(bool value)
         {
             if (colorStack.Length == 0) Array.Resize(ref colorStack, InitialStackCapacity);
             int slot = colorDepth++;
-            if (slot >= colorStack.Length) Array.Resize(ref colorStack, colorStack.Length * 2);
+            if (slot >= colorStack.Length)
+            {
+                Array.Resize(ref colorStack, colorStack.Length * 2);
+            }
             colorStack[slot] = value;
         }
 
-        private int colorDepth;
         private bool PopColor() => colorDepth > 0 && colorStack[--colorDepth];
 
-        private void EnsureStack(int capacity) { if (capacity > stack.Length) Array.Resize(ref stack, Math.Max(capacity, stack.Length * 2)); }
-        private void EnsureIndices(int capacity) { if (capacity > indices.Length) Array.Resize(ref indices, Math.Max(capacity, indices.Length * 2)); }
-        private void EnsurePathKeys(int capacity) { if (capacity > pathKeys.Length) Array.Resize(ref pathKeys, Math.Max(capacity, pathKeys.Length * 2)); }
+        private void EnsureStack(int capacity)
+        {
+            if (capacity > stack.Length)
+            {
+                Array.Resize(ref stack, Math.Max(capacity, stack.Length * 2));
+            }
+        }
+
+        private void EnsureIndices(int capacity)
+        {
+            if (capacity > indices.Length)
+            {
+                Array.Resize(ref indices, Math.Max(capacity, indices.Length * 2));
+            }
+        }
+
+        private void EnsurePathKeys(int capacity)
+        {
+            if (capacity > pathKeys.Length)
+            {
+                Array.Resize(ref pathKeys, Math.Max(capacity, pathKeys.Length * 2));
+            }
+        }
+
+        #endregion
+
+        #region Reference Formatting
 
         private static string ResolveColorCode(string colorCode)
         {
@@ -374,7 +437,7 @@ namespace Minerva.Localizations.EscapePatterns
 
         private static string SplitUnderlineInline(string content)
         {
-            var builder = new StringBuilder(content.Length + 20);
+            var builder = new StringBuilder(content.Length + InlineUnderlineCapacityHeadroom);
             int position = 0;
             while (position < content.Length)
             {
@@ -387,9 +450,11 @@ namespace Minerva.Localizations.EscapePatterns
                 int colorEnd = content.IndexOf("</color>", tagEnd, StringComparison.Ordinal);
                 if (colorEnd < 0) break;
                 builder.Append("<u>").Append(content.AsSpan(tagEnd + 1, colorEnd - tagEnd - 1)).Append("</u></color>");
-                position = colorEnd + 8;
+                position = colorEnd + ColorCloseTagLength;
             }
             return builder.ToString();
         }
+
+        #endregion
     }
 }

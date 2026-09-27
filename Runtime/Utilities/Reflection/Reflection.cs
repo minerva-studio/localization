@@ -38,13 +38,41 @@ namespace Minerva.Localizations.Utilities
         {
             public static L10nValue Convert(T value)
             {
-                if (typeof(T) == typeof(int)) { int v = UnsafeUtility.As<T, int>(ref value); return L10nValue.FromNumber(v); }
-                if (typeof(T) == typeof(long)) { long v = UnsafeUtility.As<T, long>(ref value); return L10nValue.FromNumber(v); }
-                if (typeof(T) == typeof(float)) { float v = UnsafeUtility.As<T, float>(ref value); return L10nValue.FromNumber(v); }
-                if (typeof(T) == typeof(double)) { double v = UnsafeUtility.As<T, double>(ref value); return L10nValue.FromNumber(v); }
-                if (typeof(T) == typeof(bool)) { bool v = UnsafeUtility.As<T, bool>(ref value); return L10nValue.FromNumber(v ? 1 : 0); }
-                if (typeof(T) == typeof(short)) { short v = UnsafeUtility.As<T, short>(ref value); return L10nValue.FromNumber(v); }
-                if (typeof(T) == typeof(byte)) { byte v = UnsafeUtility.As<T, byte>(ref value); return L10nValue.FromNumber(v); }
+                if (typeof(T) == typeof(int))
+                {
+                    int v = UnsafeUtility.As<T, int>(ref value);
+                    return L10nValue.FromNumber(v);
+                }
+                if (typeof(T) == typeof(long))
+                {
+                    long v = UnsafeUtility.As<T, long>(ref value);
+                    return L10nValue.FromNumber(v);
+                }
+                if (typeof(T) == typeof(float))
+                {
+                    float v = UnsafeUtility.As<T, float>(ref value);
+                    return L10nValue.FromNumber(v);
+                }
+                if (typeof(T) == typeof(double))
+                {
+                    double v = UnsafeUtility.As<T, double>(ref value);
+                    return L10nValue.FromNumber(v);
+                }
+                if (typeof(T) == typeof(bool))
+                {
+                    bool v = UnsafeUtility.As<T, bool>(ref value);
+                    return L10nValue.FromNumber(v ? 1 : 0);
+                }
+                if (typeof(T) == typeof(short))
+                {
+                    short v = UnsafeUtility.As<T, short>(ref value);
+                    return L10nValue.FromNumber(v);
+                }
+                if (typeof(T) == typeof(byte))
+                {
+                    byte v = UnsafeUtility.As<T, byte>(ref value);
+                    return L10nValue.FromNumber(v);
+                }
                 return L10nValue.FromObject(value);
             }
         }
@@ -116,7 +144,9 @@ namespace Minerva.Localizations.Utilities
         {
             var key = new GetterKey(type, memberName);
             if (getterCache.TryGetValue(key, out var getter)) return getter;
-            MemberInfo member = L10nAlias.GetMember(type, memberName) ?? type.GetProperty(memberName, MemberFlags) ?? (MemberInfo)type.GetField(memberName, MemberFlags);
+            MemberInfo member = L10nAlias.GetMember(type, memberName)
+                                ?? type.GetProperty(memberName, MemberFlags)
+                                ?? (MemberInfo)type.GetField(memberName, MemberFlags);
             getter = CreateGetter(member);
             return getter == null ? null : getterCache.GetOrAdd(key, getter);
         }
@@ -145,7 +175,10 @@ namespace Minerva.Localizations.Utilities
             return null;
         }
 
-        private static bool IsScalarPropertyType(Type type) => type == typeof(int) || type == typeof(long) || type == typeof(float) || type == typeof(double) || type == typeof(bool) || type == typeof(short) || type == typeof(byte);
+        private static bool IsScalarPropertyType(Type type) =>
+            type == typeof(int) || type == typeof(long) || type == typeof(float) ||
+            type == typeof(double) || type == typeof(bool) || type == typeof(short) ||
+            type == typeof(byte);
         private static bool IsSupportedPropertyType(Type type) => IsScalarPropertyType(type) || !type.IsValueType;
     }
 }

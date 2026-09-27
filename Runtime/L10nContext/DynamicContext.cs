@@ -64,7 +64,11 @@ namespace Minerva.Localizations
                 value = L10nValue.FromObject(dynamicValue);
                 return true;
             }
-            if (parentContext != null && parentContext.TryGetEscapeValue(escapeKey, param, out value)) return true;
+            if (parentContext != null && parentContext.TryGetEscapeValue(escapeKey, param, out value))
+            {
+                return true;
+            }
+
             return base.TryGetEscapeValue(escapeKey, param, out value);
         }
 

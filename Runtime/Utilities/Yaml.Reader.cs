@@ -11,6 +11,7 @@ namespace Minerva.Localizations
     {
         public class Reader
         {
+            private const int ErrorContextPreviewLength = 10;
             private const char SyntaxListElement = '-';
             private const char SyntaxEscape = '\\';
             private const char SyntaxDoubleQuote = '"';
@@ -533,7 +534,9 @@ namespace Minerva.Localizations
 
             private string GetContext()
             {
-                var ending = cursor + 10 < String.Length ? cursor + 10 : String.Length;
+                var ending = cursor + ErrorContextPreviewLength < String.Length
+                    ? cursor + ErrorContextPreviewLength
+                    : String.Length;
                 string context = content[cursor..ending];
                 context = ToProperString(context);
                 return context;

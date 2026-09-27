@@ -9,6 +9,8 @@ namespace Minerva.Localizations
     /// </summary>
     public class EnumL10nContext : L10nContext
     {
+        private const int FlagBitCount = 32;
+
         private string path;
         private bool isL10nFlagEnum;
 
@@ -40,7 +42,7 @@ namespace Minerva.Localizations
         public IEnumerable<Enum> FlagEnumSplit(Type type, Enum e)
         {
             int value = 1;
-            for (int i = 0; i < 32; i++)
+            for (int i = 0; i < FlagBitCount; i++)
             {
                 if (Enum.IsDefined(type, value))
                 {

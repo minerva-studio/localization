@@ -12,6 +12,8 @@ namespace Minerva.Localizations
     /// </summary>
     public readonly struct L10nValue : IEquatable<L10nValue>
     {
+        private const double LongUpperBoundExclusive = 9223372036854775808d;
+
         /// <summary>
         /// Describes the payload stored by a localization value.
         /// </summary>
@@ -27,7 +29,15 @@ namespace Minerva.Localizations
         /// <summary>
         /// Gets the payload kind.
         /// </summary>
-        public ValueKind Kind => isNumber ? ValueKind.Number : (reference is string ? ValueKind.String : (IsMissing(reference) ? ValueKind.Null : ValueKind.Object));
+        public ValueKind Kind
+        {
+            get
+            {
+                if (isNumber) return ValueKind.Number;
+                if (reference is string) return ValueKind.String;
+                return IsMissing(reference) ? ValueKind.Null : ValueKind.Object;
+            }
+        }
 
         /// <summary>
         /// Whether this value represents a missing value.
@@ -114,21 +124,48 @@ namespace Minerva.Localizations
 
             if (kind == ValueKind.Number)
             {
-                if (typeof(T) == typeof(double)) { double v = number; value = UnsafeUtility.As<double, T>(ref v)!; return true; }
-                if (typeof(T) == typeof(float)) { float v = (float)number; value = UnsafeUtility.As<float, T>(ref v)!; return true; }
+                if (typeof(T) == typeof(double))
+                {
+                    double v = number;
+                    value = UnsafeUtility.As<double, T>(ref v)!;
+                    return true;
+                }
+                if (typeof(T) == typeof(float))
+                {
+                    float v = (float)number;
+                    value = UnsafeUtility.As<float, T>(ref v)!;
+                    return true;
+                }
                 if (typeof(T) == typeof(int))
                 {
-                    if (IsIntegral(number) && number >= int.MinValue && number <= int.MaxValue) { int v = (int)number; value = UnsafeUtility.As<int, T>(ref v)!; return true; }
+                    if (IsIntegral(number) && number >= int.MinValue && number <= int.MaxValue)
+                    {
+                        int v = (int)number;
+                        value = UnsafeUtility.As<int, T>(ref v)!;
+                        return true;
+                    }
+
                     value = default;
                     return false;
                 }
                 if (typeof(T) == typeof(long))
                 {
-                    if (IsIntegral(number) && number >= long.MinValue && number < 9223372036854775808d) { long v = (long)number; value = UnsafeUtility.As<long, T>(ref v)!; return true; }
+                    if (IsIntegral(number) && number >= long.MinValue && number < LongUpperBoundExclusive)
+                    {
+                        long v = (long)number;
+                        value = UnsafeUtility.As<long, T>(ref v)!;
+                        return true;
+                    }
+
                     value = default;
                     return false;
                 }
-                if (typeof(T) == typeof(bool)) { bool v = number != 0; value = UnsafeUtility.As<bool, T>(ref v)!; return true; }
+                if (typeof(T) == typeof(bool))
+                {
+                    bool v = number != 0;
+                    value = UnsafeUtility.As<bool, T>(ref v)!;
+                    return true;
+                }
             }
 
             object? boxed = kind switch
@@ -137,7 +174,11 @@ namespace Minerva.Localizations
                 ValueKind.String or ValueKind.Object => reference,
                 _ => null
             };
-            if (boxed is T typed) { value = typed; return true; }
+            if (boxed is T typed)
+            {
+                value = typed;
+                return true;
+            }
             try
             {
                 object? converted = Convert.ChangeType(boxed, typeof(T), CultureInfo.InvariantCulture);

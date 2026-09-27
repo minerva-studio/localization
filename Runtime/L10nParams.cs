@@ -34,14 +34,14 @@ namespace Minerva.Localizations
 
         public bool IsEmpty => (options == null || options.Length == 0) && (variables == null || variables.Count == 0);
 
-        #region Constructors
-
         private L10nParams(string[]? options, int depth, Dictionary<string, L10nValue>? vars)
         {
             this.options = options;
             Depth = depth;
             variables = vars;
         }
+
+        #region Parameter Views
 
         internal L10nParams VariablesOnly() => variables == null || variables.Count == 0
             ? Empty
@@ -98,7 +98,10 @@ namespace Minerva.Localizations
         {
             var result = this;
             foreach (var (key, value) in keyValues)
+            {
                 result = result.With(key, value);
+            }
+
             return result;
         }
 
@@ -107,7 +110,10 @@ namespace Minerva.Localizations
         {
             var result = this;
             foreach (var (key, value) in keyValues)
+            {
                 result = result.With(key, value);
+            }
+
             return result;
         }
 

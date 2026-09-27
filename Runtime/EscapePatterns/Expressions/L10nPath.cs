@@ -98,7 +98,8 @@ namespace Minerva.Localizations.EscapePatterns
                         {
                             if (!branches.TryGetValue(index, out child) && internedKeyNodeCount < MaximumInternedKeyNodesPerPath)
                             {
-                                child = new KeyNode(AppendSegment(parent.Key, segment, index), i + 1 < segments.Length && segments[i + 1].Kind == SegmentKind.DynamicIndex);
+                                bool nextIsDynamicIndex = i + 1 < segments.Length && segments[i + 1].Kind == SegmentKind.DynamicIndex;
+                                child = new KeyNode(AppendSegment(parent.Key, segment, index), nextIsDynamicIndex);
                                 branches.TryAdd(index, child);
                                 internedKeyNodeCount++;
                             }
@@ -126,7 +127,8 @@ namespace Minerva.Localizations.EscapePatterns
                             child = parent.Next;
                             if (child == null && internedKeyNodeCount < MaximumInternedKeyNodesPerPath)
                             {
-                                child = new KeyNode(AppendSegment(parent.Key, segment, 0), i + 1 < segments.Length && segments[i + 1].Kind == SegmentKind.DynamicIndex);
+                                bool nextIsDynamicIndex = i + 1 < segments.Length && segments[i + 1].Kind == SegmentKind.DynamicIndex;
+                                child = new KeyNode(AppendSegment(parent.Key, segment, 0), nextIsDynamicIndex);
                                 Volatile.Write(ref parent.Next, child);
                                 internedKeyNodeCount++;
                             }
@@ -162,16 +164,30 @@ namespace Minerva.Localizations.EscapePatterns
             }
             for (int i = fromSegment; i < segments.Length; i++)
             {
-                if (current.IsNull) { value = default; return false; }
+                if (current.IsNull)
+                {
+                    value = default;
+                    return false;
+                }
+
                 Segment segment = segments[i];
                 if (segment.Kind == SegmentKind.Member)
                 {
-                    if (current.Kind == L10nValue.ValueKind.Number || !Minerva.Localizations.Utilities.Reflection.TryGetMember(current.ToObject(), segment.Name, out current)) { value = default; return false; }
+                    if (current.Kind == L10nValue.ValueKind.Number ||
+                        !Minerva.Localizations.Utilities.Reflection.TryGetMember(current.ToObject(), segment.Name, out current))
+                    {
+                        value = default;
+                        return false;
+                    }
                 }
                 else
                 {
                     int index = segment.Kind == SegmentKind.LiteralIndex ? segment.Index : indices[i];
-                    if (!TryGetIndex(current, index, out current)) { value = default; return false; }
+                    if (!TryGetIndex(current, index, out current))
+                    {
+                        value = default;
+                        return false;
+                    }
                 }
             }
             value = current;
@@ -183,11 +199,21 @@ namespace Minerva.Localizations.EscapePatterns
             object target = current.ToObject();
             switch (target)
             {
-                case IList<int> list when index >= 0 && index < list.Count: value = L10nValue.FromNumber(list[index]); return true;
-                case IList<float> list when index >= 0 && index < list.Count: value = L10nValue.FromNumber(list[index]); return true;
-                case IList<double> list when index >= 0 && index < list.Count: value = L10nValue.FromNumber(list[index]); return true;
-                case IList list when index >= 0 && index < list.Count: value = L10nValue.FromObject(list[index]); return !value.IsNull;
-                default: value = default; return false;
+                case IList<int> list when index >= 0 && index < list.Count:
+                    value = L10nValue.FromNumber(list[index]);
+                    return true;
+                case IList<float> list when index >= 0 && index < list.Count:
+                    value = L10nValue.FromNumber(list[index]);
+                    return true;
+                case IList<double> list when index >= 0 && index < list.Count:
+                    value = L10nValue.FromNumber(list[index]);
+                    return true;
+                case IList list when index >= 0 && index < list.Count:
+                    value = L10nValue.FromObject(list[index]);
+                    return !value.IsNull;
+                default:
+                    value = default;
+                    return false;
             }
         }
 
@@ -196,14 +222,21 @@ namespace Minerva.Localizations.EscapePatterns
             var span = key.AsSpan();
             int position = 0;
             var segments = new List<Segment>();
-            if (!TryReadIdentifier(span, ref position, out var member)) throw new FormatException("Expected member at position 0.");
+            if (!TryReadIdentifier(span, ref position, out var member))
+            {
+                throw new FormatException("Expected member at position 0.");
+            }
+
             segments.Add(Segment.Member(member));
             while (position < span.Length)
             {
                 if (span[position] == '.')
                 {
                     position++;
-                    if (!TryReadIdentifier(span, ref position, out member)) throw new FormatException($"Expected member at position {position}.");
+                    if (!TryReadIdentifier(span, ref position, out member))
+                    {
+                        throw new FormatException($"Expected member at position {position}.");
+                    }
                     segments.Add(Segment.Member(member));
                 }
                 else if (span[position] == '[')
@@ -219,7 +252,10 @@ namespace Minerva.Localizations.EscapePatterns
                     position++;
                     segments.Add(Segment.LiteralIndex(index));
                 }
-                else throw new FormatException($"Unexpected character at position {position}.");
+                else
+                {
+                    throw new FormatException($"Unexpected character at position {position}.");
+                }
             }
             return new L10nPath(segments.ToArray(), null);
         }
@@ -227,7 +263,11 @@ namespace Minerva.Localizations.EscapePatterns
         private static bool TryReadIdentifier(ReadOnlySpan<char> source, ref int position, out string value)
         {
             int start = position;
-            if (position >= source.Length || !(char.IsLetter(source[position]) || source[position] == '_')) { value = null; return false; }
+            if (position >= source.Length || !(char.IsLetter(source[position]) || source[position] == '_'))
+            {
+                value = null;
+                return false;
+            }
             position++;
             while (position < source.Length && (char.IsLetterOrDigit(source[position]) || source[position] == '_')) position++;
             value = source.Slice(start, position - start).ToString();

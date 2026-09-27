@@ -18,7 +18,11 @@ namespace Minerva.Localizations.Utilities
 
         public BoundedConcurrentCache(int capacity)
         {
-            if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+            if (capacity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(capacity));
+            }
+
             this.capacity = capacity;
             insertionOrder = new Queue<TKey>();
         }

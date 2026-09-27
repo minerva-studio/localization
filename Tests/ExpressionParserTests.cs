@@ -504,7 +504,12 @@ namespace Minerva.Localizations.Tests
         {
             public override bool TryGetEscapeValue(string escapeKey, L10nParams parameters, out L10nValue value)
             {
-                if (escapeKey == "Value") { value = 2.5f; return true; }
+                if (escapeKey == "Value")
+                {
+                    value = 2.5f;
+                    return true;
+                }
+
                 value = default;
                 return false;
             }
@@ -520,9 +525,14 @@ namespace Minerva.Localizations.Tests
             {
                 Assert.That(evaluator.EvaluateExpression(propertyExpression).TryGet<double>(out var result), Is.True);
                 Assert.That(result, Is.EqualTo(8));
-                Assert.That(() => { _ = evaluator.EvaluateExpression(propertyExpression); }, UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(NUnit.Framework.Is.Not));
+                Assert.That(
+                    () => { _ = evaluator.EvaluateExpression(propertyExpression); },
+                    UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(NUnit.Framework.Is.Not));
             }
-            finally { L10nEvaluator.Return(evaluator); }
+            finally
+            {
+                L10nEvaluator.Return(evaluator);
+            }
 
             evaluator = L10nEvaluator.Rent(new EvaluationContext(new FloatOverrideContext(), L10nParams.Empty));
             var overrideExpression = L10nExpressionCompiler.Compile("Value * 2");
@@ -530,9 +540,14 @@ namespace Minerva.Localizations.Tests
             {
                 Assert.That(evaluator.EvaluateExpression(overrideExpression).TryGet<double>(out var result), Is.True);
                 Assert.That(result, Is.EqualTo(5));
-                Assert.That(() => { _ = evaluator.EvaluateExpression(overrideExpression); }, UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(NUnit.Framework.Is.Not));
+                Assert.That(
+                    () => { _ = evaluator.EvaluateExpression(overrideExpression); },
+                    UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(NUnit.Framework.Is.Not));
             }
-            finally { L10nEvaluator.Return(evaluator); }
+            finally
+            {
+                L10nEvaluator.Return(evaluator);
+            }
         }
     }
 

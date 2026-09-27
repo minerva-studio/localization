@@ -66,7 +66,10 @@ namespace Minerva.Localizations
         public static object GetEscapeValue(this ILocalizableContext context, string escapeKey, L10nParams parameters)
         {
             if (context != null && context.TryGetEscapeValue(escapeKey, parameters, out var value))
+            {
                 return L10nContext.DynamicValueOf(value, parameters).ToObject();
+            }
+
             return escapeKey;
         }
     }

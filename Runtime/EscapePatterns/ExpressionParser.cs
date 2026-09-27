@@ -11,6 +11,11 @@ namespace Minerva.Localizations.EscapePatterns
     /// </summary>
     public class ExpressionParser
     {
+        private const int MinimumPrecedence = 1;
+        private const int AdditivePrecedence = 2;
+        private const int MultiplicativePrecedence = 3;
+        private const int ExponentPrecedence = 4;
+
         public delegate object VariableValueProvider(ReadOnlyMemory<char> expr);
 
         // Token types
@@ -69,6 +74,8 @@ namespace Minerva.Localizations.EscapePatterns
                 _diagnostics = diagnostics;
                 _expressionContext = expressionContext ?? input.ToString();
             }
+
+            #region Tokenization
 
             public Token GetNextToken()
             {
@@ -234,6 +241,8 @@ namespace Minerva.Localizations.EscapePatterns
                 _position++;
                 return new Token(type, value.AsMemory(), _position - 1);
             }
+
+            #endregion
         }
 
         // Parser for generating an abstract syntax tree (AST)
@@ -260,9 +269,11 @@ namespace Minerva.Localizations.EscapePatterns
                 _currentToken = _lexer.GetNextToken();
             }
 
+            #region Parsing
+
             public Node ParseExpression()
             {
-                return ParseBinaryExpression(1); // 最低优先级从 1 开始
+                return ParseBinaryExpression(MinimumPrecedence);
             }
 
             private Node ParseBinaryExpression(int minPrecedence)
@@ -353,17 +364,19 @@ namespace Minerva.Localizations.EscapePatterns
 
             private static int GetPrecedence(TokenType t, out bool rightAssociative)
             {
-                rightAssociative = false;
+                rightAssociative = t == TokenType.Power;
                 return t switch
                 {
-                    TokenType.Power => (rightAssociative = true, 4).Item2,
-                    TokenType.Multiply => 3,
-                    TokenType.Divide => 3,
-                    TokenType.Plus => 2,
-                    TokenType.Minus => 2,
+                    TokenType.Power => ExponentPrecedence,
+                    TokenType.Multiply => MultiplicativePrecedence,
+                    TokenType.Divide => MultiplicativePrecedence,
+                    TokenType.Plus => AdditivePrecedence,
+                    TokenType.Minus => AdditivePrecedence,
                     _ => 0,
                 };
             }
+
+            #endregion
         }
 
         // AST Nodes
@@ -421,6 +434,8 @@ namespace Minerva.Localizations.EscapePatterns
                 Operator = op;
                 Right = right;
             }
+
+            #region Evaluation
 
             public override object Run(VariableValueProvider variableValueProvider)
             {
@@ -490,6 +505,8 @@ namespace Minerva.Localizations.EscapePatterns
                 f = 0;
                 return false;
             }
+
+            #endregion
         }
     }
 }

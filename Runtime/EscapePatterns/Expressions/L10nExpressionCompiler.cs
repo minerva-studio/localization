@@ -6,6 +6,11 @@ namespace Minerva.Localizations.EscapePatterns
 {
     internal static class L10nExpressionCompiler
     {
+        private const int MinimumPrecedence = 1;
+        private const int AdditivePrecedence = 2;
+        private const int MultiplicativePrecedence = 3;
+        private const int ExponentPrecedence = 4;
+
         public static L10nExpression Compile(string source)
         {
             source ??= string.Empty;
@@ -13,7 +18,7 @@ namespace Minerva.Localizations.EscapePatterns
             var parser = new Parser(source.AsSpan(), builder);
             try
             {
-                parser.ParseExpression(1);
+                parser.ParseExpression(MinimumPrecedence);
                 parser.SkipWhitespace();
                 if (!parser.AtEnd) parser.Fail("Unexpected token");
                 return builder.Build(source);
@@ -29,6 +34,8 @@ namespace Minerva.Localizations.EscapePatterns
             public readonly List<L10nOp> Ops = new();
             public readonly List<double> Numbers = new();
             public readonly List<L10nPath> Paths = new();
+
+            #region Build Expression
 
             public int AddNumber(double value)
             {
@@ -50,12 +57,21 @@ namespace Minerva.Localizations.EscapePatterns
                 int max = 0;
                 foreach (var op in Ops)
                 {
-                    if (op.Code is L10nOp.OpCode.PushNumber or L10nOp.OpCode.LoadPath) depth++;
-                    else if (op.Code is L10nOp.OpCode.Add or L10nOp.OpCode.Subtract or L10nOp.OpCode.Multiply or L10nOp.OpCode.Divide or L10nOp.OpCode.Power) depth--;
+                    if (op.Code is L10nOp.OpCode.PushNumber or L10nOp.OpCode.LoadPath)
+                    {
+                        depth++;
+                    }
+                    else if (op.Code is L10nOp.OpCode.Add or L10nOp.OpCode.Subtract or L10nOp.OpCode.Multiply or L10nOp.OpCode.Divide or L10nOp.OpCode.Power)
+                    {
+                        depth--;
+                    }
+
                     if (depth > max) max = depth;
                 }
                 return max;
             }
+
+            #endregion
         }
 
         private sealed class CompileException : Exception
@@ -77,6 +93,8 @@ namespace Minerva.Localizations.EscapePatterns
             }
 
             public bool AtEnd => position >= source.Length;
+
+            #region Expression Parsing
 
             public void ParseExpression(int minPrecedence)
             {
@@ -114,14 +132,15 @@ namespace Minerva.Localizations.EscapePatterns
                 SkipWhitespace();
                 if (TryConsume('('))
                 {
-                    ParseExpression(1);
+                    ParseExpression(MinimumPrecedence);
                     SkipWhitespace();
                     if (!TryConsume(')')) Fail("Missing closing parenthesis");
                     return;
                 }
 
                 if (AtEnd) Fail("Expected a number, path, or parenthesized expression");
-                if (char.IsDigit(source[position]) || source[position] == '.' && position + 1 < source.Length && char.IsDigit(source[position + 1]))
+                bool startsWithDecimalPoint = source[position] == '.' && position + 1 < source.Length && char.IsDigit(source[position + 1]);
+                if (char.IsDigit(source[position]) || startsWithDecimalPoint)
                 {
                     ParseNumber();
                     return;
@@ -150,16 +169,34 @@ namespace Minerva.Localizations.EscapePatterns
                 while (position < source.Length)
                 {
                     char c = source[position];
-                    if (char.IsDigit(c)) { digitCount++; if (afterDot) fractionalDigits++; position++; continue; }
-                    if (c == '.' && !sawDot) { sawDot = true; afterDot = true; position++; continue; }
+                    if (char.IsDigit(c))
+                    {
+                        digitCount++;
+                        if (afterDot) fractionalDigits++;
+                        position++;
+                        continue;
+                    }
+
+                    if (c == '.' && !sawDot)
+                    {
+                        sawDot = true;
+                        afterDot = true;
+                        position++;
+                        continue;
+                    }
+
                     break;
                 }
-                if (digitCount == 0 || sawDot && fractionalDigits == 0) FailAt(start, "Invalid numeric literal");
+                if (digitCount == 0 || (sawDot && fractionalDigits == 0)) FailAt(start, "Invalid numeric literal");
                 if (!double.TryParse(source.Slice(start, position - start), NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
                     FailAt(start, "Invalid numeric literal");
                 int operand = builder.AddNumber(value);
                 builder.Ops.Add(new L10nOp(L10nOp.OpCode.PushNumber, operand));
             }
+
+            #endregion
+
+            #region Path Parsing
 
             private void ParsePath()
             {
@@ -180,7 +217,7 @@ namespace Minerva.Localizations.EscapePatterns
                         int expressionStart = position;
                         var nestedBuilder = new Builder();
                         var nestedParser = new Parser(source.Slice(position), nestedBuilder);
-                        nestedParser.ParseExpression(1);
+                        nestedParser.ParseExpression(MinimumPrecedence);
                         nestedParser.SkipWhitespace();
                         position += nestedParser.position;
                         int expressionEnd = position;
@@ -188,11 +225,18 @@ namespace Minerva.Localizations.EscapePatterns
                         var indexExpression = nestedBuilder.Build(source.Slice(expressionStart, expressionEnd - expressionStart).ToString());
                         if (IsSingleNumberLiteral(indexExpression, out double number))
                         {
-                            if (double.IsNaN(number) || double.IsInfinity(number) || number < int.MinValue || number > int.MaxValue || Math.Truncate(number) != number)
+                            if (double.IsNaN(number) ||
+                                double.IsInfinity(number) ||
+                                number < int.MinValue ||
+                                number > int.MaxValue ||
+                                Math.Truncate(number) != number)
                                 FailAt(expressionStart, "Index literal must be a finite Int32 value");
                             segments.Add(L10nPath.Segment.LiteralIndex((int)number));
                         }
-                        else segments.Add(L10nPath.Segment.DynamicIndex(indexExpression));
+                        else
+                        {
+                            segments.Add(L10nPath.Segment.DynamicIndex(indexExpression));
+                        }
                         continue;
                     }
                     break;
@@ -217,10 +261,18 @@ namespace Minerva.Localizations.EscapePatterns
             private static bool IsSingleNumberLiteral(L10nExpression expression, out double value)
             {
                 value = 0;
-                if (expression.Ops.Length != 1 || expression.Ops[0].Code != L10nOp.OpCode.PushNumber) return false;
+                if (expression.Ops.Length != 1 || expression.Ops[0].Code != L10nOp.OpCode.PushNumber)
+                {
+                    return false;
+                }
+
                 value = expression.Numbers[expression.Ops[0].Operand];
                 return true;
             }
+
+            #endregion
+
+            #region Parser Helpers
 
             private string ReadIdentifier()
             {
@@ -232,15 +284,33 @@ namespace Minerva.Localizations.EscapePatterns
             private L10nOp.OpCode CurrentBinaryOp(out int precedence, out bool rightAssociative)
             {
                 rightAssociative = false;
-                if (AtEnd) { precedence = 0; return default; }
+                if (AtEnd)
+                {
+                    precedence = 0;
+                    return default;
+                }
+
                 switch (source[position])
                 {
-                    case '^': precedence = 4; rightAssociative = true; return L10nOp.OpCode.Power;
-                    case '*': precedence = 3; return L10nOp.OpCode.Multiply;
-                    case '/': precedence = 3; return L10nOp.OpCode.Divide;
-                    case '+': precedence = 2; return L10nOp.OpCode.Add;
-                    case '-': precedence = 2; return L10nOp.OpCode.Subtract;
-                    default: precedence = 0; return default;
+                    case '^':
+                        precedence = ExponentPrecedence;
+                        rightAssociative = true;
+                        return L10nOp.OpCode.Power;
+                    case '*':
+                        precedence = MultiplicativePrecedence;
+                        return L10nOp.OpCode.Multiply;
+                    case '/':
+                        precedence = MultiplicativePrecedence;
+                        return L10nOp.OpCode.Divide;
+                    case '+':
+                        precedence = AdditivePrecedence;
+                        return L10nOp.OpCode.Add;
+                    case '-':
+                        precedence = AdditivePrecedence;
+                        return L10nOp.OpCode.Subtract;
+                    default:
+                        precedence = 0;
+                        return default;
                 }
             }
 
@@ -251,7 +321,12 @@ namespace Minerva.Localizations.EscapePatterns
 
             private bool TryConsume(char c)
             {
-                if (!AtEnd && source[position] == c) { position++; return true; }
+                if (!AtEnd && source[position] == c)
+                {
+                    position++;
+                    return true;
+                }
+
                 return false;
             }
 
@@ -263,6 +338,8 @@ namespace Minerva.Localizations.EscapePatterns
             {
                 throw new CompileException($"{message} at position {at}.");
             }
+
+            #endregion
         }
     }
 }
