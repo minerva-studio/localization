@@ -1,4 +1,5 @@
 using Minerva.Localizations.EscapePatterns;
+using Minerva.Localizations.Utilities;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -359,6 +360,29 @@ namespace Minerva.Localizations.Tests
         }
 
         [Test]
+        public void DynamicIndexKeyInterning_ShouldStopGrowingAndKeepResolving()
+        {
+            var items = new int[512];
+            for (int i = 0; i < items.Length; i++) items[i] = i;
+
+            var expression = L10nExpressionCompiler.Compile("Items[index]");
+            var evaluator = L10nEvaluator.Rent(new EvaluationContext(null, L10nParams.Empty));
+            try
+            {
+                for (int i = 0; i < items.Length; i++)
+                {
+                    var parameters = L10nParams.Empty.With("Items", items).With("index", i);
+                    evaluator.Reset(new EvaluationContext(null, parameters));
+                    Assert.That(evaluator.EvaluateExpression(expression).TryGet<int>(out var value), Is.True);
+                    Assert.That(value, Is.EqualTo(i));
+                }
+
+                Assert.That(expression.Paths[0].InternedKeyNodeCount, Is.LessThanOrEqualTo(L10nPath.MaximumInternedKeyNodesPerPath));
+            }
+            finally { L10nEvaluator.Return(evaluator); }
+        }
+
+        [Test]
         public void DynamicIndexArithmetic_ShouldProduceCanonicalPrefixKey()
         {
             var context = L10nContext.None();
@@ -383,7 +407,7 @@ namespace Minerva.Localizations.Tests
             var parameters = L10nParams.Empty.With("Names", names).With("index", 0).With("x", 3);
             var evaluatorContext = new EvaluationContext(null, parameters);
             var evaluator = L10nEvaluator.Rent(evaluatorContext);
-            var template = L10nTemplateCache.Get("{Names[index + 1]}");
+            var template = L10nTemplate.GetOrCompile("{Names[index + 1]}");
             var arithmeticExpression = L10nExpressionCompiler.Compile("x * 2 + 1");
             var output = L10nObjectPool.RentStringBuilder();
             try
@@ -479,6 +503,68 @@ namespace Minerva.Localizations.Tests
                 Assert.That(() => { _ = evaluator.EvaluateExpression(overrideExpression); }, UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(NUnit.Framework.Is.Not));
             }
             finally { L10nEvaluator.Return(evaluator); }
+        }
+    }
+
+    public class BoundedConcurrentCacheTests
+    {
+        [Test]
+        public void KeyStringCache_ShouldRemainBoundedAndRebuildEvictedKeys()
+        {
+            var cache = KeyStringCache.Shared;
+            cache.Clear();
+
+            try
+            {
+                const int capacity = KeyStringCache.MaximumEntries;
+                for (int i = 0; i <= capacity; i++)
+                    cache.GetString(new Key($"BoundedCacheKey{i}"));
+
+                Assert.That(cache.Count, Is.LessThanOrEqualTo(capacity));
+                Assert.That(cache.GetString(new Key("BoundedCacheKey0")), Is.EqualTo("BoundedCacheKey0"));
+                Assert.That(cache.Count, Is.LessThanOrEqualTo(capacity));
+            }
+            finally { cache.Clear(); }
+        }
+
+        [Test]
+        public void AddingPastCapacity_ShouldEvictOldestEntryIndividually()
+        {
+            var cache = new BoundedConcurrentCache<int, string>(2);
+            cache.GetOrAdd(1, "one");
+            cache.GetOrAdd(2, "two");
+            cache.GetOrAdd(3, "three");
+
+            Assert.That(cache.Count, Is.EqualTo(2));
+            Assert.That(cache.TryGetValue(1, out _), Is.False);
+            Assert.That(cache.TryGetValue(2, out var second), Is.True);
+            Assert.That(second, Is.EqualTo("two"));
+            Assert.That(cache.TryGetValue(3, out var third), Is.True);
+            Assert.That(third, Is.EqualTo("three"));
+        }
+
+        [Test]
+        public void ConcurrentInsertions_ShouldStayWithinCapacity()
+        {
+            var cache = new BoundedConcurrentCache<int, int>(16);
+            System.Threading.Tasks.Parallel.For(0, 1024, value => cache.GetOrAdd(value, value));
+
+            Assert.That(cache.Count, Is.LessThanOrEqualTo(16));
+        }
+
+        [Test]
+        public void Clear_ShouldRemoveEntriesAndAllowFurtherInsertions()
+        {
+            var cache = new BoundedConcurrentCache<int, string>(2);
+            cache.GetOrAdd(1, "one");
+            cache.GetOrAdd(2, "two");
+
+            cache.Clear();
+
+            Assert.That(cache.Count, Is.Zero);
+            Assert.That(cache.TryGetValue(1, out _), Is.False);
+            Assert.That(cache.GetOrAdd(3, "three"), Is.EqualTo("three"));
+            Assert.That(cache.Count, Is.EqualTo(1));
         }
     }
 

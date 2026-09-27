@@ -3,11 +3,14 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 
 namespace Minerva.Localizations.EscapePatterns
 {
     internal sealed class L10nPath
     {
+        internal const int MaximumInternedKeyNodesPerPath = 256;
+
         public enum SegmentKind : byte { Member, LiteralIndex, DynamicIndex }
 
         internal readonly struct Segment
@@ -30,7 +33,7 @@ namespace Minerva.Localizations.EscapePatterns
             public static Segment DynamicIndex(L10nExpression expression) => new(SegmentKind.DynamicIndex, null, 0, expression);
         }
 
-        internal sealed class KeyNode
+        private sealed class KeyNode
         {
             public readonly string Key;
             public KeyNode Next;
@@ -47,8 +50,11 @@ namespace Minerva.Localizations.EscapePatterns
         private readonly Segment[] segments;
         private readonly string[] prefixKeys;
         private readonly bool hasDynamicIndex;
+        private readonly object internLock = new();
+        private int internedKeyNodeCount;
 
         public int SegmentCount => segments.Length;
+        internal int InternedKeyNodeCount => Volatile.Read(ref internedKeyNodeCount);
         public L10nParams? Args { get; }
         public Segment GetSegment(int index) => segments[index];
 
@@ -70,7 +76,7 @@ namespace Minerva.Localizations.EscapePatterns
             }
         }
 
-        public void BuildPrefixKeys(int[] indices, int indexBase, string[] keys, KeyNode[] nodes)
+        public void BuildPrefixKeys(int[] indices, int indexBase, string[] keys)
         {
             if (!hasDynamicIndex)
             {
@@ -78,33 +84,72 @@ namespace Minerva.Localizations.EscapePatterns
                 return;
             }
             KeyNode parent = dynamicRoot;
+            string currentKey = string.Empty;
             for (int i = 0; i < segments.Length; i++)
             {
                 Segment segment = segments[i];
-                if (segment.Kind == SegmentKind.DynamicIndex)
+                if (segment.Kind == SegmentKind.DynamicIndex && parent != null)
                 {
                     int index = indices[indexBase + i];
                     var branches = parent.ByIndex;
                     if (!branches.TryGetValue(index, out var child))
                     {
-                        child = new KeyNode(AppendSegment(parent.Key, segment, index), i + 1 < segments.Length && segments[i + 1].Kind == SegmentKind.DynamicIndex);
-                        if (!branches.TryAdd(index, child)) child = branches[index];
+                        lock (internLock)
+                        {
+                            if (!branches.TryGetValue(index, out child) && internedKeyNodeCount < MaximumInternedKeyNodesPerPath)
+                            {
+                                child = new KeyNode(AppendSegment(parent.Key, segment, index), i + 1 < segments.Length && segments[i + 1].Kind == SegmentKind.DynamicIndex);
+                                branches.TryAdd(index, child);
+                                internedKeyNodeCount++;
+                            }
+                        }
                     }
-                    parent = child;
+
+                    if (child == null)
+                    {
+                        currentKey = AppendSegment(currentKey, segment, index);
+                        parent = null;
+                    }
+                    else
+                    {
+                        parent = child;
+                        currentKey = child.Key;
+                    }
+                }
+                else if (parent != null)
+                {
+                    var child = Volatile.Read(ref parent.Next);
+                    if (child == null)
+                    {
+                        lock (internLock)
+                        {
+                            child = parent.Next;
+                            if (child == null && internedKeyNodeCount < MaximumInternedKeyNodesPerPath)
+                            {
+                                child = new KeyNode(AppendSegment(parent.Key, segment, 0), i + 1 < segments.Length && segments[i + 1].Kind == SegmentKind.DynamicIndex);
+                                Volatile.Write(ref parent.Next, child);
+                                internedKeyNodeCount++;
+                            }
+                        }
+                    }
+
+                    if (child == null)
+                    {
+                        currentKey = AppendSegment(currentKey, segment, 0);
+                        parent = null;
+                    }
+                    else
+                    {
+                        parent = child;
+                        currentKey = child.Key;
+                    }
                 }
                 else
                 {
-                    var child = parent.Next;
-                    if (child == null)
-                    {
-                        child = new KeyNode(AppendSegment(parent.Key, segment, 0), i + 1 < segments.Length && segments[i + 1].Kind == SegmentKind.DynamicIndex);
-                        System.Threading.Interlocked.CompareExchange(ref parent.Next, child, null);
-                        child = parent.Next;
-                    }
-                    parent = child;
+                    int index = segment.Kind == SegmentKind.DynamicIndex ? indices[indexBase + i] : 0;
+                    currentKey = AppendSegment(currentKey, segment, index);
                 }
-                nodes[i] = parent;
-                keys[i] = parent.Key;
+                keys[i] = currentKey;
             }
         }
 

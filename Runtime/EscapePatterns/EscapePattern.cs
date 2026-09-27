@@ -49,7 +49,7 @@ namespace Minerva.Localizations.EscapePatterns
                 {
                     var evalContext = new EvaluationContext(context, parameters);
                     evaluator = L10nEvaluator.Rent(evalContext);
-                    evaluator.Evaluate(L10nTemplateCache.Get(rawString), output);
+                    evaluator.Evaluate(L10nTemplate.GetOrCompile(rawString), output);
                     string value = output.ToString();
 #if DEBUG || DEVELOPMENT_BUILD
                     var diagnostics = evaluator.GetDiagnostics();
@@ -104,7 +104,7 @@ namespace Minerva.Localizations.EscapePatterns
                 {
                     var evalContext = new EvaluationContext(context, parameters);
                     evaluator = L10nEvaluator.Rent(evalContext);
-                    evaluator.Evaluate(L10nTemplateCache.Get(rawString), output);
+                    evaluator.Evaluate(L10nTemplate.GetOrCompile(rawString), output);
                     string value = output.ToString();
                     if (L10n.UseUnderlineResolver == UnderlineResolverOption.Always)
                         value = SplitUnderlineByColor(value);

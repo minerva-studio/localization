@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using Minerva.Localizations.Utilities;
 
 namespace Minerva.Localizations.EscapePatterns
 {
     internal sealed class L10nTemplate
     {
+        private const int MaximumCachedTemplates = 4096;
+        private static readonly BoundedConcurrentCache<string, L10nTemplate> cache = new(MaximumCachedTemplates);
+
         public enum OpCode : byte { Literal, KeyReference, Expression, ColorOpen, ColorClose }
 
         internal readonly struct Op
@@ -29,7 +33,15 @@ namespace Minerva.Localizations.EscapePatterns
 
         private L10nTemplate(Op[] ops) => Ops = ops;
 
-        public static L10nTemplate Compile(string source)
+        public static L10nTemplate GetOrCompile(string source)
+        {
+            source ??= string.Empty;
+            if (cache.TryGetValue(source, out var template)) return template;
+            template = CompileSource(source);
+            return cache.GetOrAdd(source, template);
+        }
+
+        private static L10nTemplate CompileSource(string source)
         {
             var tokenizer = L10nObjectPool.RentTokenizer(source.AsMemory());
             L10nToken root = null;

@@ -59,7 +59,10 @@ namespace Minerva.Localizations.Utilities
             public override int GetHashCode() => unchecked((Type.GetHashCode() * 397) ^ Name.GetHashCode());
         }
 
-        private static readonly ConcurrentDictionary<string, L10nPath> pathCache = new();
+        private const int MaximumPathCacheEntries = 4096;
+        private static readonly BoundedConcurrentCache<string, L10nPath> pathCache = new(MaximumPathCacheEntries);
+        // Getter keys are bounded by loaded runtime types and source-authored member names; failed lookups are not cached.
+        // This assumes the application does not continually generate new runtime types.
         private static readonly ConcurrentDictionary<GetterKey, MemberGetter> getterCache = new();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -83,7 +86,8 @@ namespace Minerva.Localizations.Utilities
                     value = L10nValue.FromObject(proxyValue);
                     return !value.IsNull;
                 }
-                var parsed = pathCache.GetOrAdd(path, static key => L10nPath.ParseCanonical(key));
+                if (!pathCache.TryGetValue(path, out var parsed))
+                    parsed = pathCache.GetOrAdd(path, L10nPath.ParseCanonical(path));
                 return parsed.TryWalk(L10nValue.FromObject(obj), 0, ReadOnlySpan<int>.Empty, out value);
             }
             catch { value = default; return false; }

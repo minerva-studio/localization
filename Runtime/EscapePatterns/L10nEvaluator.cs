@@ -19,7 +19,6 @@ namespace Minerva.Localizations.EscapePatterns
         private L10nValue[] stack = new L10nValue[InitialStackCapacity];
         private int[] indices = new int[InitialStackCapacity];
         private string[] pathKeys = new string[InitialStackCapacity];
-        private L10nPath.KeyNode[] pathNodes = new L10nPath.KeyNode[InitialStackCapacity];
         private bool[] colorStack = new bool[InitialStackCapacity];
 
         private L10nEvaluator(in EvaluationContext context) => Reset(context);
@@ -52,9 +51,8 @@ namespace Minerva.Localizations.EscapePatterns
             colorDepth = 0;
             diagnostics.Clear();
             Array.Clear(stack, 0, stack.Length);
-            // Evaluators live in a thread-static array; drop trie/key references so cleared template caches can be collected.
+            // Evaluators live in a thread-static array; drop key references so evicted path keys can be collected.
             Array.Clear(pathKeys, 0, pathKeys.Length);
-            Array.Clear(pathNodes, 0, pathNodes.Length);
         }
 
         public L10nEvaluationDiagnostics GetDiagnostics() => diagnostics;
@@ -119,7 +117,7 @@ namespace Minerva.Localizations.EscapePatterns
             context = context.IncreaseDepth();
             try
             {
-                var nested = L10nTemplateCache.Get(raw);
+                var nested = L10nTemplate.GetOrCompile(raw);
                 var options = op.Flag ? L10n.TooltipImportOption : L10n.ReferenceImportOption;
                 bool withLink = options.HasFlag(ReferenceImportOption.WithLinkTag);
                 bool withUnderline = options.HasFlag(ReferenceImportOption.WithUnderline);
@@ -241,7 +239,7 @@ namespace Minerva.Localizations.EscapePatterns
         private L10nValue LoadPath(L10nPath path, int stackBase, int indexBase)
         {
             EnsureIndices(indexBase + path.SegmentCount * 2 + 8);
-            EnsurePathNodes(path.SegmentCount);
+            EnsurePathKeys(path.SegmentCount);
             for (int i = 0; i < path.SegmentCount; i++)
             {
                 // Dynamic subexpressions use a disjoint scratch range so they cannot overwrite indices already computed for this path.
@@ -252,7 +250,7 @@ namespace Minerva.Localizations.EscapePatterns
                 indices[indexBase + i] = index;
             }
 
-            path.BuildPrefixKeys(indices, indexBase, pathKeys, pathNodes);
+            path.BuildPrefixKeys(indices, indexBase, pathKeys);
             var variables = context.Parameters.Variables;
             L10nParams lookupParameters = path.Args ?? context.LookupParameters;
             if (variables != null)
@@ -329,7 +327,7 @@ namespace Minerva.Localizations.EscapePatterns
                 }
                 var previous = context;
                 context = context.IncreaseDepth();
-                try { EvaluateTemplate(L10nTemplateCache.Get(str), output); }
+                try { EvaluateTemplate(L10nTemplate.GetOrCompile(str), output); }
                 finally { context = previous; }
                 return;
             }
@@ -349,11 +347,7 @@ namespace Minerva.Localizations.EscapePatterns
 
         private void EnsureStack(int capacity) { if (capacity > stack.Length) Array.Resize(ref stack, Math.Max(capacity, stack.Length * 2)); }
         private void EnsureIndices(int capacity) { if (capacity > indices.Length) Array.Resize(ref indices, Math.Max(capacity, indices.Length * 2)); }
-        private void EnsurePathNodes(int capacity)
-        {
-            if (capacity > pathNodes.Length) Array.Resize(ref pathNodes, Math.Max(capacity, pathNodes.Length * 2));
-            if (capacity > pathKeys.Length) Array.Resize(ref pathKeys, Math.Max(capacity, pathKeys.Length * 2));
-        }
+        private void EnsurePathKeys(int capacity) { if (capacity > pathKeys.Length) Array.Resize(ref pathKeys, Math.Max(capacity, pathKeys.Length * 2)); }
 
         private static string ResolveColorCode(string colorCode)
         {

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Text;
 using static Minerva.Localizations.L10nSymbols;
@@ -8,13 +7,14 @@ namespace Minerva.Localizations.Utilities
 {
     public sealed class KeyStringCache
     {
+        internal const int MaximumEntries = 16384;
         public static KeyStringCache Shared { get; } = new KeyStringCache();
 
-        private readonly ConcurrentDictionary<Key, string> cache;
+        private readonly BoundedConcurrentCache<Key, string> cache;
 
         private KeyStringCache()
         {
-            cache = new ConcurrentDictionary<Key, string>();
+            cache = new BoundedConcurrentCache<Key, string>(MaximumEntries);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -25,7 +25,8 @@ namespace Minerva.Localizations.Utilities
                 return string.Empty;
             }
 
-            return cache.GetOrAdd(key, static k => BuildString(in k));
+            if (cache.TryGetValue(key, out var value)) return value;
+            return cache.GetOrAdd(key, BuildString(in key));
         }
 
         private static string BuildString(in Key key)
