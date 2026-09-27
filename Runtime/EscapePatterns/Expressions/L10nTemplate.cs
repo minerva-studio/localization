@@ -7,7 +7,9 @@ namespace Minerva.Localizations.EscapePatterns
     internal sealed class L10nTemplate
     {
         private const int MaximumCachedTemplates = 4096;
+        private static readonly char[] EscapeMarkers = { '{', '$', '§', '\\' };
         private static readonly BoundedConcurrentCache<string, L10nTemplate> cache = new(MaximumCachedTemplates);
+        internal static int CachedEntryCount => cache.Count;
 
         public enum OpCode : byte { Literal, KeyReference, Expression, ColorOpen, ColorClose }
 
@@ -32,6 +34,10 @@ namespace Minerva.Localizations.EscapePatterns
         public readonly Op[] Ops;
 
         private L10nTemplate(Op[] ops) => Ops = ops;
+
+        // The tokenizer can only change text containing one of these marker characters.
+        internal static bool RequiresCompilation(string source) =>
+            !string.IsNullOrEmpty(source) && source.IndexOfAny(EscapeMarkers) >= 0;
 
         public static L10nTemplate GetOrCompile(string source)
         {

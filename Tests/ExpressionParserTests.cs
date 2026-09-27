@@ -334,6 +334,36 @@ namespace Minerva.Localizations.Tests
 
     public class CompiledLocalizationExpressionTests
     {
+        [Test]
+        public void PlainText_ShouldBypassTemplateCache()
+        {
+            string source = "plain text " + Guid.NewGuid().ToString("N");
+            bool wasLegacy = EscapePattern.UseLegacyParser;
+            EscapePattern.UseLegacyParser = false;
+            try
+            {
+                int entriesBefore = L10nTemplate.CachedEntryCount;
+
+                Assert.That(L10n.TrRaw(source, null, L10nParams.Empty), Is.EqualTo(source));
+                Assert.That(L10nTemplate.CachedEntryCount, Is.EqualTo(entriesBefore));
+            }
+            finally { EscapePattern.UseLegacyParser = wasLegacy; }
+        }
+
+        [Test]
+        public void BackslashOnlyText_ShouldUseTokenizer()
+        {
+            string suffix = Guid.NewGuid().ToString("N");
+            string source = @"escaped\text-" + suffix;
+            bool wasLegacy = EscapePattern.UseLegacyParser;
+            EscapePattern.UseLegacyParser = false;
+            try
+            {
+                Assert.That(L10n.TrRaw(source, null, L10nParams.Empty), Is.EqualTo("escapedtext-" + suffix));
+            }
+            finally { EscapePattern.UseLegacyParser = wasLegacy; }
+        }
+
         [TestCase("Items[0].Name()")]
         [TestCase("Items[0].Name trailing")]
         [TestCase("Items[0.Name")]

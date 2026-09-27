@@ -43,6 +43,11 @@ namespace Minerva.Localizations.EscapePatterns
 
             try
             {
+                if (!L10nTemplate.RequiresCompilation(rawString))
+                    return L10n.UseUnderlineResolver == UnderlineResolverOption.Always
+                        ? SplitUnderlineByColor(rawString)
+                        : rawString;
+
                 L10nEvaluator evaluator = null;
                 var output = L10nObjectPool.RentStringBuilder();
                 try
@@ -96,6 +101,14 @@ namespace Minerva.Localizations.EscapePatterns
                     // Fallback to legacy implementation
                     var result = EscapeLegacy(rawString, context, parameters.Depth, parameters.ToLegacy());
                     return new L10nTranslationResult(result);
+                }
+
+                if (!L10nTemplate.RequiresCompilation(rawString))
+                {
+                    var result = L10n.UseUnderlineResolver == UnderlineResolverOption.Always
+                        ? SplitUnderlineByColor(rawString)
+                        : rawString;
+                    return new L10nTranslationResult(result, new L10nEvaluationDiagnostics());
                 }
 
                 L10nEvaluator evaluator = null;

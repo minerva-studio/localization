@@ -9,8 +9,6 @@ namespace Minerva.Localizations.EscapePatterns
     internal sealed class L10nEvaluator
     {
         private const int InitialStackCapacity = 16;
-        private static readonly char[] NestedMarkers = { '{', '$', '§', '\\' };
-
         [ThreadStatic] private static L10nEvaluator[] evaluators;
         [ThreadStatic] private static int rentDepth;
 
@@ -113,14 +111,20 @@ namespace Minerva.Localizations.EscapePatterns
                 return;
             }
 
+            var options = op.Flag ? L10n.TooltipImportOption : L10n.ReferenceImportOption;
+            bool withLink = options.HasFlag(ReferenceImportOption.WithLinkTag);
+            bool withUnderline = options.HasFlag(ReferenceImportOption.WithUnderline);
+            if (!L10nTemplate.RequiresCompilation(raw))
+            {
+                output.Append(withLink || withUnderline ? ApplyReferenceOptions(key, raw, options) : raw);
+                return;
+            }
+
             var previous = context;
             context = context.IncreaseDepth();
             try
             {
                 var nested = L10nTemplate.GetOrCompile(raw);
-                var options = op.Flag ? L10n.TooltipImportOption : L10n.ReferenceImportOption;
-                bool withLink = options.HasFlag(ReferenceImportOption.WithLinkTag);
-                bool withUnderline = options.HasFlag(ReferenceImportOption.WithUnderline);
                 if (!withLink && !withUnderline)
                 {
                     EvaluateTemplate(nested, output);
@@ -320,7 +324,7 @@ namespace Minerva.Localizations.EscapePatterns
             object result = value.ToObject();
             if (result is string str)
             {
-                if (str.IndexOfAny(NestedMarkers) < 0 || !context.CanRecurse())
+                if (!L10nTemplate.RequiresCompilation(str) || !context.CanRecurse())
                 {
                     output.Append(str);
                     return;
