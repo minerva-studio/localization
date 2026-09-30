@@ -34,8 +34,7 @@ namespace Minerva.Localizations
         public LocalizationKeyCollection(string[] rows)
         {
             keyTrie = new Trie(rows);
-            indexed = new string[rows.Length];
-            Array.Copy(indexed, rows, indexed.Length);
+            indexed = (string[])rows.Clone();
         }
 
         public LocalizationKeyCollection()
