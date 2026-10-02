@@ -5,10 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-#if UNITY_EDITOR
-// Editor APIs must not be referenced by Player assemblies.
 using UnityEditor;
-#endif
 using UnityEngine;
 using Trie = Minerva.Localizations.Collections.Trie;
 using TrieSegment = Minerva.Localizations.Collections.TrieSegment;
