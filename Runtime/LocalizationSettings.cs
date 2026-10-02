@@ -1,5 +1,8 @@
 ﻿using System.IO;
+#if UNITY_EDITOR
+// Editor APIs must not be referenced by Player assemblies.
 using UnityEditor;
+#endif
 using UnityEngine;
 
 namespace Minerva.Localizations

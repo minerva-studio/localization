@@ -4,7 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+#if UNITY_EDITOR
+// Editor APIs must not be referenced by Player assemblies.
 using UnityEditor;
+#endif
 using UnityEngine;
 using TriesString = Minerva.Localizations.Collections.Tries<string>;
 
