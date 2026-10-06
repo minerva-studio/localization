@@ -1,6 +1,6 @@
 {
     "name": "com.minervagamestudio.localization",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "displayName": "Localization",
     "description": "A fully customized localization system written in C# for Unity project",
     "unity": "2021.3",
